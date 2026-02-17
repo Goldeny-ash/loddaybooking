@@ -38,7 +38,7 @@ export async function POST(req: Request) {
           first_name: "Business",
           last_name: "Subscription",
           email: "billing@lodday.com",
-          host: process.env.BASE_URL,
+          host: process.env.NEXT_PUBLIC_APP_URL,
           amount: 10,
           phone_number: formattedPhone,
           api_ref: externalReference,
