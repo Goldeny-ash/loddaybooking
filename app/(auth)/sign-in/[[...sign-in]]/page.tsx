@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { SignIn, useAuth } from "@clerk/nextjs";
 import { useEffect } from "react";
@@ -22,7 +22,21 @@ export default function SignInPage() {
         <p className="text-center text-[#15616D] mb-6 font-medium">
           Sign in to manage your booking link
         </p>
-        <SignIn/>
+        <div className="w-full flex justify-center">
+          <SignIn
+            routing="path"
+            path="/sign-in"
+            forceRedirectUrl="/setup"
+            signUpUrl="/sign-up"
+            oauthFlow="redirect"
+            appearance={{
+              elements: {
+                rootBox: "w-full",
+                cardBox: "w-full shadow-none border-0 bg-transparent",
+              },
+            }}
+          />
+        </div>
       </div>
     </div>
   );

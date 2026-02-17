@@ -17,10 +17,10 @@ export interface Feature {
 
 interface FeaturesSectionProps {
   features: Feature[];
-   id?: string; //
+  id?: string;
 }
 
-export default function FeaturesSection({ features }: FeaturesSectionProps) {
+export default function FeaturesSection({ features, id }: FeaturesSectionProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export default function FeaturesSection({ features }: FeaturesSectionProps) {
   const activeFeature = features[activeTab];
 
   return (
-    <section className="relative py-24 overflow-x-hidden bg-[#FFF4E1]">
+    <section id={id} className="relative py-24 overflow-x-hidden bg-[#FFF4E1]">
       <FloatingShape size={80} x={10} y={10} color="#78290F" opacity={0.05} />
       <FloatingShape size={60} x={80} y={20} color="#15616D" opacity={0.06} />
 
@@ -42,7 +42,59 @@ export default function FeaturesSection({ features }: FeaturesSectionProps) {
           Built for Real Businesses
         </h2>
 
-        {/* Tabs */}
+        {/* Mobile Feature View */}
+        <div className="md:hidden">
+          <motion.div
+            key={`mobile-${activeTab}`}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="rounded-3xl shadow-2xl p-6"
+            style={{
+              backgroundColor: activeFeature.bgColor,
+              color: activeFeature.textColor || "#FFF",
+            }}
+          >
+            {activeFeature.Icon && (
+              <div
+                className="inline-flex p-3 rounded-full mb-4"
+                style={{
+                  backgroundColor: activeFeature.textColor
+                    ? `${activeFeature.textColor}20`
+                    : "#FFFFFF20",
+                }}
+              >
+                <activeFeature.Icon
+                  size={32}
+                  color={activeFeature.textColor || "#FFF"}
+                />
+              </div>
+            )}
+            <h3 className="font-serif text-xl mb-3">{activeFeature.title}</h3>
+            <p className="mb-4 text-sm">{activeFeature.subtitle}</p>
+            <ul className="grid grid-cols-1 gap-2 list-disc list-inside text-sm">
+              {activeFeature.benefits.map((b) => (
+                <li key={b}>{b}</li>
+              ))}
+            </ul>
+          </motion.div>
+
+          <div className="mt-4 flex items-center justify-center gap-2">
+            {features.map((feature, i) => (
+              <button
+                key={`${feature.title}-mobile-dot`}
+                type="button"
+                onClick={() => setActiveTab(i)}
+                aria-label={`Show ${feature.title}`}
+                className={`h-2.5 rounded-full transition-all ${
+                  activeTab === i ? "w-6 bg-[#15616D]" : "w-2.5 bg-[#15616D]/35"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop Tabs */}
         <div className="hidden md:block">
           <div className="flex justify-center gap-4 mb-12 flex-wrap">
             {features.map((f, i) => (

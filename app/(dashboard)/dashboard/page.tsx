@@ -14,6 +14,7 @@ import UpcomingBookings from "@/components/dashboard/bookings/UpcomingBookings";
 import BusinessSettingsDrawe from "@/components/dashboard/BusinessSettingsDrawe";
 import Sidebar from "@/components/dashboard/SideBar";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
+import NewBottomSidebar from "@/components/dashboard/NewBottomSidebar";
 
 export default async function DashboardPage() {
   const business = await getCurrentBusiness({ requireSetup: true });
@@ -65,57 +66,52 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div className="flex">
-
-      {/* SIDEBAR (UNCHANGED) */}
-      <Sidebar
-        business={business}
-        staffList={staffList}
-        services={services}
-        bookings={bookings}
-        theme={theme}
-      />
-
-      {/* MAIN CONTENT */}
-      <div className="flex-1 p-6 max-w-7xl mx-auto space-y-8">
-
-        {/* HEADER */}
-        <DashboardHeader
+    <div className="min-h-screen bg-white">
+      <div className="flex w-full">
+        <Sidebar
           business={business}
-          rightSlot={
-            <BusinessSettingsDrawe
-              initialBusiness={business}
-              staffList={staffList}
-              services={services}
-            />
-          }
-        >
-          <DashboardAlerts business={business} bookings={bookings} />
-        </DashboardHeader>
+          staffList={staffList}
+          services={services}
+          bookings={bookings}
+          theme={theme}
+        />
 
-        {/* STATS FIRST */}
-        <StatsCards businessId={business._id.toString()} />
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto w-full max-w-7xl space-y-6 px-3 py-4 pb-24 sm:px-5 sm:py-5 lg:px-8 lg:py-6 lg:space-y-8">
+          <DashboardHeader
+            business={business}
+            rightSlot={
+              <BusinessSettingsDrawe
+                initialBusiness={business}
+                staffList={staffList}
+                services={services}
+              />
+            }
+          >
+            <DashboardAlerts business={business} bookings={bookings} />
+          </DashboardHeader>
 
-        {/* NEW PERFORMANCE GRAPH */}
-        <PerformanceChart bookings={bookings} />
+          <StatsCards businessId={business._id.toString()} />
 
-        {/* SCHEDULE + REVENUE */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <TodaysSchedule bookings={bookings} business={business} />
-          <RevenuePanel bookings={bookings} business={business} />
-        </div>
+          <PerformanceChart bookings={bookings} />
 
-        {/* BOOKING SECTION */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6" id="todays-schedule">
+            <TodaysSchedule bookings={bookings} business={business} />
+            <RevenuePanel bookings={bookings} business={business} />
+          </div>
+
+          <div className="space-y-6" id="upcoming-bookings">
             <BookingLinkCard username={business.username} />
-            <UpcomingBookings
-              initialBookings={bookings}
-              business={business}
-            />
+            <UpcomingBookings initialBookings={bookings} business={business} />
           </div>
         </div>
-
+        </main>
+        <NewBottomSidebar
+          business={business}
+          staffList={staffList}
+          services={services}
+          bookings={bookings}
+        />
       </div>
     </div>
   );

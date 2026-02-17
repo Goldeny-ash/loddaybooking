@@ -10,49 +10,69 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing parameters" }, { status: 400 });
   }
 
-  const formattedPhone = phoneNumber.startsWith("0")
-    ? `254${phoneNumber.slice(1)}`
-    : phoneNumber.replace("+", "");
+  const formattedPhone = phoneNumber
+  .trim()
+  .replace(/\s+/g, "")
+  .startsWith("0")
+  ? `254${phoneNumber.trim().slice(1)}`
+  : phoneNumber.replace("+", "").trim();
+
 
   const externalReference = `SUB-${businessId}-${Date.now()}`;
 
-  await Subscription.create({
-    businessId,
-    amount: 500,
-    externalReference,
-    status: "PENDING",
-  });
+  const baseUrl =
+    process.env.INTASEND_TEST === "true"
+      ? "https://sandbox.intasend.com"
+      : "https://api.intasend.com";
 
-  const response = await fetch("https://backend.payhero.co.ke/api/v2/payments", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${process.env.PAYHERO_API_SECRET}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      amount: 500,
-      phone_number: formattedPhone,
-      channel_id: Number(process.env.PAYHERO_CHANNEL_ID),
-      provider: "m-pesa",
-      external_reference: externalReference,
-      customer_name: "Business Subscription",
-      callback_url: `${process.env.BASE_URL}/api/subscription/callback`,
-    }),
-  });
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/v1/payment/mpesa-stk-push/`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          first_name: "Business",
+          last_name: "Subscription",
+          email: "billing@lodday.com",
+          host: process.env.BASE_URL,
+          amount: 10,
+          phone_number: formattedPhone,
+          api_ref: externalReference,
+        }),
+      }
+    );
 
-  if (!response.ok) {
-    const error = await response.text();
+    const data = await response.json();
+
+    if (!response.ok) {
+      return Response.json(
+        { error: "IntaSend error", details: data },
+        { status: 500 }
+      );
+    }
+
+    await Subscription.create({
+      businessId,
+      amount: 10,
+      externalReference,
+      invoiceId: data.invoice.invoice_id,
+      apiRef: externalReference,
+      status: "PENDING",
+    });
+
+    return Response.json({
+      success: true,
+      reference: externalReference,
+      invoiceId: data.invoice.invoice_id,
+    });
+  } catch (error: any) {
     return Response.json(
-      { error: "PayHero error", details: error },
+      { error: "IntaSend request failed", details: error.message },
       { status: 500 }
     );
   }
-
-  const data = await response.json();
-
-  return Response.json({
-    success: true,
-    reference: externalReference,
-    payhero: data,
-  });
 }

@@ -24,9 +24,8 @@ const SubscriptionSchema = new mongoose.Schema(
       unique: true,
     },
 
-    mpesaReceipt: String,
-
-    checkoutRequestId: String,
+    invoiceId: String,
+    apiRef: String,
 
     startsAt: Date,
     expiresAt: Date,

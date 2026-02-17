@@ -3,58 +3,116 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import {
+  Home,
+  Sparkles,
+  BadgeDollarSign,
+  Mail,
+  LogIn,
+  UserPlus,
+} from "lucide-react";
 
 const navItems = [
-  { name: "Home", href: "/" },
-  { name: "Features", href: "#features" },
-  { name: "Pricing", href: "#pricing" },
-  { name: "Contact", href: "#contact" },
+  { name: "Home", href: "/", Icon: Home },
+  { name: "Features", href: "#features", Icon: Sparkles },
+  { name: "Pricing", href: "#pricing", Icon: BadgeDollarSign },
+  { name: "Contact", href: "#contact", Icon: Mail },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-[100]">
-      <div className="flex items-center gap-4 px-5 py-3 rounded-full shadow-2xl backdrop-blur-md bg-[rgba(255,236,209,0.9)] border border-black/10">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
+    <nav className="fixed top-4 left-0 right-0 z-[100] px-4 md:top-6">
+      <div className="mx-auto w-fit max-w-full rounded-2xl md:rounded-full shadow-2xl backdrop-blur-md bg-[rgba(255,236,209,0.9)] border border-black/10">
+        <div className="flex items-center justify-center gap-2 md:gap-4 px-3 py-2.5 md:px-5 md:py-3">
+          <div className="hidden md:flex items-center gap-3">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-[#15616D] text-[#FFECD1]"
-                  : "hover:bg-black/5"
-              }`}
-            >
-              {item.name}
-            </Link>
-          );
-        })}
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-[#15616D] text-[#FFECD1]"
+                      : "hover:bg-black/5"
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
 
-       <SignedOut>
-  <Link
-    href="/sign-in?redirect_url=/setup"
-    className="px-5 py-2 rounded-full bg-[#15616D] text-white text-sm font-medium"
-  >
-    Sign in
-  </Link>
+          <div className="hidden md:flex items-center gap-3">
+            <SignedOut>
+              <Link
+                href="/sign-in?redirect_url=/setup"
+                className="px-5 py-2 rounded-full bg-[#15616D] text-white text-sm font-medium"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/sign-up?redirect_url=/setup"
+                className="px-5 py-2 rounded-full bg-[#FE7F2D] text-white text-sm font-medium"
+              >
+                Sign up
+              </Link>
+            </SignedOut>
 
-  <Link
-    href="/sign-up?redirect_url=/setup"
-    className="px-5 py-2 rounded-full bg-[#FE7F2D] text-white text-sm font-medium"
-  >
-    Sign up
-  </Link>
-</SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+          </div>
 
+          <div className="md:hidden flex items-center gap-2">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
 
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  aria-label={item.name}
+                  title={item.name}
+                  className={`p-2 rounded-lg transition-all ${
+                    isActive
+                      ? "bg-[#15616D] text-[#FFECD1]"
+                      : "hover:bg-black/5"
+                  }`}
+                >
+                  <item.Icon size={18} />
+                </Link>
+              );
+            })}
+
+            <SignedOut>
+              <Link
+                href="/sign-in?redirect_url=/setup"
+                aria-label="Sign in"
+                title="Sign in"
+                className="p-2 rounded-lg bg-[#15616D] text-white"
+              >
+                <LogIn size={18} />
+              </Link>
+              <Link
+                href="/sign-up?redirect_url=/setup"
+                aria-label="Sign up"
+                title="Sign up"
+                className="p-2 rounded-lg bg-[#FE7F2D] text-white"
+              >
+                <UserPlus size={18} />
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <div className="px-1">
+                <UserButton />
+              </div>
+            </SignedIn>
+          </div>
+        </div>
       </div>
     </nav>
   );

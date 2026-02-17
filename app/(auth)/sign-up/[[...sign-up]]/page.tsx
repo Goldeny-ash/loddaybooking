@@ -28,11 +28,21 @@ export default function SignUpPage() {
         </p>
 
         {/* SignUp component with routing */}
-        <SignUp
-          routing="path"
-          path="/sign-up"
-          forceRedirectUrl="/setup"
-        />
+        <div className="w-full flex justify-center">
+          <SignUp
+            routing="path"
+            path="/sign-up"
+            forceRedirectUrl="/setup"
+            signInUrl="/sign-in"
+            oauthFlow="redirect"
+            appearance={{
+              elements: {
+                rootBox: "w-full",
+                cardBox: "w-full shadow-none border-0 bg-transparent",
+              },
+            }}
+          />
+        </div>
 
         <label className="flex items-start gap-2 text-sm mt-2">
           <input

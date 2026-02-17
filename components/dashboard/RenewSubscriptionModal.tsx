@@ -71,7 +71,7 @@ export default function RenewSubscriptionModal({
         <h2 className="text-xl font-semibold">Renew Subscription</h2>
 
         <div className="text-sm text-gray-500">
-          KES 500 / month <br />
+          KES 10 / month <br />
           Renews: {new Date().toDateString()}
         </div>
 
@@ -96,7 +96,7 @@ export default function RenewSubscriptionModal({
             onClick={initiate}
             disabled={loading || phone.length < 9}
           >
-            Pay KES 500
+            Pay KES 10
           </Button>
         </div>
       </div>

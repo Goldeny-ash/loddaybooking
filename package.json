@@ -22,6 +22,7 @@
     "formidable": "^3.5.4",
     "framer-motion": "^12.23.26",
     "html-to-image": "^1.11.13",
+    "intasend-node": "^1.1.2",
     "lucide-react": "^0.562.0",
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.2",
