@@ -1,65 +1,260 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { motion } from "framer-motion";
+import Navbar from "@/components/Navbar";
+import CurvedSection from "@/components/home/CurvedSection";
+import FloatingShape from "@/components/FloatingShape";
+import FeaturesSection from "@/components/home/FeaturesSection";
+import Footer from "@/components/Footer";
+import { Zap, Users, BarChart2, MessageSquare, CheckSquare, Calendar, CreditCard } from "lucide-react";
+
+type Feature = {
+  title: string;
+  subtitle: string;
+  benefits: string[];
+  Icon: React.FC<{ size?: number; color?: string }>;
+  bgColor: string;
+  textColor?: string;
+};
+
+const HomePage = () => {
+  const colors = {
+    primary: "#15616D",
+    secondary: "#78290F",
+    accent: "#FE7F2D",
+    lightPeach: "#FFECD1",
+    softPeach: "#FFF4E1",
+    seamountLight: "#C2E0E0",
+    darkText: "#1A1A1A",
+    white: "#FFFFFF",
+  };
+
+  const features: Feature[] = [
+    {
+      title: "Marketplace Discovery",
+      subtitle: "Appear in Lodday’s booking marketplace instantly.",
+      benefits: ["New clients without ads", "Local visibility", "Public profile page", "Ratings & photos", "Direct booking links"],
+      Icon: Zap,
+      bgColor: colors.primary,
+      textColor: colors.white,
+    },
+    {
+      title: "Customer Retention",
+      subtitle: "Turn walk-ins into repeat clients with personalized booking links.",
+      benefits: ["Personal booking URL", "QR code at reception", "SMS/WhatsApp follow-ups", "Auto reminders", "Loyalty memory"],
+      Icon: Users,
+      bgColor: colors.secondary,
+      textColor: colors.white,
+    },
+    {
+      title: "Fairness Engine",
+      subtitle: "Automatically enforce grace periods and release late bookings.",
+      benefits: ["Configurable grace timer", "Mandatory check-in", "Auto-release", "Walk-in queue", "SMS reminders", "Late-arrival rules"],
+      Icon: CheckSquare,
+      bgColor: colors.seamountLight,
+      textColor: colors.darkText,
+    },
+    {
+      title: "Style Gallery",
+      subtitle: "Remember every style your clients love.",
+      benefits: ["Client style gallery", "Upload photos per visit", "Attach to booking", "Reference previous looks", "Faster service", "Personal experience"],
+      Icon: Calendar,
+      bgColor: colors.lightPeach,
+      textColor: colors.darkText,
+    },
+    {
+      title: "Approval-Based Bookings",
+      subtitle: "Accept or decline bookings with confidence.",
+      benefits: ["Manual approval mode", "Decline reason messages", "Auto-reschedule suggestions", "Staff availability checks", "Capacity rules"],
+      Icon: BarChart2,
+      bgColor: colors.accent,
+      textColor: colors.white,
+    },
+    {
+      title: "Booking Fees",
+      subtitle: "Protect your time with optional booking deposits.",
+      benefits: ["Optional booking deposit", "Customer pre-payment", "Escrow-style holding", "Auto release after approval", "Refund rules", "Reduces no-shows"],
+      Icon: CreditCard,
+      bgColor: colors.secondary,
+      textColor: colors.white,
+    },
+    {
+      title: "Business Analytics",
+      subtitle: "See what makes you money.",
+      benefits: ["Popular services", "No-show rate", "Peak hours", "Returning customers", "Revenue trends"],
+      Icon: BarChart2,
+      bgColor: colors.primary,
+      textColor: colors.white,
+    },
+    {
+      title: "Automated Messaging",
+      subtitle: "Customers show up because you remind them.",
+      benefits: ["WhatsApp", "SMS", "Email", "Custom templates", "Check-in links"],
+      Icon: MessageSquare,
+      bgColor: colors.seamountLight,
+      textColor: colors.darkText,
+    },
+  ];
+
+  const testimonials = [
+    { name: "Nairobi Salon Owner", text: "Grace periods saved us 2+ hours daily." },
+    { name: "Dental Clinic Receptionist", text: "Walk-ins are finally fair." },
+    { name: "Barbershop Manager", text: "Late cancellations dropped by 40%." },
+  ];
+
+  const businessTypes = ["Salons & Barbershops", "Spas & Beauty Clinics", "Nail Studios", "Physios / Dentists", "Auto Detailers"];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="relative pt-28">
+      {/* Hero Section */}
+      <CurvedSection
+        bg="linear-gradient(120deg, #FFECD1 0%, #FFF4E1 100%)"
+        style={{ paddingBottom: "96px", paddingLeft: "1rem", paddingRight: "1rem" }}
+      >
+        <>
+          <Navbar />
+          <FloatingShape size={120} x={10} y={5} color={colors.accent} opacity={0.08} />
+          <FloatingShape size={80} x={75} y={20} color={colors.primary} opacity={0.05} />
+          <FloatingShape size={60} x={50} y={70} color={colors.secondary} opacity={0.06} />
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-12 w-full max-w-[1600px] mx-auto">
+            {/* Left Text */}
+            <div className="w-full md:w-1/2 flex flex-col justify-center text-center md:text-left">
+              <h1 className="font-serif text-4xl md:text-6xl leading-tight mb-6 text-[#001524]">
+                Stop No-Shows. Fill Every Slot.
+              </h1>
+              <p className="text-lg md:text-xl max-w-lg mb-8 text-[#15616D] mx-auto md:mx-0">
+                Enforce grace periods, mandatory check-ins, late rules, and walk-in fairness — automatically.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                <Link
+                  href="/dashboard"
+                  className="px-10 py-4 rounded-full drop-shadow-lg inline-block hover:scale-105 transition-transform"
+                  style={{ backgroundColor: colors.accent, color: colors.lightPeach }}
+                >
+                  Start Free
+                </Link>
+                <p className="mt-2 md:mt-0 text-sm opacity-70 text-[#15616D]">
+                  No credit card required • Cancel anytime
+                </p>
+              </div>
+            </div>
+
+            {/* Right Video */}
+            <motion.div
+              className="w-full md:w-1/2 mt-8 md:mt-0 flex justify-center"
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <video
+                src="/animations/checkin-demo.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="rounded-[32px] shadow-2xl w-full max-w-[560px] object-cover"
+              />
+            </motion.div>
+          </div>
+        </>
+      </CurvedSection>
+
+      {/* Business Types */}
+      <CurvedSection bg={colors.softPeach}>
+        <>
+          <h2 className="font-serif text-4xl text-center mb-14 text-[#001524]">
+            Perfect for Service Businesses
+          </h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-7xl mx-auto px-6">
+            {businessTypes.map((type) => (
+              <motion.div
+                key={type}
+                whileHover={{ y: -6 }}
+                className="rounded-3xl p-6 text-center shadow-xl hover:shadow-2xl transition-all"
+                style={{ backgroundColor: colors.secondary, color: colors.lightPeach }}
+              >
+                <h3 className="font-serif text-lg">{type}</h3>
+              </motion.div>
+            ))}
+          </div>
+        </>
+      </CurvedSection>
+
+      {/* Features Section */}
+      <FeaturesSection features={features} id="features" />
+
+      {/* Testimonials */}
+      <CurvedSection bg={colors.seamountLight} centerContent>
+        <h2 className="font-serif text-4xl mb-12 text-[#001524]">What Our Users Say</h2>
+        <div className="flex flex-col md:flex-row gap-6 justify-center items-center overflow-x-auto py-6 px-6 max-w-6xl snap-x snap-mandatory">
+          {testimonials.map((t, idx) => (
+            <motion.div
+              key={t.name}
+              className="min-w-[280px] rounded-2xl p-6 shadow-2xl transform hover:-translate-y-2 transition snap-start"
+              style={{
+                backgroundColor: idx % 2 === 0 ? colors.primary : colors.secondary,
+                color: colors.lightPeach,
+              }}
+              whileHover={{ y: -4 }}
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <p className="mb-2 text-sm md:text-base">"{t.text}"</p>
+              <span className="font-semibold text-lg">{t.name}</span>
+            </motion.div>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </CurvedSection>
+
+      {/* Pricing */}
+      <div id="pricing">
+        <CurvedSection bg={colors.primary} centerContent>
+          <h2 className="font-serif text-4xl mb-4 text-lightPeach">Pricing</h2>
+          <p className="text-lightPeach mb-8">Simple flat monthly pricing. Includes email reminders.</p>
+          <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
+            {/* Free Trial */}
+            <motion.div
+              className="rounded-3xl p-8 shadow-2xl bg-secondary hover:-translate-y-1 transition transform w-64"
+              style={{ color: colors.white }}
+              whileHover={{ y: -4 }}
+            >
+              <h3 className="text-3xl font-serif mb-4">Free Trial</h3>
+              <p className="mb-6">Test all features without credit card.</p>
+              <Link
+                href="/setup?mode=trial"
+                onClick={() => localStorage.setItem("onboardingMode", "trial")}
+                className="px-6 py-3 rounded-full drop-shadow-md inline-block w-full text-center hover:scale-105 transition-transform"
+                style={{ backgroundColor: colors.accent, color: colors.white }}
+              >
+                Start Free Trial
+              </Link>
+            </motion.div>
+
+            {/* Immediate Subscription */}
+            <motion.div
+              className="rounded-3xl p-8 shadow-2xl bg-secondary hover:-translate-y-1 transition transform w-64"
+              style={{ color: colors.white }}
+              whileHover={{ y: -4 }}
+            >
+              <h3 className="text-3xl font-serif mb-4">Go Live Now</h3>
+              <p className="mb-6">500 KSh / month</p>
+              <Link
+                href="/setup?mode=subscribe"
+                onClick={() => localStorage.setItem("onboardingMode", "subscribe")}
+                className="px-6 py-3 rounded-full drop-shadow-md inline-block w-full text-center hover:scale-105 transition-transform"
+                style={{ backgroundColor: colors.lightPeach, color: colors.primary }}
+              >
+                Go Live Now – KSh 500
+              </Link>
+            </motion.div>
+          </div>
+          <p className="mt-4 text-sm opacity-70 text-lightPeach">Appear in customer marketplace immediately.</p>
+        </CurvedSection>
+      </div>
+
+      {/* Footer */}
+      <Footer />
+    </main>
   );
-}
+};
+
+export default HomePage;
