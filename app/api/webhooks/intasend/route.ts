@@ -4,106 +4,84 @@ import { connectDB } from "@/lib/mongoDB";
 import Subscription from "@/lib/models/Subscription";
 import Business from "@/lib/models/Business";
 
-/*
- * PRODUCTION-GRADE INTASEND WEBHOOK
- *
- * RULES:
- * 1. NEVER return 4xx/5xx (unless signature invalid)
- * 2. ALWAYS return 200 quickly
- * 3. Handle DB errors safely
- * 4. Be idempotent
- */
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const rawBody = await req.text();
-
   try {
+    const rawBody = await req.text();
     const signature = req.headers.get("x-intasend-signature");
 
-    /* -----------------------------
-       1️⃣ VERIFY SIGNATURE (STRICT)
-    ------------------------------ */
     if (process.env.INTASEND_WEBHOOK_SECRET && signature) {
-      const expectedSignature = crypto
+      const expected = crypto
         .createHmac("sha256", process.env.INTASEND_WEBHOOK_SECRET)
         .update(rawBody)
         .digest("hex");
 
-      if (signature !== expectedSignature) {
-        console.error("❌ Invalid IntaSend signature");
+      if (signature.trim().toLowerCase() !== expected.trim().toLowerCase()) {
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
     }
 
-    /* -----------------------------
-       2️⃣ PARSE PAYLOAD SAFELY
-    ------------------------------ */
-    let payload: any;
-
+    let payload: any = null;
     try {
       payload = JSON.parse(rawBody);
-    } catch (err) {
-      console.error("❌ Failed to parse webhook body");
+    } catch {
       return NextResponse.json({ received: true });
     }
 
-    console.log("📩 IntaSend webhook received:", payload);
+    const subscriptionId = payload?.subscription_id;
+    const providerStatus = payload?.status;
 
-    const { subscription_id, status } = payload;
-
-    if (!subscription_id) {
-      console.warn("⚠ Missing subscription_id");
+    if (!subscriptionId || !providerStatus) {
       return NextResponse.json({ received: true });
     }
 
-    /* -----------------------------
-       3️⃣ CONNECT DB (SAFE)
-    ------------------------------ */
     await connectDB();
 
-    const subscription = await Subscription.findOne({
-      subscriptionId: subscription_id,
-    });
-
+    const subscription = await Subscription.findOne({ subscriptionId });
     if (!subscription) {
-      console.warn("⚠ Subscription not found yet:", subscription_id);
       return NextResponse.json({ received: true });
     }
 
     const business = await Business.findById(subscription.businessId);
-
     if (!business) {
-      console.warn("⚠ Business not found:", subscription.businessId);
       return NextResponse.json({ received: true });
     }
 
-    /* -----------------------------
-       4️⃣ IDEMPOTENCY CHECK
-    ------------------------------ */
-    if (subscription.status === status) {
-      console.log("🔁 Duplicate webhook event ignored");
+    if (subscription.status === providerStatus) {
       return NextResponse.json({ received: true });
+    }
+
+    if (!business.access) {
+      business.access = { status: "TRIAL" };
     }
 
     const now = new Date();
 
-    /* -----------------------------
-       5️⃣ HANDLE STATUS TRANSITIONS
-    ------------------------------ */
-    switch (status) {
+    switch (providerStatus) {
       case "ACTIVE":
         subscription.status = "ACTIVE";
         subscription.lastChargeAt = now;
+        if (payload?.next_date) {
+          subscription.nextChargeAt = new Date(payload.next_date);
+        }
 
         business.access.status = "ACTIVE";
         business.access.subscriptionId = subscription.subscriptionId;
         business.access.planId = subscription.planId;
         business.access.lastChargeAt = now;
+        if (payload?.next_date) {
+          business.access.nextChargeAt = new Date(payload.next_date);
+        }
+        break;
+
+      case "PENDING":
+        subscription.status = "PENDING";
+        business.access.status = "INACTIVE";
         break;
 
       case "FAILED":
         subscription.status = "FAILED";
-
         business.access.status = "GRACE";
         business.access.graceStartedAt = now;
         break;
@@ -119,25 +97,15 @@ export async function POST(req: Request) {
         break;
 
       default:
-        console.log("ℹ Unknown status:", status);
-        break;
+        return NextResponse.json({ received: true });
     }
 
     await subscription.save();
     await business.save();
 
-    console.log("✅ Webhook processed successfully");
-
-    /* -----------------------------
-       6️⃣ ALWAYS RETURN 200
-    ------------------------------ */
     return NextResponse.json({ received: true });
-
   } catch (error: any) {
-    console.error("🔥 Webhook processing error:", error.message);
-
-    // VERY IMPORTANT:
-    // Always return 200 so IntaSend does not invalidate tokens
+    console.error("IntaSend webhook error:", error?.message || error);
     return NextResponse.json({ received: true });
   }
 }

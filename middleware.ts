@@ -21,7 +21,8 @@ export default clerkMiddleware(async (auth, req) => {
     "/api/bookings/deposit/callback",
     "/api/bookings/deposit/status",
     "/api/bookings/reschedule",
-  "/api/bookings/cancel",
+    "/api/bookings/cancel",
+    "/api/webhooks/intasend",
   ];
 
   if (publicApiRoutes.some((p) => pathname.startsWith(p))) {
