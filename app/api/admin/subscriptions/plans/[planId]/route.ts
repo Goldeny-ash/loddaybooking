@@ -1,21 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { connectDB } from "@/lib/mongoDB";
-import {SubscriptionPlan} from "@/lib/models/SubscriptionPlan";
+import { SubscriptionPlan } from "@/lib/models/SubscriptionPlan";
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { planId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ planId: string }> }
 ) {
   try {
     await connectDB();
 
+    const { planId } = await context.params;
     const { name, amount, frequency, frequencyUnit, billingCycles } =
-      await req.json();
+      await request.json();
 
-    const plan = await SubscriptionPlan.findOne({
-      planId: params.planId,
-    });
+    const plan = await SubscriptionPlan.findOne({ planId });
 
     if (!plan) {
       return NextResponse.json(
@@ -24,11 +23,9 @@ export async function PUT(
       );
     }
 
-    /*
-     * Update in IntaSend
-     */
+    // Update in IntaSend
     await axios.put(
-      `https://api.intasend.com/api/v1/subscriptions-plans/${params.planId}/`,
+      `https://api.intasend.com/api/v1/subscriptions-plans/${planId}/`,
       {
         name,
         amount,
@@ -44,9 +41,7 @@ export async function PUT(
       }
     );
 
-    /*
-     * Update Locally
-     */
+    // Update locally
     plan.name = name;
     plan.amount = amount;
     plan.frequency = frequency;
@@ -59,6 +54,7 @@ export async function PUT(
 
   } catch (error: any) {
     console.error("Update Plan Error:", error.response?.data || error.message);
+
     return NextResponse.json(
       { error: "Failed to update plan" },
       { status: 500 }
@@ -66,17 +62,20 @@ export async function PUT(
   }
 }
 export async function DELETE(
-  req: Request,
-  { params }: { params: { planId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ planId: string }> }
 ) {
   await connectDB();
 
-  const plan = await SubscriptionPlan.findOne({
-    planId: params.planId,
-  });
+  const { planId } = await context.params;
+
+  const plan = await SubscriptionPlan.findOne({ planId });
 
   if (!plan) {
-    return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Plan not found" },
+      { status: 404 }
+    );
   }
 
   plan.isActive = false;

@@ -1,6 +1,14 @@
 "use client";
 
 import { useState } from "react";
+type PlanForm = {
+  name: string;
+  amount: number;
+  currency: string;
+  frequency: number;
+  frequencyUnit: string;
+  billingCycles: number | "";
+};
 
 export default function PlansListClient({ plans: initialPlans }: any) {
   const [plans, setPlans] = useState(initialPlans);
@@ -8,19 +16,20 @@ export default function PlansListClient({ plans: initialPlans }: any) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    name: "",
-    amount: "",
-    currency: "KES",
-    frequency: 1,
-    frequencyUnit: "M",
-    billingCycles: "",
-  });
+  const [form, setForm] = useState<PlanForm>({
+  name: "",
+  amount: 0,
+  currency: "KES",
+  frequency: 1,
+  frequencyUnit: "M",
+  billingCycles: "",
+});
+
 
   const resetForm = () => {
     setForm({
       name: "",
-      amount: "",
+      amount: 0,
       currency: "KES",
       frequency: 1,
       frequencyUnit: "M",
@@ -64,13 +73,10 @@ export default function PlansListClient({ plans: initialPlans }: any) {
 
   const handleSubmit = async () => {
     const payload = {
-      ...form,
-      amount: Number(form.amount),
-      frequency: Number(form.frequency),
-      billingCycles: form.billingCycles
-        ? Number(form.billingCycles)
-        : null,
-    };
+  ...form,
+  billingCycles: form.billingCycles === "" ? null : form.billingCycles,
+};
+
 
     let res;
 
@@ -184,9 +190,10 @@ export default function PlansListClient({ plans: initialPlans }: any) {
               value={form.name}
               placeholder="Plan Name"
               className="w-full border p-2"
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
+             onChange={(e) =>
+  setForm({ ...form, frequency: Number(e.target.value) })
+}
+
             />
 
             <input
@@ -195,8 +202,9 @@ export default function PlansListClient({ plans: initialPlans }: any) {
               type="number"
               className="w-full border p-2"
               onChange={(e) =>
-                setForm({ ...form, amount: e.target.value })
-              }
+  setForm({ ...form, amount: Number(e.target.value) })
+}
+
             />
 
             <select
@@ -218,8 +226,9 @@ export default function PlansListClient({ plans: initialPlans }: any) {
               type="number"
               className="w-full border p-2"
               onChange={(e) =>
-                setForm({ ...form, frequency: e.target.value })
-              }
+  setForm({ ...form, frequency: Number(e.target.value) })
+}
+
             />
 
             <select
@@ -241,8 +250,12 @@ export default function PlansListClient({ plans: initialPlans }: any) {
               type="number"
               className="w-full border p-2"
               onChange={(e) =>
-                setForm({ ...form, billingCycles: e.target.value })
-              }
+  setForm({
+    ...form,
+    billingCycles: e.target.value === "" ? "" : Number(e.target.value),
+  })
+}
+
             />
 
             <div className="flex justify-end gap-3 pt-2">

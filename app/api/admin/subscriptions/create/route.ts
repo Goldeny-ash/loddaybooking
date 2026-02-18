@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
-import { connectDB } from "@/lib/mongo";
-import Business from "@/models/Business";
-import Subscription from "@/models/Subscription";
-import SubscriptionPlan from "@/models/SubscriptionPlan";
+import { connectDB } from "@/lib/mongoDB";
+import Business from "@/lib/models/Business";
+import Subscription from "@/lib/models/Subscription";
+import {SubscriptionPlan} from "@/lib/models/SubscriptionPlan";
 
 export async function POST(req: Request) {
   try {

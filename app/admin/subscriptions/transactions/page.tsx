@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/mongoDB";
-import SubscriptionTransaction from "@/lib/models/SubscriptionTransaction";
+import {SubscriptionTransaction }from "@/lib/models/SubscriptionTransaction";
 import Business from "@/lib/models/Business";
 import { currentUser } from "@clerk/nextjs/server";
 import TransactionsListClient from "@/components/admin/TransactionsListClient";
