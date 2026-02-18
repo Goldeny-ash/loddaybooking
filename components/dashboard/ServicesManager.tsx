@@ -7,12 +7,15 @@ export default function ServicesManager({ business }: { business: any }) {
   const [services, setServices] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [editingService, setEditingService] = useState<any | null>(null);
+
+  const fetchServices = async () => {
+    const res = await fetch("/api/services/public");
+    const data = await res.json();
+    setServices(data.services || []);
+  };
 
   useEffect(() => {
-    fetch("/api/services/public")
-      .then(r => r.json())
-      .then(d => setServices(d.services || []));
+    fetchServices();
   }, []);
 
   const filtered = services.filter(s => s.name.toLowerCase().includes(query.toLowerCase()));
@@ -27,12 +30,20 @@ export default function ServicesManager({ business }: { business: any }) {
       }
       return [...prev, service];
     });
-    setEditingService(null);
   };
 
-  const handleEdit = (service: any) => {
-    setEditingService(service);
-    setOpen(true);
+  const handleRemove = async (id: string) => {
+    const res = await fetch(`/api/services/${id}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data?.error || "Delete failed");
+    }
+
+    setServices((prev) => prev.filter((x) => x._id !== id));
+    await fetchServices();
   };
 
   return (
@@ -40,7 +51,7 @@ export default function ServicesManager({ business }: { business: any }) {
       <div className="flex justify-between mb-4">
         <h2 className="font-bold" style={{ color: "var(--brand-primary-dark)" }}>Services</h2>
         <button
-          onClick={() => { setEditingService(null); setOpen(true); }}
+          onClick={() => setOpen(true)}
           className="px-3 py-1 rounded font-medium"
           style={{ backgroundColor: "var(--brand-primary)", color: "white" }}
         >
@@ -67,7 +78,7 @@ export default function ServicesManager({ business }: { business: any }) {
           <ServiceCard
             key={service._id}
             service={service}
-            onRemove={id => setServices(s => s.filter(x => x._id !== id))}
+            onRemove={handleRemove}
             onUpdate={handleAddOrUpdate}
           />
         ))}

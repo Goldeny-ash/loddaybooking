@@ -25,6 +25,8 @@ interface Staff {
 interface Service {
   _id: string;
   name: string;
+  basePrice?: number;
+  durationMinutes?: number;
 }
 
 interface Props {
@@ -36,6 +38,7 @@ export default function StaffOverview({
   staffList: initialStaff,
   services,
 }: Props) {
+  const NEW_STAFF_ID = "__new_staff__";
   const [staff, setStaff] = useState<Staff[]>([]);
   const [availability, setAvailability] = useState<
     Record<string, Record<string, { start: string; end: string; closed: boolean }>>
@@ -104,6 +107,12 @@ export default function StaffOverview({
 
   const saveEdit = async () => {
     if (!formState._id) return;
+    const previousServices =
+      staff.find((s) => s._id === formState._id)?.services || [];
+    const nextServices = formState.services || [];
+    const addedServices = nextServices.filter(
+      (id) => !previousServices.includes(id)
+    );
 
     try {
       const res = await fetch(`/api/staff/${formState._id}`, {
@@ -129,6 +138,9 @@ export default function StaffOverview({
         prev.map(s => (s._id === data.staff._id ? data.staff : s))
       );
 
+      if (addedServices.length) {
+        toast.success("Service connected to staff");
+      }
       toast.success("Staff updated");
       closeEdit();
     } catch {
@@ -164,10 +176,11 @@ const deleteStaff = async () => {
     if (!newStaff.name) return toast.error("Name required");
 
     try {
+      const weeklyAvailability = availability[NEW_STAFF_ID] || {};
       const res = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newStaff),
+        body: JSON.stringify({ ...newStaff, weeklyAvailability }),
       });
 
       const data = await res.json();
@@ -177,6 +190,11 @@ const deleteStaff = async () => {
       setStaff(prev => [...prev, data.staff]);
       setOpenAdd(false);
       setNewStaff({ name: "", email: "", phone: "", photo: "" ,role: ""});
+      setAvailability((prev) => {
+        const updated = { ...prev };
+        delete updated[NEW_STAFF_ID];
+        return updated;
+      });
 
       toast.success("Staff added");
     } catch {
@@ -250,7 +268,7 @@ const deleteStaff = async () => {
       {/* ADD MODAL */}
       {openAdd && (
         <div className="fixed inset-0 z-50 bg-black/50 flex justify-center pt-12">
-         <div className="bg-white p-6 rounded-xl w-[420px] space-y-3 max-h-[90vh] overflow-y-auto">
+         <div className="bg-white p-6 rounded-xl w-[92vw] max-w-[420px] space-y-3 max-h-[90vh] overflow-y-auto">
 
             <h3 className="font-bold text-lg">Add Staff</h3>
 
@@ -285,6 +303,8 @@ const deleteStaff = async () => {
   onChange={e =>
     setNewStaff(prev => ({ ...prev, role: e.target.value }))
   }
+  placeholder="Role (e.g. stylist, barber)"
+  className="border p-2 w-full rounded"
 />
 
 
@@ -297,6 +317,11 @@ const deleteStaff = async () => {
   maxFiles={1}
 />
 
+            <StaffAvailability
+              staffId={NEW_STAFF_ID}
+              availability={availability}
+              setAvailability={setAvailability}
+            />
 
 
             <div className="flex gap-2 pt-2">
@@ -322,7 +347,7 @@ const deleteStaff = async () => {
       {/* EDIT MODAL */}
       {openCard && (
         <div className="fixed inset-0 z-50 bg-black/50 flex justify-center pt-12">
-          <div className="bg-white p-6 rounded-xl w-[450px] space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white p-6 rounded-xl w-[94vw] max-w-[450px] space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-lg">Edit Staff</h3>
 
             <input
@@ -376,7 +401,13 @@ const deleteStaff = async () => {
                           : "border"
                       }`}
                     >
-                      {service.name}
+                      <span className="block font-medium">{service.name}</span>
+                      <span className="block text-xs opacity-80">
+                        Base: KES {service.basePrice ?? 0}
+                      </span>
+                      <span className="block text-xs opacity-80">
+                        Duration: {service.durationMinutes ?? 0} min
+                      </span>
                     </button>
                   );
                 })}

@@ -3,11 +3,6 @@ import { useEffect, useState } from "react";
 import ImageUpload from "@/components/ImageUpload";
 import ServiceHelpPopup from "@/components/dashboard/ServiceHelpPopup";
 
-interface Staff {
-  _id: string;
-  name: string;
-}
-
 interface PriceTier {
   label: string;
   price?: number;
@@ -137,7 +132,6 @@ export default function AddServiceForm({
   onAdd,
   initialData,
 }: AddServiceFormProps) {
-  const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showHelp, setShowHelp] = useState(false);
@@ -159,14 +153,6 @@ export default function AddServiceForm({
     addOns: [],
     tags: [],
   });
-
-  useEffect(() => {
-    fetch("/api/staff")
-      .then((res) => res.json())
-      .then((data: { staff?: Staff[] }) =>
-        setStaff(data.staff || [])
-      );
-  }, []);
 
   useEffect(() => {
   if (!initialData) return;
@@ -207,20 +193,6 @@ export default function AddServiceForm({
         [key]: value,
       },
     }));
-
-  const toggleStaff = (id: string) =>
-    updateCategoryField(
-      "staffIds",
-      currentCategory.staffIds?.includes(id)
-        ? currentCategory.staffIds.filter(
-            (s) => s !== id
-          )
-        : [
-            ...(currentCategory.staffIds ||
-              []),
-            id,
-          ]
-    );
 
   const handleAddAddOn = () =>
     updateCategoryField("addOns", [
@@ -644,31 +616,8 @@ delete body.depositValue;
           </div>
         )}
 
-        {/* STAFF */}
-        <div className="flex flex-wrap gap-2">
-          {staff.map((s) => (
-            <label
-              key={s._id}
-              className="flex items-center gap-1 border rounded px-2 py-1"
-            >
-              <input
-                type="checkbox"
-                checked={
-                  currentCategory.staffIds?.includes(
-                    s._id
-                  ) || false
-                }
-                onChange={() =>
-                  toggleStaff(s._id)
-                }
-              />
-              {s.name}
-            </label>
-          ))}
-        </div>
-
         {/* PRICING */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input
             type="number"
             placeholder="Base Price"
@@ -728,11 +677,11 @@ delete body.depositValue;
             []).map((tier, i) => (
             <div
               key={i}
-              className="flex gap-2 items-center"
+              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
             >
               <input
                 placeholder="Label"
-                className="border p-2 flex-1"
+                className="border p-2 flex-1 w-full"
                 value={tier.label}
                 onChange={(e) => {
                   const newTiers = [
@@ -751,7 +700,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Min"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={tier.min || ""}
                 onChange={(e) => {
                   const newTiers = [
@@ -772,7 +721,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Max"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={tier.max || ""}
                 onChange={(e) => {
                   const newTiers = [
@@ -793,7 +742,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Price"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={tier.price || ""}
                 onChange={(e) => {
                   const newTiers = [
@@ -813,7 +762,7 @@ delete body.depositValue;
 
               <button
                 type="button"
-                className="bg-red-200 px-2 py-1 rounded"
+                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
                 onClick={() => {
                   const newTiers = [
                     ...(currentCategory.priceTiers ||
@@ -863,11 +812,11 @@ delete body.depositValue;
             []).map((addOn, i) => (
             <div
               key={i}
-              className="flex gap-2 items-center"
+              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
             >
               <input
                 placeholder="Title"
-                className="border p-2 flex-1"
+                className="border p-2 flex-1 w-full"
                 value={addOn.title}
                 onChange={(e) => {
                   const newAddOns = [
@@ -885,7 +834,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Price"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={addOn.price}
                 onChange={(e) => {
                   const newAddOns = [
@@ -905,7 +854,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Duration (min)"
-                className="border p-2 w-28"
+                className="border p-2 w-full sm:w-28"
                 value={
                   addOn.durationMinutes
                 }
@@ -926,7 +875,7 @@ delete body.depositValue;
               />
               <button
                 type="button"
-                className="bg-red-200 px-2 py-1 rounded"
+                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
                 onClick={() => {
                   const newAddOns = [
                     ...(currentCategory.addOns ||
@@ -961,12 +910,12 @@ delete body.depositValue;
             []).map((pkg, i) => (
             <div
               key={i}
-              className="flex gap-2 items-center"
+              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
             >
               <input
                 type="number"
                 placeholder="Sessions"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={pkg.sessions}
                 onChange={(e) => {
                   const newPkgs = [
@@ -986,7 +935,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Price"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={pkg.price}
                 onChange={(e) => {
                   const newPkgs = [
@@ -1005,7 +954,7 @@ delete body.depositValue;
               />
               <button
                 type="button"
-                className="bg-red-200 px-2 py-1 rounded"
+                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
                 onClick={() => {
                   const newPkgs = [
                     ...(currentCategory.sessionPackages ||
@@ -1052,11 +1001,11 @@ delete body.depositValue;
             []).map((area, i) => (
             <div
               key={i}
-              className="flex gap-2 items-center"
+              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
             >
               <input
                 placeholder="Area"
-                className="border p-2 flex-1"
+                className="border p-2 flex-1 w-full"
                 value={area.area}
                 onChange={(e) => {
                   const newAreas = [
@@ -1074,7 +1023,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Min"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={area.min || ""}
                 onChange={(e) => {
                   const newAreas = [
@@ -1094,7 +1043,7 @@ delete body.depositValue;
               <input
                 type="number"
                 placeholder="Max"
-                className="border p-2 w-24"
+                className="border p-2 w-full sm:w-24"
                 value={area.max || ""}
                 onChange={(e) => {
                   const newAreas = [
@@ -1113,7 +1062,7 @@ delete body.depositValue;
               />
               <button
                 type="button"
-                className="bg-red-200 px-2 py-1 rounded"
+                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
                 onClick={() => {
                   const newAreas = [
                     ...(currentCategory.areaPricing ||
@@ -1253,7 +1202,7 @@ delete body.depositValue;
           <button
             type="submit"
             disabled={loading}
-            className="bg-(--brand-primary) text-white px-4 py-2 rounded flex-1"
+            className="bg-[var(--brand-primary)] text-white px-4 py-2 rounded flex-1"
           >
             {loading
               ? "Saving..."

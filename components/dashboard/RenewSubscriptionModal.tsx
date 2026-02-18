@@ -1,62 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default function RenewSubscriptionModal({
-  businessId,
   onClose,
-  onSuccess,
 }: any) {
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
-  const [reference, setReference] = useState("");
-  const [error, setError] = useState("");
 
-  const formatPhone = (v: string) => {
-    if (v.startsWith("0")) return `254${v.slice(1)}`;
-    if (v.startsWith("+")) return v.replace("+", "");
-    return v;
-  };
+  const initiateSubscription = async () => {
+    try {
+      setLoading(true);
 
-  const initiate = async () => {
-    setLoading(true);
-    setError("");
+      const res = await fetch("/api/subscription/start", {
+        method: "POST",
+      });
 
-    const res = await axios.post("/api/subscription/initiate", {
-      businessId,
-      phoneNumber: formatPhone(phone),
-    });
+      const data = await res.json();
 
-    setReference(res.data.reference);
-  };
-
-  useEffect(() => {
-    if (!reference) return;
-
-    const timer = setInterval(async () => {
-      const r = await axios.get(
-        `/api/subscription/status?reference=${reference}`
-      );
-
-      if (r.data.status === "ACTIVE") {
-        clearInterval(timer);
-        onSuccess();
-        onClose();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed");
       }
 
-      if (r.data.status === "FAILED") {
-        setError("Payment failed. Try again.");
-        setLoading(false);
-        clearInterval(timer);
-      }
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [reference]);
+      window.location.href = data.setup_url;
+    } catch (err) {
+      alert("Failed to start subscription");
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
@@ -68,23 +40,17 @@ export default function RenewSubscriptionModal({
           </div>
         )}
 
-        <h2 className="text-xl font-semibold">Renew Subscription</h2>
+        <h2 className="text-xl font-semibold">
+          Activate Subscription
+        </h2>
 
         <div className="text-sm text-gray-500">
-          KES 10 / month <br />
-          Renews: {new Date().toDateString()}
+          KES 600 / month <br />
+          Auto-renews monthly
         </div>
 
-        <Input
-          placeholder="07xxxxxxxx"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-
         <p className="text-xs text-gray-400">
-          Payments secured by M-Pesa.
+          Payments secured by IntaSend (M-Pesa / Card)
         </p>
 
         <div className="flex justify-end gap-2">
@@ -93,10 +59,10 @@ export default function RenewSubscriptionModal({
           </Button>
 
           <Button
-            onClick={initiate}
-            disabled={loading || phone.length < 9}
+            onClick={initiateSubscription}
+            disabled={loading}
           >
-            Pay KES 10
+            Subscribe Now
           </Button>
         </div>
       </div>

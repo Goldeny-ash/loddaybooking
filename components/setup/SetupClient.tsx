@@ -190,13 +190,19 @@ export default function SetupPage() {
     }
   };
 
-  const finishSetup = () => {
-    if (onboardingMode === "subscribe") {
-      router.push("/subscribe");
-    } else {
-      router.push("/dashboard");
+ const finishSetup = async () => {
+  if (onboardingMode === "subscribe") {
+    try {
+      const res = await axios.post("/api/subscription/start");
+      window.location.href = res.data.setup_url;
+    } catch (err: any) {
+      alert("Subscription failed to start");
     }
-  };
+  } else {
+    router.push("/dashboard");
+  }
+};
+
 
 
 
