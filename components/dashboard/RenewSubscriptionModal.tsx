@@ -8,6 +8,7 @@ export default function RenewSubscriptionModal({
   onClose,
 }: any) {
   const [loading, setLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   const initiateSubscription = async () => {
     try {
@@ -15,17 +16,30 @@ export default function RenewSubscriptionModal({
 
       const res = await fetch("/api/subscription/start", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentMethod: "mpesa",
+          phoneNumber,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed");
+        throw new Error(
+          data?.details?.[0]?.message || data.error || "Failed"
+        );
       }
 
-      window.location.href = data.setup_url;
+      if (data.setup_url) {
+        window.location.href = data.setup_url;
+        return;
+      }
+
+      alert(data.message || "STK push sent. Complete payment on your phone.");
+      onClose?.();
     } catch (err) {
-      alert("Failed to start subscription");
+      alert(err instanceof Error ? err.message : "Failed to start subscription");
       setLoading(false);
     }
   };
@@ -49,8 +63,16 @@ export default function RenewSubscriptionModal({
           Auto-renews monthly
         </div>
 
+        <input
+          type="tel"
+          placeholder="M-Pesa phone e.g. 07XXXXXXXX"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          className="w-full border rounded px-3 py-2 text-sm"
+        />
+
         <p className="text-xs text-gray-400">
-          Payments secured by IntaSend (M-Pesa / Card)
+          Payments secured by IntaSend (M-Pesa)
         </p>
 
         <div className="flex justify-end gap-2">

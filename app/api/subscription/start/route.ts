@@ -6,209 +6,168 @@ import { SubscriptionPlan } from "@/lib/models/SubscriptionPlan";
 import { currentUser } from "@clerk/nextjs/server";
 import { createCustomer, createSubscription } from "@/lib/intasend";
 
-const PLAN_ID = "NKBOWY4";
+function normalizeKePhone(input: string) {
+  const cleaned = (input || "").trim().replace(/\s+/g, "").replace("+", "");
+  if (cleaned.startsWith("0")) return `254${cleaned.slice(1)}`;
+  if (cleaned.startsWith("254")) return cleaned;
+  return "";
+}
 
 export async function POST(request: NextRequest) {
-  console.log("🔵 [START] Subscription start triggered");
-
   try {
-    /* -------------------------------
-       1️⃣ AUTH
-    -------------------------------- */
-    const user = await currentUser();
-    console.log("🟡 Clerk user:", user?.id);
+    const body = await request.json().catch(() => ({}));
+    const paymentMethod = String(body?.paymentMethod || "subscription").toLowerCase();
+    const providedPhone = body?.phoneNumber ? String(body.phoneNumber) : "";
 
+    const user = await currentUser();
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /* -------------------------------
-       2️⃣ DB
-    -------------------------------- */
     await connectDB();
-    console.log("🟢 DB connected");
 
-    const business = await Business.findOne({
-      clerkUserId: user.id,
-    });
-
+    const business = await Business.findOne({ clerkUserId: user.id });
     if (!business) {
-      console.log("🔴 Business not found");
-      return NextResponse.json(
-        { error: "Business not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
     }
 
-    console.log("🟢 Business ID:", business._id.toString());
-
-    /* -------------------------------
-       3️⃣ PREVENT DUPLICATE ACTIVE
-    -------------------------------- */
     const existingActive = await Subscription.findOne({
       businessId: business._id.toString(),
       status: "ACTIVE",
     });
-
     if (existingActive) {
-      console.log("🔴 Active subscription already exists");
       return NextResponse.json(
         { error: "Business already has an active subscription" },
         { status: 400 }
       );
     }
 
-    /* -------------------------------
-       4️⃣ FETCH PLAN SNAPSHOT
-    -------------------------------- */
-    const plan = await SubscriptionPlan.findOne({
-      planId: PLAN_ID,
-      isActive: true,
-    });
+    const plan =
+      (await SubscriptionPlan.findOne({ isActive: true }).sort({ createdAt: -1 })) ||
+      (process.env.INTASEND_DEFAULT_PLAN_ID
+        ? await SubscriptionPlan.findOne({ planId: process.env.INTASEND_DEFAULT_PLAN_ID })
+        : null);
 
     if (!plan) {
-      console.log("🔴 Plan not found or inactive");
-      return NextResponse.json(
-        { error: "Subscription plan not found or inactive" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "No active subscription plan found" }, { status: 404 });
     }
 
-    console.log("🟢 Plan loaded:", PLAN_ID);
+    if (!business.access) business.access = { status: "TRIAL" };
+    if (!business.access.billing) business.access.billing = {};
 
-    /* -------------------------------
-       5️⃣ ENSURE CUSTOMER
-    -------------------------------- */
-    let customerId = business.access?.billing?.customerId;
-
+    let customerId = business.access.billing.customerId;
     if (!customerId) {
-      console.log("🟡 Creating IntaSend customer...");
-
       const customer = await createCustomer({
-        email: business.email,
-        firstName: business.name,
+        email: business.email || "billing@lodday.com",
+        firstName: business.name || "Business",
         lastName: "",
         reference: `BUS-${business._id}`,
         country: "KE",
       });
 
       customerId = customer.customer_id;
-
-      business.access = business.access || {};
-      business.access.billing = business.access.billing || {};
       business.access.billing.customerId = customerId;
-
       await business.save();
-
-      console.log("🟢 Customer saved:", customerId);
-    } else {
-      console.log("🟢 Using existing customer:", customerId);
     }
 
-    /* -------------------------------
-       6️⃣ CREATE PROVIDER SUBSCRIPTION
-    -------------------------------- */
-    console.log("🟡 Creating provider subscription...");
+    if (paymentMethod === "mpesa") {
+      const phone = normalizeKePhone(providedPhone || business.phone || "");
+      if (!phone) {
+        return NextResponse.json(
+          { error: "Valid M-Pesa phone number is required" },
+          { status: 400 }
+        );
+      }
+
+      const baseUrl =
+        process.env.INTASEND_TEST === "true"
+          ? "https://sandbox.intasend.com"
+          : "https://api.intasend.com";
+
+      const mpesaRes = await fetch(`${baseUrl}/api/v1/payment/mpesa-stk-push/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          first_name: business.name || "Business",
+          last_name: "Subscription",
+          email: business.email || "billing@lodday.com",
+          host: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
+          amount: plan.amount,
+          phone_number: phone,
+          api_ref: `SUB-${business._id}-${Date.now()}`,
+        }),
+      });
+
+      const mpesaData = await mpesaRes.json();
+      if (!mpesaRes.ok) {
+        return NextResponse.json(
+          { error: "M-Pesa payment initiation failed", details: mpesaData },
+          { status: mpesaRes.status || 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        paymentMethod: "mpesa",
+        message: "M-Pesa STK push sent. Complete payment on your phone.",
+        invoiceId: mpesaData?.invoice?.invoice_id || null,
+        state: mpesaData?.invoice?.state || null,
+      });
+    }
 
     const providerSub = await createSubscription({
       customerId,
-      planId: PLAN_ID,
+      planId: plan.planId,
       reference: `SUB-${business._id}`,
       startDate: new Date().toISOString().split("T")[0],
       redirectUrl: `${request.nextUrl.origin}/subscription/success`,
     });
 
-    console.log("🟢 Provider response:", providerSub);
+    const startsAt = providerSub.start_date ? new Date(providerSub.start_date) : undefined;
+    const providerCreatedAt = providerSub.created_at ? new Date(providerSub.created_at) : undefined;
+    const providerUpdatedAt = providerSub.updated_at ? new Date(providerSub.updated_at) : undefined;
 
-    /* -------------------------------
-       7️⃣ SAFE DATE PARSING
-    -------------------------------- */
-
-    let startsAt: Date | undefined;
-    let providerCreatedAt: Date | undefined;
-    let providerUpdatedAt: Date | undefined;
-
-    if (providerSub.start_date) {
-      const parsed = new Date(providerSub.start_date);
-      if (!isNaN(parsed.getTime())) {
-        startsAt = parsed;
-      } else {
-        console.log("⚠ Invalid start_date:", providerSub.start_date);
-      }
-    }
-
-    if (providerSub.created_at) {
-      const parsed = new Date(providerSub.created_at);
-      if (!isNaN(parsed.getTime())) {
-        providerCreatedAt = parsed;
-      }
-    }
-
-    if (providerSub.updated_at) {
-      const parsed = new Date(providerSub.updated_at);
-      if (!isNaN(parsed.getTime())) {
-        providerUpdatedAt = parsed;
-      }
-    }
-
-    /* -------------------------------
-       8️⃣ SAVE SUBSCRIPTION LOCALLY
-    -------------------------------- */
     await Subscription.create({
       businessId: business._id.toString(),
       subscriptionId: providerSub.subscription_id,
       customerId,
-      planId: PLAN_ID,
+      planId: plan.planId,
       externalReference: `SUB-${business._id}`,
-
-      // Billing snapshot
       currency: plan.currency,
       amount: plan.amount,
       frequency: plan.frequency,
       frequencyUnit: plan.frequencyUnit,
       billingCycles: plan.billingCycles ?? null,
-
       status: providerSub.status || "PENDING",
       setupUrl: providerSub.setup_url,
-
       startsAt,
       providerCreatedAt,
       providerUpdatedAt,
     });
 
-    console.log("🟢 Subscription saved");
-
-    /* -------------------------------
-       9️⃣ UPDATE BUSINESS ACCESS
-    -------------------------------- */
     business.access.subscriptionId = providerSub.subscription_id;
-    business.access.planId = PLAN_ID;
+    business.access.planId = plan.planId;
     business.access.status = "INACTIVE";
-
     await business.save();
 
-    console.log("🟢 Business updated");
-
-    /* -------------------------------
-       🔟 RETURN SETUP URL
-    -------------------------------- */
-    return NextResponse.json({
-      setup_url: providerSub.setup_url,
-    });
-
+    return NextResponse.json({ setup_url: providerSub.setup_url });
   } catch (error: any) {
-    console.error("🔴 Subscription start failed");
-
-    if (error.response) {
-      console.error("Provider status:", error.response.status);
-      console.error("Provider data:", error.response.data);
-    } else {
-      console.error("Error:", error.message);
-    }
-
+    const providerData = error?.response?.data || null;
+    const providerStatus = error?.response?.status;
+    console.error("Subscription start failed:", {
+      message: error?.message,
+      status: providerStatus,
+      data: providerData,
+    });
     return NextResponse.json(
-      { error: "Subscription start failed" },
-      { status: 500 }
+      {
+        error: "Subscription start failed",
+        details: providerData?.errors || providerData?.detail || providerData?.message || null,
+      },
+      { status: providerStatus && providerStatus >= 400 ? providerStatus : 500 }
     );
   }
 }

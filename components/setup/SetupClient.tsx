@@ -193,10 +193,24 @@ export default function SetupPage() {
  const finishSetup = async () => {
   if (onboardingMode === "subscribe") {
     try {
-      const res = await axios.post("/api/subscription/start");
-      window.location.href = res.data.setup_url;
+      const res = await axios.post("/api/subscription/start", {
+        paymentMethod: "mpesa",
+        phoneNumber: businessForm.phone,
+      });
+      if (res.data.setup_url) {
+        window.location.href = res.data.setup_url;
+        return;
+      }
+      alert(
+        res.data.message || "M-Pesa STK push sent. Complete payment on your phone."
+      );
+      router.push("/dashboard");
     } catch (err: any) {
-      alert("Subscription failed to start");
+      alert(
+        err?.response?.data?.details?.[0]?.message ||
+        err?.response?.data?.error ||
+        "Subscription failed to start"
+      );
     }
   } else {
     router.push("/dashboard");
