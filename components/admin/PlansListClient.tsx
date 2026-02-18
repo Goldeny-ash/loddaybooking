@@ -1,6 +1,18 @@
 "use client";
 
 import { useState } from "react";
+
+type SubscriptionPlan = {
+  name: string;
+  amount: number;
+  currency: string;
+  frequency: number;
+  frequencyUnit: string;
+  billingCycles?: number | null;
+  planId: string;
+  isActive: boolean;
+};
+
 type PlanForm = {
   name: string;
   amount: number;
@@ -10,21 +22,51 @@ type PlanForm = {
   billingCycles: number | "";
 };
 
-export default function PlansListClient({ plans: initialPlans }: any) {
-  const [plans, setPlans] = useState(initialPlans);
+interface Props {
+  plans: any[]; // normalize manually
+}
+
+/* -----------------------------
+   Normalize Incoming Data
+------------------------------ */
+function normalizePlan(raw: any): SubscriptionPlan {
+  return {
+    name: String(raw.name),
+    amount: Number(raw.amount),
+    currency: String(raw.currency),
+    frequency: Number(raw.frequency),
+    frequencyUnit: String(raw.frequencyUnit),
+    billingCycles:
+      raw.billingCycles === null || raw.billingCycles === undefined
+        ? null
+        : Number(raw.billingCycles),
+    planId: String(raw.planId),
+    isActive: raw.isActive === true || raw.isActive === "true",
+  };
+}
+
+export default function PlansListClient({ plans: initialPlans }: Props) {
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(
+    initialPlans.map(normalizePlan)
+  );
+
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
 
   const [form, setForm] = useState<PlanForm>({
-  name: "",
-  amount: 0,
-  currency: "KES",
-  frequency: 1,
-  frequencyUnit: "M",
-  billingCycles: "",
-});
+    name: "",
+    amount: 0,
+    currency: "KES",
+    frequency: 1,
+    frequencyUnit: "M",
+    billingCycles: "",
+  });
 
+  /* ------------------------------ Helpers ------------------------------ */
+
+  const parseNumber = (value: string): number =>
+    value === "" ? 0 : Number(value);
 
   const resetForm = () => {
     setForm({
@@ -41,15 +83,28 @@ export default function PlansListClient({ plans: initialPlans }: any) {
 
   const refreshPlans = async () => {
     const res = await fetch("/api/admin/subscriptions/plans");
+
+    if (!res.ok) {
+      console.error("Failed to fetch plans");
+      return;
+    }
+
     const data = await res.json();
-    setPlans(data);
+    setPlans(data.map(normalizePlan));
   };
 
   const disablePlan = async (planId: string) => {
-    await fetch(`/api/admin/subscriptions/plans/${planId}`, {
-      method: "DELETE",
-    });
-    refreshPlans();
+    const res = await fetch(
+      `/api/admin/subscriptions/plans/${planId}`,
+      { method: "DELETE" }
+    );
+
+    if (!res.ok) {
+      console.error("Failed to disable plan");
+      return;
+    }
+
+    await refreshPlans();
   };
 
   const openCreateModal = () => {
@@ -57,15 +112,16 @@ export default function PlansListClient({ plans: initialPlans }: any) {
     setOpen(true);
   };
 
-  const openEditModal = (plan: any) => {
+  const openEditModal = (plan: SubscriptionPlan) => {
     setForm({
       name: plan.name,
       amount: plan.amount,
       currency: plan.currency,
       frequency: plan.frequency,
       frequencyUnit: plan.frequencyUnit,
-      billingCycles: plan.billingCycles || "",
+      billingCycles: plan.billingCycles ?? "",
     });
+
     setEditingPlanId(plan.planId);
     setIsEditing(true);
     setOpen(true);
@@ -73,40 +129,43 @@ export default function PlansListClient({ plans: initialPlans }: any) {
 
   const handleSubmit = async () => {
     const payload = {
-  ...form,
-  billingCycles: form.billingCycles === "" ? null : form.billingCycles,
-};
+      name: form.name.trim(),
+      amount: Number(form.amount),
+      currency: form.currency,
+      frequency: Number(form.frequency),
+      frequencyUnit: form.frequencyUnit,
+      billingCycles:
+        form.billingCycles === "" ? null : Number(form.billingCycles),
+    };
 
+    const endpoint =
+      isEditing && editingPlanId
+        ? `/api/admin/subscriptions/plans/${editingPlanId}`
+        : "/api/admin/subscriptions/plans";
 
-    let res;
+    const method = isEditing ? "PUT" : "POST";
 
-    if (isEditing && editingPlanId) {
-      res = await fetch(
-        `/api/admin/subscriptions/plans/${editingPlanId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-    } else {
-      res = await fetch("/api/admin/subscriptions/plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const res = await fetch(endpoint, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      console.error("Plan save failed:", error);
+      return;
     }
 
-    if (res.ok) {
-      setOpen(false);
-      resetForm();
-      refreshPlans();
-    }
+    setOpen(false);
+    resetForm();
+    await refreshPlans();
   };
+
+  /* ------------------------------ UI ------------------------------ */
 
   return (
     <div className="p-6 space-y-6">
-
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Subscription Plans</h1>
         <button
@@ -130,20 +189,16 @@ export default function PlansListClient({ plans: initialPlans }: any) {
         </thead>
 
         <tbody>
-          {plans.map((plan: any) => (
+          {plans.map((plan) => (
             <tr key={plan.planId} className="border-b">
               <td>{plan.name}</td>
-
               <td>
                 {plan.currency} {plan.amount}
               </td>
-
               <td>
                 Every {plan.frequency} {plan.frequencyUnit}
               </td>
-
               <td className="text-xs">{plan.planId}</td>
-
               <td>
                 {plan.isActive ? (
                   <span className="text-green-600 font-medium">
@@ -155,7 +210,6 @@ export default function PlansListClient({ plans: initialPlans }: any) {
                   </span>
                 )}
               </td>
-
               <td className="space-x-3">
                 <button
                   onClick={() => openEditModal(plan)}
@@ -181,7 +235,6 @@ export default function PlansListClient({ plans: initialPlans }: any) {
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
           <div className="bg-white p-6 rounded w-[420px] space-y-4">
-
             <h2 className="text-lg font-semibold">
               {isEditing ? "Edit Plan" : "Create Plan"}
             </h2>
@@ -190,21 +243,21 @@ export default function PlansListClient({ plans: initialPlans }: any) {
               value={form.name}
               placeholder="Plan Name"
               className="w-full border p-2"
-             onChange={(e) =>
-  setForm({ ...form, frequency: Number(e.target.value) })
-}
-
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
             />
 
             <input
               value={form.amount}
-              placeholder="Amount"
               type="number"
               className="w-full border p-2"
               onChange={(e) =>
-  setForm({ ...form, amount: Number(e.target.value) })
-}
-
+                setForm({
+                  ...form,
+                  amount: parseNumber(e.target.value),
+                })
+              }
             />
 
             <select
@@ -222,20 +275,24 @@ export default function PlansListClient({ plans: initialPlans }: any) {
 
             <input
               value={form.frequency}
-              placeholder="Frequency (e.g 1)"
               type="number"
               className="w-full border p-2"
               onChange={(e) =>
-  setForm({ ...form, frequency: Number(e.target.value) })
-}
-
+                setForm({
+                  ...form,
+                  frequency: parseNumber(e.target.value),
+                })
+              }
             />
 
             <select
               value={form.frequencyUnit}
               className="w-full border p-2"
               onChange={(e) =>
-                setForm({ ...form, frequencyUnit: e.target.value })
+                setForm({
+                  ...form,
+                  frequencyUnit: e.target.value,
+                })
               }
             >
               <option value="M">Month</option>
@@ -246,16 +303,17 @@ export default function PlansListClient({ plans: initialPlans }: any) {
 
             <input
               value={form.billingCycles}
-              placeholder="Billing Cycles (optional)"
               type="number"
               className="w-full border p-2"
               onChange={(e) =>
-  setForm({
-    ...form,
-    billingCycles: e.target.value === "" ? "" : Number(e.target.value),
-  })
-}
-
+                setForm({
+                  ...form,
+                  billingCycles:
+                    e.target.value === ""
+                      ? ""
+                      : Number(e.target.value),
+                })
+              }
             />
 
             <div className="flex justify-end gap-3 pt-2">
@@ -275,11 +333,9 @@ export default function PlansListClient({ plans: initialPlans }: any) {
                 {isEditing ? "Update" : "Save"}
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

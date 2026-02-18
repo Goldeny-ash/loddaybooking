@@ -8,7 +8,6 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body = await req.json();
-
     const {
       businessId,
       email,
@@ -22,11 +21,6 @@ export async function POST(req: Request) {
       zipcode,
     } = body;
 
-    /*
-     * -----------------------------
-     * Validate Business ID
-     * -----------------------------
-     */
     if (!businessId) {
       return NextResponse.json(
         { error: "Business ID is required" },
@@ -43,61 +37,21 @@ export async function POST(req: Request) {
       );
     }
 
-    /*
-     * -----------------------------
-     * If Customer Already Exists
-     * -----------------------------
-     */
-    if (business.billing?.customerId) {
+    // ✅ FIXED PATH
+    if (business.access?.billing?.customerId) {
       return NextResponse.json({
         success: true,
-        customerId: business.billing.customerId,
+        customerId: business.access.billing.customerId,
         existing: true,
       });
     }
 
-    /*
-     * -----------------------------
-     * Validate Required Fields
-     * -----------------------------
-     */
-
-    const emailRegex =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!email || !emailRegex.test(email)) {
+    if (!email || !firstName || !lastName || !reference || !country) {
       return NextResponse.json(
-        { error: "Valid email is required" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
-
-    if (!firstName || !lastName) {
-      return NextResponse.json(
-        { error: "First and last name are required" },
-        { status: 400 }
-      );
-    }
-
-    if (!reference) {
-      return NextResponse.json(
-        { error: "Reference is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!country || country.length !== 2) {
-      return NextResponse.json(
-        { error: "Country must be a 2-letter ISO code" },
-        { status: 400 }
-      );
-    }
-
-    /*
-     * -----------------------------
-     * Create Customer in IntaSend
-     * -----------------------------
-     */
 
     const response = await axios.post(
       "https://api.intasend.com/api/v1/subscriptions-customers/",
@@ -122,16 +76,10 @@ export async function POST(req: Request) {
 
     const customer = response.data;
 
-    /*
-     * -----------------------------
-     * Persist customer_id Locally
-     * -----------------------------
-     */
-
-    business.billing = {
-      ...business.billing,
-      customerId: customer.customer_id,
-    };
+    // ✅ FIXED NESTED SAVE
+    business.access = business.access || {};
+    business.access.billing = business.access.billing || {};
+    business.access.billing.customerId = customer.customer_id;
 
     await business.save();
 

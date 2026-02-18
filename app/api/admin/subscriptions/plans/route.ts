@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { connectDB } from "@/lib/mongoDB";
-import {SubscriptionPlan} from "@/lib/models/SubscriptionPlan";
+import { SubscriptionPlan } from "@/lib/models/SubscriptionPlan";
 
 export async function POST(req: Request) {
   try {
@@ -9,14 +9,21 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const {
-      name,
-      currency,
-      amount,
-      frequency,
-      frequencyUnit,
-      billingCycles,
-    } = body;
+    /*
+     * -----------------------
+     * SANITIZE INPUT
+     * -----------------------
+     */
+
+    const name = String(body.name || "").trim();
+    const currency = String(body.currency || "").trim();
+    const amount = Number(body.amount);
+    const frequency = Number(body.frequency);
+    const frequencyUnit = String(body.frequencyUnit || "").trim();
+    const billingCycles =
+      body.billingCycles === null || body.billingCycles === undefined
+        ? null
+        : Number(body.billingCycles);
 
     /*
      * -----------------------
@@ -27,7 +34,7 @@ export async function POST(req: Request) {
     const allowedCurrencies = ["KES", "USD", "EUR", "GBP"];
     const allowedUnits = ["D", "W", "M", "Y"];
 
-    if (!name || typeof name !== "string") {
+    if (!name) {
       return NextResponse.json(
         { error: "Invalid plan name" },
         { status: 400 }
@@ -64,7 +71,6 @@ export async function POST(req: Request) {
 
     if (
       billingCycles !== null &&
-      billingCycles !== undefined &&
       (!Number.isInteger(billingCycles) || billingCycles <= 0)
     ) {
       return NextResponse.json(
@@ -75,7 +81,7 @@ export async function POST(req: Request) {
 
     /*
      * -----------------------
-     * CALL INTASEND
+     * CREATE PLAN IN INTASEND
      * -----------------------
      */
 
@@ -84,7 +90,7 @@ export async function POST(req: Request) {
       {
         name,
         currency,
-        amount: amount.toString(),
+        amount: amount.toString(), // IntaSend expects string
         frequency,
         frequency_unit: frequencyUnit,
         billing_cycles: billingCycles,
@@ -97,53 +103,65 @@ export async function POST(req: Request) {
       }
     );
 
-    const plan = intasendResponse.data;
+    const providerPlan = intasendResponse.data;
 
     /*
      * -----------------------
-     * STORE IN DB
+     * DUPLICATE PROTECTION
+     * -----------------------
+     */
+
+    const existing = await SubscriptionPlan.findOne({
+      planId: providerPlan.plan_id,
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "Plan already exists locally" },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * -----------------------
+     * STORE LOCALLY (STRICT TYPES)
      * -----------------------
      */
 
     const newPlan = await SubscriptionPlan.create({
-      businessId: "GLOBAL", // or admin-level scope
-      planId: plan.plan_id,
-      name: plan.name,
-      currency: plan.currency,
-      amount: parseFloat(plan.amount),
-      frequency: plan.frequency,
-      frequencyUnit: plan.frequency_unit,
-      billingCycles: plan.billing_cycles ?? null,
-      providerCreatedAt: plan.created_at,
-      providerUpdatedAt: plan.updated_at,
+      businessId: "GLOBAL",
+      planId: String(providerPlan.plan_id),
+      name: String(providerPlan.name),
+      currency: String(providerPlan.currency),
+      amount: Number(providerPlan.amount),
+      frequency: Number(providerPlan.frequency),
+      frequencyUnit: String(providerPlan.frequency_unit),
+      billingCycles:
+        providerPlan.billing_cycles !== null
+          ? Number(providerPlan.billing_cycles)
+          : null,
+      providerCreatedAt: providerPlan.created_at
+        ? new Date(providerPlan.created_at)
+        : undefined,
+      providerUpdatedAt: providerPlan.updated_at
+        ? new Date(providerPlan.updated_at)
+        : undefined,
+      isActive: true, // 🔥 guaranteed Boolean
     });
 
     return NextResponse.json({
       success: true,
       plan: newPlan,
     });
+
   } catch (error: any) {
-    console.error("Create Plan Error:", error.response?.data || error.message);
+    console.error(
+      "Create Plan Error:",
+      error.response?.data || error.message
+    );
 
     return NextResponse.json(
       { error: "Failed to create plan" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET() {
-  try {
-    await connectDB();
-
-    const plans = await SubscriptionPlan.find().sort({ createdAt: -1 });
-
-    return NextResponse.json(plans);
-
-  } catch (error: any) {
-    console.error("Fetch Plans Error:", error.message);
-    return NextResponse.json(
-      { error: "Failed to fetch plans" },
       { status: 500 }
     );
   }
