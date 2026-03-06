@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
-import Business from "@/lib/models/Business";
 import Staff from "@/lib/models/Staff";
 import Service from "@/lib/models/Service";
 
@@ -82,13 +81,11 @@ export async function GET(req: NextRequest) {
     prevBookings,
     staffCount,
     servicesCount,
-    business,
   ] = await Promise.all([
     Booking.find(baseQuery).lean(),
     Booking.find(prevQuery).lean(),
     Staff.countDocuments({ businessId }),
     Service.countDocuments({ businessId, hidden: false }),
-    Business.findById(businessId).lean(),
   ]);
 
   /* ---------------- Metrics ---------------- */
@@ -113,41 +110,34 @@ export async function GET(req: NextRequest) {
 
   /* ---------------- Revenue + Deposits ---------------- */
 
-  let revenue = 0;
-let depositsHeld = 0;
+  const getBookingValue = (b: {
+    grandTotal?: number;
+    subtotal?: number;
+    calloutFee?: number;
+    services?: Array<{ price?: number }>;
+    serviceId?: { price?: number };
+  }) => {
+    if (typeof b.grandTotal === "number") return b.grandTotal;
+    if (typeof b.subtotal === "number") return b.subtotal + (b.calloutFee || 0);
+    if (Array.isArray(b.services) && b.services.length > 0) {
+      return b.services.reduce(
+        (sum: number, svc: { price?: number }) => sum + (svc.price || 0),
+        0
+      ) + (b.calloutFee || 0);
+    }
+    return (b.serviceId?.price || 0) + (b.calloutFee || 0);
+  };
 
-confirmed.forEach(b => {
-  // Revenue includes service price + callout fee
-  revenue += (b.serviceId?.price || 0) + (b.calloutFee || 0);
+  const revenue = confirmed.reduce((sum, b) => sum + getBookingValue(b), 0);
 
-  // Deposits held only if depositPolicy applies and not yet paid out
-  if (b.depositAmount && !b.depositPaidOut && !b.depositRefunded) {
-    depositsHeld += b.depositAmount;
-  }
-});
-
-
-  // Join service prices
-  const serviceIds = confirmed.map((b) => b.serviceId);
-
-  const services = await Service.find({
-    _id: { $in: serviceIds },
-  }).lean();
-
-  const serviceMap = new Map(
-    services.map((s) => [String(s._id), s])
+  const prevRevenue = prevConfirmed.reduce(
+    (sum, b) => sum + getBookingValue(b),
+    0
   );
 
-  confirmed.forEach((b) => {
-    const service = serviceMap.get(String(b.serviceId));
-    if (!service) return;
-
-    revenue += service.price || 0;
-  });
-
-  const prevRevenue = prevConfirmed.reduce((sum, b) => {
-    const s = serviceMap.get(String(b.serviceId));
-    return sum + (s?.price || 0);
+  const depositsHeld = confirmed.reduce((sum, b) => {
+    if (b.depositAmount && !b.depositRefunded) return sum + b.depositAmount;
+    return sum;
   }, 0);
 
   /* ---------------- Trends ---------------- */

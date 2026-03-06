@@ -118,6 +118,7 @@ export default function ThankYouPageClient() {
   const badgeText = getReadableText(theme.accentLight);
 
   const manageUrl = `/b/${booking.business.username}/manage?bookingId=${booking._id}&token=${token}`;
+  const reviewUrl = `/review/${booking._id}?token=${token}&source=manage`;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   const calendarUrl = booking.date && booking.startTime && booking.endTime
@@ -174,6 +175,9 @@ export default function ThankYouPageClient() {
           <div className="space-y-3">
             <a href={manageUrl} className="block py-3 rounded-xl font-semibold" style={{ background: theme.accent, color: accentText }}>
               Manage / Reschedule
+            </a>
+            <a href={reviewUrl} className="block py-3 rounded-xl font-semibold" style={{ background: theme.primary, color: primaryText }}>
+              Leave a Review
             </a>
             <a href={calendarUrl} target="_blank" className="block py-3 rounded-xl" style={{ background: cardBg, color: cardText }}>
               Add to Google Calendar

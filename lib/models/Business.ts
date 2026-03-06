@@ -55,19 +55,25 @@ const BusinessSchema = new Schema(
       nextChargeAt: Date,
 
       graceStartedAt: Date,
+       graceEndsAt: Date, // 🔥 ADD
+  graceWarningSent: { type: Boolean, default: false }, // 🔥 ADD
+
 
       lastPaymentRef: String,
     },
 
     location: {
-      name: String,
-      addressLine: String,
-      area: String,
-      city: String,
-      county: String,
-      lat: Number,
-      lng: Number,
-    },
+  county: { type: String, default: "" },
+  subCounty: { type: String, default: "" },
+  ward: { type: String, default: "" },
+  countyOptions: { type: [String], default: [] },
+  subCountyOptions: { type: [String], default: [] },
+  wardOptions: { type: [String], default: [] },
+  addressLine: String,
+  locationDescription: { type: String, default: "" },
+  lat: Number,
+  lng: Number,
+},
 
     setupStep: {
       type: Number,
@@ -86,11 +92,30 @@ const BusinessSchema = new Schema(
     },
 
     depositPolicy: {
-      enabled: Boolean,
-      type: { type: String, enum: ["fixed", "percent"] },
-      value: Number,
-      applyToCallout: Boolean,
-    },
+  enabled: { type: Boolean, default: false },
+  type: { type: String, enum: ["fixed", "percent"], default: "fixed" },
+  value: { type: Number, default: 0 },
+  applyToCallout: { type: Boolean, default: false },
+},
+// Add after depositPolicy or near billing section
+
+wallet: {
+  walletId: {
+    type: String,
+    index: true,
+  },
+  walletLabel: String,
+  walletCurrency: {
+    type: String,
+    enum: ["KES", "USD", "EUR", "GBP"],
+    default: "KES",
+  },
+  canDisburse: {
+    type: Boolean,
+    default: true,
+  },
+  walletCreatedAt: Date,
+},
 
     mobileSettings: {
       enabled: Boolean,
@@ -128,5 +153,6 @@ const BusinessSchema = new Schema(
   },
   { timestamps: true }
 );
-
+BusinessSchema.index({ "access.status": 1 });
+BusinessSchema.index({ "access.nextChargeAt": 1 });
 export default models.Business || model("Business", BusinessSchema);

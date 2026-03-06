@@ -1,88 +1,80 @@
-// app/api/admin/refunds/[id]/approve/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoDB";
 import Refund from "@/lib/models/Refund";
-import Deposit from "@/lib/models/Deposit";
+import Booking from "@/lib/models/Booking";
 import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
-import crypto from "crypto";
-import axios from "axios";
 
-export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
-  const userId = await requirePlatformOwner();
-  console.log("[POST] Authorized user:", userId);
-
+export async function POST(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  await requirePlatformOwner();
   await connectDB();
 
   const { id } = await context.params;
-  console.log("[ApproveRefund] params.id:", id);
 
-  const refund = await Refund.findById(id).populate("bookingId");
+  const refund = await Refund.findById(id);
   if (!refund) {
-    console.log("[ApproveRefund] Refund not found");
     return NextResponse.json({ error: "Refund not found" }, { status: 404 });
   }
 
   if (refund.status !== "REQUESTED") {
-    console.log("[ApproveRefund] Refund not in REQUESTED status:", refund.status);
-    return NextResponse.json({ error: "Refund not eligible for approval" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Refund not eligible" },
+      { status: 400 }
+    );
   }
 
-  // Auto-approve refund
+  // Lock immediately
   refund.status = "APPROVED";
   refund.approvedAt = new Date();
   await refund.save();
-  console.log("[ApproveRefund] Refund approved");
-
-  // Find deposit associated with booking
-  const deposit = await Deposit.findOne({ bookingId: refund.bookingId._id });
-  if (!deposit || !deposit.phoneNumber) {
-    console.log("[ApproveRefund] Deposit or phone number missing");
-    return NextResponse.json({ error: "Deposit not found or missing phone number" }, { status: 400 });
-  }
-
-  const externalReference = `refund_${crypto.randomBytes(8).toString("hex")}`;
 
   try {
-    console.log("[ApproveRefund] Sending payout to PayHero for phone:", deposit.phoneNumber);
-
-    const resp = await axios.post(
-      "https://backend.payhero.co.ke/api/v2/withdraw",
+    const response = await fetch(
+      "https://api.intasend.com/api/v1/send-money/initiate/",
       {
-        external_reference: externalReference,
-        amount: refund.amount,
-        phone_number: deposit.phoneNumber,
-        network_code: "63902", // MPESA
-        callback_url: `${process.env.BASE_URL}/api/payhero/refund-callback`,
-        channel: "mobile",
-        channel_id: Number(process.env.PAYHERO_CHANNEL_ID),
-        payment_service: "b2c",
-      },
-      {
-         headers: {
-      Authorization: `Basic ${process.env.PAYHERO_API_SECRET}`, // ✅ must include "Basic "
-      "Content-Type": "application/json",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
         },
+        body: JSON.stringify({
+          currency: "KES",
+          transactions: [
+            {
+              name: "Customer Refund",
+              account: refund.phoneNumber,
+              amount: refund.amount,
+              narrative: "Booking refund",
+            },
+          ],
+          requires_approval: "NO",
+        }),
       }
     );
 
+    const data = await response.json();
+
+    if (!data.tracking_id) {
+      throw new Error("Missing tracking_id from IntaSend");
+    }
+
     refund.status = "SENT";
-    refund.externalReference = externalReference;
-    refund.payheroCheckoutId = resp.data.checkout_request_id;
-    refund.payheroConversationId = resp.data.conversation_id;
+    refund.trackingId = data.tracking_id;
     refund.sentAt = new Date();
     await refund.save();
 
-    console.log("[ApproveRefund] Refund sent successfully:", resp.data);
-
-    return NextResponse.json({ success: true, data: resp.data });
+    return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("[ApproveRefund] PayHero error:", err.response?.data || err.message);
-
     refund.status = "FAILED";
-    refund.failureReason = err.response?.data?.message || err.message;
+    refund.failureReason = err.message;
     refund.failedAt = new Date();
     await refund.save();
 
-    return NextResponse.json({ error: "Failed to send payout", details: err.response?.data || err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Initiation failed" },
+      { status: 500 }
+    );
   }
 }

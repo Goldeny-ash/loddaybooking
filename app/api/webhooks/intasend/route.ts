@@ -4,6 +4,12 @@ import { connectDB } from "@/lib/mongoDB";
 import Subscription from "@/lib/models/Subscription";
 import Business from "@/lib/models/Business";
 
+function addMonth(date: Date) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
@@ -22,23 +28,21 @@ export async function POST(req: Request) {
       }
     }
 
-    let payload: any = null;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ received: true });
-    }
+    const payload = JSON.parse(rawBody || "{}");
+    const invoiceId = payload?.invoice_id || payload?.invoice?.invoice_id;
+    const apiRef = payload?.api_ref || payload?.invoice?.api_ref;
+    const state = payload?.state || payload?.invoice?.state || payload?.status;
 
-    const subscriptionId = payload?.subscription_id;
-    const providerStatus = payload?.status;
-
-    if (!subscriptionId || !providerStatus) {
+    if (!invoiceId && !apiRef) {
       return NextResponse.json({ received: true });
     }
 
     await connectDB();
 
-    const subscription = await Subscription.findOne({ subscriptionId });
+    const subscription = await Subscription.findOne({
+      $or: [{ invoiceId }, { apiRef }],
+    }).sort({ createdAt: -1 });
+
     if (!subscription) {
       return NextResponse.json({ received: true });
     }
@@ -48,64 +52,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    if (subscription.status === providerStatus) {
-      return NextResponse.json({ received: true });
+    if (state === "COMPLETE") {
+      const now = new Date();
+      subscription.status = "ACTIVE";
+      subscription.paidAt = now;
+      subscription.expiresAt = addMonth(now);
+      subscription.nextChargeAt = addMonth(now);
+      await subscription.save();
+
+      business.access.status = "ACTIVE";
+      business.access.lastChargeAt = now;
+      business.access.nextChargeAt = addMonth(now);
+      business.access.subscriptionExpiresAt = addMonth(now);
+      await business.save();
+    } else if (state === "FAILED" || state === "CANCELED") {
+      subscription.status = "FAILED";
+      await subscription.save();
     }
-
-    if (!business.access) {
-      business.access = { status: "TRIAL" };
-    }
-
-    const now = new Date();
-
-    switch (providerStatus) {
-      case "ACTIVE":
-        subscription.status = "ACTIVE";
-        subscription.lastChargeAt = now;
-        if (payload?.next_date) {
-          subscription.nextChargeAt = new Date(payload.next_date);
-        }
-
-        business.access.status = "ACTIVE";
-        business.access.subscriptionId = subscription.subscriptionId;
-        business.access.planId = subscription.planId;
-        business.access.lastChargeAt = now;
-        if (payload?.next_date) {
-          business.access.nextChargeAt = new Date(payload.next_date);
-        }
-        break;
-
-      case "PENDING":
-        subscription.status = "PENDING";
-        business.access.status = "INACTIVE";
-        break;
-
-      case "FAILED":
-        subscription.status = "FAILED";
-        business.access.status = "GRACE";
-        business.access.graceStartedAt = now;
-        break;
-
-      case "CANCELED":
-        subscription.status = "CANCELED";
-        business.access.status = "EXPIRED";
-        break;
-
-      case "EXPIRED":
-        subscription.status = "EXPIRED";
-        business.access.status = "EXPIRED";
-        break;
-
-      default:
-        return NextResponse.json({ received: true });
-    }
-
-    await subscription.save();
-    await business.save();
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
-    console.error("IntaSend webhook error:", error?.message || error);
+  } catch (error) {
+    console.error("IntaSend webhook error:", error);
     return NextResponse.json({ received: true });
   }
 }

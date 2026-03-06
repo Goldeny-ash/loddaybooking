@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import CurvedSection from "@/components/home/CurvedSection";
 import FloatingShape from "@/components/FloatingShape";
 import FeaturesSection from "@/components/home/FeaturesSection";
+import ReviewsSection from "@/components/home/ReviewsSection";
 import Footer from "@/components/Footer";
 import { Zap, Users, BarChart2, MessageSquare, CheckSquare, Calendar, CreditCard } from "lucide-react";
 
@@ -97,12 +98,6 @@ const HomePage = () => {
     },
   ];
 
-  const testimonials = [
-    { name: "Nairobi Salon Owner", text: "Grace periods saved us 2+ hours daily." },
-    { name: "Dental Clinic Receptionist", text: "Walk-ins are finally fair." },
-    { name: "Barbershop Manager", text: "Late cancellations dropped by 40%." },
-  ];
-
   const businessTypes = ["Salons & Barbershops", "Spas & Beauty Clinics", "Nail Studios", "Physios / Dentists", "Auto Detailers"];
 
   return (
@@ -184,26 +179,7 @@ const HomePage = () => {
       {/* Features Section */}
       <FeaturesSection features={features} id="features" />
 
-      {/* Testimonials */}
-      <CurvedSection bg={colors.seamountLight} centerContent>
-        <h2 className="font-serif text-4xl mb-12 text-[#001524]">What Our Users Say</h2>
-        <div className="flex flex-col md:flex-row gap-6 justify-center items-center overflow-x-auto py-6 px-6 max-w-6xl snap-x snap-mandatory">
-          {testimonials.map((t, idx) => (
-            <motion.div
-              key={t.name}
-              className="min-w-[280px] rounded-2xl p-6 shadow-2xl transform hover:-translate-y-2 transition snap-start"
-              style={{
-                backgroundColor: idx % 2 === 0 ? colors.primary : colors.secondary,
-                color: colors.lightPeach,
-              }}
-              whileHover={{ y: -4 }}
-            >
-              <p className="mb-2 text-sm md:text-base">"{t.text}"</p>
-              <span className="font-semibold text-lg">{t.name}</span>
-            </motion.div>
-          ))}
-        </div>
-      </CurvedSection>
+      <ReviewsSection />
 
       {/* Pricing */}
       <div id="pricing">
@@ -229,21 +205,21 @@ const HomePage = () => {
               </Link>
             </motion.div>
 
-            {/* Immediate Subscription */}
+            {/* Imm ediate Subscription */}
             <motion.div
               className="rounded-3xl p-8 shadow-2xl bg-secondary hover:-translate-y-1 transition transform w-64"
               style={{ color: colors.white }}
               whileHover={{ y: -4 }}
             >
               <h3 className="text-3xl font-serif mb-4">Go Live Now</h3>
-              <p className="mb-6">500 KSh / month</p>
+              <p className="mb-6">600 KSh / month</p>
               <Link
                 href="/setup?mode=subscribe"
                 onClick={() => localStorage.setItem("onboardingMode", "subscribe")}
                 className="px-6 py-3 rounded-full drop-shadow-md inline-block w-full text-center hover:scale-105 transition-transform"
                 style={{ backgroundColor: colors.lightPeach, color: colors.primary }}
               >
-                Go Live Now – KSh 500
+                Go Live Now – KSh 600
               </Link>
             </motion.div>
           </div>

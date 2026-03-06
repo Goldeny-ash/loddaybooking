@@ -23,6 +23,7 @@ export default clerkMiddleware(async (auth, req) => {
     "/api/bookings/reschedule",
     "/api/bookings/cancel",
     "/api/webhooks/intasend",
+    "/api/intasend/send-money-webhook",
   ];
 
   if (publicApiRoutes.some((p) => pathname.startsWith(p))) {

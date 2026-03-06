@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const BASE_URL = "https://api.intasend.com";
+const BASE_URL =
+  process.env.INTASEND_TEST === "true"
+    ? "https://sandbox.intasend.com"
+    : "https://api.intasend.com";
 
 if (!process.env.INTASEND_SECRET_KEY) {
   throw new Error("INTASEND_SECRET_KEY is not defined");

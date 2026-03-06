@@ -16,7 +16,7 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFECD1] px-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
-        <h1 className="text-4xl font-semibold text-[#001524] mb-6 text-center" style={{ fontFamily: 'Grand Hotel, cursive' }}>
+        <h1 className="text-4xl font-semibold text-[#001524] mb-6 text-center">
           Welcome Back
         </h1>
         <p className="text-center text-[#15616D] mb-6 font-medium">

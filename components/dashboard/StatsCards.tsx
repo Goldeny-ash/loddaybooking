@@ -94,7 +94,7 @@ export default function StatsCards({
       label: "Revenue",
       value: kes.format(stats.revenue),
       trend: stats.trends.revenue,
-      note: "Deposits collected",
+      note: `Deposits collected: ${kes.format(stats.depositsHeld || 0)}`,
       onClick: () => router.push("/dashboard/finance"),
     },
     {

@@ -1,7 +1,11 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import ImageUpload from "@/components/ImageUpload";
 import ServiceHelpPopup from "@/components/dashboard/ServiceHelpPopup";
+import ThemedPopup from "@/components/ThemedPopup";
+
+/* ================= TYPES ================= */
 
 interface PriceTier {
   label: string;
@@ -25,212 +29,267 @@ interface AddOn {
   title: string;
   price: number;
   durationMinutes: number;
-  applicableCategories?: string[];
 }
 
 interface CategoryData {
   _id?: string;
-
   category: string;
+  customCategory?: string;
   subCategory?: string;
-  niche?: string;
-  variant?: string;
   tags?: string[];
-
   targetGender: "women" | "men" | "unisex";
   durationMinutes?: number;
-
-  hair?: {
-    hairType?: string;
-    hairMaterial?: string;
-    hairOrigin?: string;
-    lengthTier?: string;
-    density?: string;
-    texture?: string;
-    method?: string;
-    specialty?: string;
-    braidStyle?: string;
-    installMethod?: string;
-    weaveType?: string;
-    stylingTarget?: string;
-    retouchType?: string;
-    isChemical?: boolean;
-    chemicalType?: string;
-    relaxerOwnership?: string;
-    brandUsed?: string;
-    colorType?: string;
-    treatmentType?: string;
-  };
-
-  nails?: {
-    nailType?: string;
-    style?: string;
-    addOns?: AddOn[];
-  };
-
-  bodyMod?: {
-    size?: string;
-    colorType?: string;
-  };
-
-  pmu?: {
-    technique?: string;
-    touchUpDurationMonths?: number;
-    packageEligible?: boolean;
-  };
-
-  beauty?: {
-    treatmentType?: string;
-    technique?: string;
-    sessionFocus?: string;
-    packageEligible?: boolean;
-  };
 
   basePrice?: number;
   priceRangeMin?: number;
   priceRangeMax?: number;
+  priceRange?: {
+    min?: number;
+    max?: number;
+  };
 
   priceTiers?: PriceTier[];
   sessionPackages?: SessionPackage[];
   areaPricing?: AreaPrice[];
-
-  staffIds?: string[];
+  addOns?: AddOn[];
 
   depositEnabled?: boolean;
   depositType?: "fixed" | "percent";
   depositValue?: number;
 
-  addOns?: AddOn[];
-
-  promotions?: unknown[];
-
-  medicalEligible?: boolean;
-  medicalDiscountPercent?: number;
-
-  mobileEligibility?: boolean;
-
+  mobileEligible?: boolean;
   gallery?: string[];
 }
 
-interface AddServiceFormProps {
+/* FIX depositOverride typing */
+type CategoryDataWithDeposit = CategoryData & {
+  depositOverride?: {
+    enabled?: boolean;
+    type?: "fixed" | "percent";
+    value?: number;
+  };
+};
+
+interface Props {
   open: boolean;
   onClose: () => void;
   onAdd: (service: CategoryData) => void;
-  initialData?: CategoryData & { name: string; description: string };
+  onDelete?: (serviceId: string) => void | Promise<void>;
+  initialData?: CategoryData & {
+    name: string;
+    description: string;
+  };
 }
 
-const defaultAddOn: AddOn = {
-  title: "",
-  price: 0,
-  durationMinutes: 0,
-  applicableCategories: [],
-};
+const CATEGORY_OPTIONS = [
+  "Hair",
+  "Nails",
+  "Body Enhancements",
+  "Permanent Makeup",
+  "Beauty Treatments",
+  "Other",
+] as const;
 
 export default function AddServiceForm({
   open,
   onClose,
   onAdd,
+  onDelete,
   initialData,
-}: AddServiceFormProps) {
+}: Props) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [popup, setPopup] = useState<{
+    message: string;
+    closeForm?: boolean;
+    deletedId?: string;
+    variant?: "success" | "error";
+  } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const showPopup = (
+    message: string,
+    options?: {
+      closeForm?: boolean;
+      deletedId?: string;
+      variant?: "success" | "error";
+    }
+  ) => {
+    setPopup({ message, ...options });
+  };
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  const [currentCategory, setCurrentCategory] = useState<CategoryData>({
-    category: "",
-    targetGender: "unisex",
-    staffIds: [],
-    depositEnabled: false,
-    depositType: "fixed",
-    depositValue: 0,
-    gallery: [],
-    priceTiers: [],
-    sessionPackages: [],
-    areaPricing: [],
-    addOns: [],
-    tags: [],
-  });
+  const [currentCategory, setCurrentCategory] =
+    useState<CategoryDataWithDeposit>({
+      category: "",
+      targetGender: "unisex",
+      priceTiers: [],
+      sessionPackages: [],
+      areaPricing: [],
+      addOns: [],
+      gallery: [],
+      depositEnabled: false,
+      depositType: "fixed",
+      depositValue: 0,
+    });
+
+  /* ================= HELPERS ================= */
+
+  const normalizeNumber = (val: string) => {
+    if (!val) return 0;
+    return Number(val.replace(/^0+/, ""));
+  };
+
+  const activePricingMode = (() => {
+    if (currentCategory.basePrice) return "base";
+    if (
+      currentCategory.priceRangeMin ||
+      currentCategory.priceRangeMax
+    )
+      return "range";
+    if (currentCategory.priceTiers?.length) return "tier";
+    if (currentCategory.sessionPackages?.length) return "package";
+    if (currentCategory.areaPricing?.length) return "area";
+    return null;
+  })();
+
+  const updateField = (
+    key: keyof CategoryDataWithDeposit,
+    value: any
+  ) => setCurrentCategory(prev => ({ ...prev, [key]: value }));
+
+  const updateArrayItem = (
+    key: keyof CategoryDataWithDeposit,
+    index: number,
+    field: string,
+    value: any
+  ) => {
+    const copy = [...(currentCategory[key] as any[])];
+    copy[index][field] = value;
+    updateField(key, copy);
+  };
+
+  const removeArrayItem = (
+    key: keyof CategoryDataWithDeposit,
+    index: number
+  ) => {
+    const copy = [...(currentCategory[key] as any[])];
+    copy.splice(index, 1);
+    updateField(key, copy);
+  };
+
+  const addArrayItem = (
+    key: keyof CategoryDataWithDeposit,
+    value: any
+  ) => {
+    updateField(key, [
+      ...(currentCategory[key] as any[]),
+      value,
+    ]);
+  };
+
+  /* ================= INIT EDIT ================= */
 
   useEffect(() => {
   if (!initialData) return;
 
+  const data = initialData as CategoryDataWithDeposit;
+  const incomingCategory = data.category || "";
+  const isKnownCategory = CATEGORY_OPTIONS.includes(
+    incomingCategory as (typeof CATEGORY_OPTIONS)[number]
+  );
+
   setName(initialData.name || "");
   setDescription(initialData.description || "");
 
-  setCurrentCategory((prev) => ({
-    ...prev,
-    ...initialData,
-  }));
+  setCurrentCategory(prev => ({
+  ...prev,
+  ...data,
+  category: isKnownCategory ? incomingCategory : "Other",
+  customCategory: isKnownCategory ? data.customCategory || "" : incomingCategory,
+
+  priceRangeMin: data.priceRange?.min ?? 0,
+  priceRangeMax: data.priceRange?.max ?? 0,
+
+  mobileEligible: data.mobileEligible ?? false,
+
+  depositEnabled: data.depositOverride?.enabled ?? false,
+  depositType: data.depositOverride?.type ?? "fixed",
+  depositValue: data.depositOverride?.value ?? 0,
+}));
 }, [initialData]);
 
-  const updateCategoryField = <K extends keyof CategoryData>(
-    key: K,
-    value: CategoryData[K]
-  ) =>
-    setCurrentCategory((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+  /* ================= SUBMIT ================= */
 
-  const updateNestedField = <
-    P extends keyof CategoryData,
-    K extends string,
-  >(
-    parent: P,
-    key: K,
-    value: unknown
-  ) =>
-    setCurrentCategory((prev) => ({
-      ...prev,
-      [parent]: {
-        ...(prev[parent] as Record<
-          string,
-          unknown
-        > | undefined),
-        [key]: value,
-      },
-    }));
-
-  const handleAddAddOn = () =>
-    updateCategoryField("addOns", [
-      ...(currentCategory.addOns || []),
-      { ...defaultAddOn },
-    ]);
-
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
-    if (!name) {
-      setError("Service name is required");
-      return;
+    if (!name) return showPopup("Service name is required", { variant: "error" });
+    if (!currentCategory.category)
+      return showPopup("Category is required", { variant: "error" });
+    if (
+      currentCategory.category === "Other" &&
+      !currentCategory.customCategory?.trim()
+    ) {
+      return showPopup("Please type the category name", { variant: "error" });
     }
+    if (!currentCategory.durationMinutes)
+      return showPopup("Duration is required", { variant: "error" });
 
-    if (!currentCategory.category) {
-      setError("Category is required");
-      return;
-    }
+    const hasPricing =
+      currentCategory.basePrice ||
+      currentCategory.priceRangeMin ||
+      currentCategory.priceRangeMax ||
+      currentCategory.priceTiers?.length ||
+      currentCategory.sessionPackages?.length ||
+      currentCategory.areaPricing?.length;
+
+    if (!hasPricing)
+      return showPopup(
+        "You must define at least one pricing structure",
+        { variant: "error" }
+      );
 
     setLoading(true);
 
     try {
-      const body = {
+const resolvedCategory =
+  currentCategory.category === "Other"
+    ? "Other"
+    : currentCategory.category;
+
+const body: any = {
   name,
   description,
   ...currentCategory,
+  category: resolvedCategory,
+  customCategory:
+    currentCategory.category === "Other"
+      ? currentCategory.customCategory?.trim()
+      : undefined,
+
+  priceRange:
+    currentCategory.priceRangeMin ||
+    currentCategory.priceRangeMax
+      ? {
+          min: currentCategory.priceRangeMin || 0,
+          max: currentCategory.priceRangeMax || 0,
+        }
+      : undefined,
+
   depositOverride: currentCategory.depositEnabled
     ? {
-        enabled: currentCategory.depositEnabled,
+        enabled: true,
         type: currentCategory.depositType,
         value: currentCategory.depositValue,
       }
     : undefined,
 };
+
+delete body.priceRangeMin;
+delete body.priceRangeMax;
 delete body.depositEnabled;
 delete body.depositType;
 delete body.depositValue;
@@ -239,40 +298,30 @@ delete body.depositValue;
         ? `/api/services/${initialData._id}`
         : "/api/services";
 
-      const method = initialData?._id
-        ? "PATCH"
-        : "POST";
+      const method = initialData?._id ? "PATCH" : "POST";
 
       const res = await fetch(url, {
         method,
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
-      const data: {
-        success: boolean;
-        service?: CategoryData;
-        error?: string;
-      } = await res.json();
-
+      const data = await res.json();
       if (!data.success)
-        throw new Error(
-          data.error ||
-            "Failed to save service"
-        );
+        throw new Error(data.error || "Failed");
 
-      if (data.service)
-        onAdd(data.service);
+    if (data.service) onAdd(data.service);
 
-      onClose();
+showPopup(
+  initialData?._id
+    ? "Service updated successfully"
+    : "Service created successfully",
+  { closeForm: true, variant: "success" }
+);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Network error"
+      showPopup(
+        err instanceof Error ? err.message : "Network error",
+        { variant: "error" }
       );
     } finally {
       setLoading(false);
@@ -281,934 +330,663 @@ delete body.depositValue;
 
   if (!open) return null;
 
-  return (
+    return (
     <div className="fixed inset-0 z-50 flex justify-center items-start overflow-auto bg-black/30 p-4">
       <ServiceHelpPopup
         show={showHelp}
-        onClose={() =>
-          setShowHelp(false)
-        }
+        onClose={() => setShowHelp(false)}
       />
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white w-full max-w-180 max-h-[90vh] overflow-y-auto p-6 rounded-xl space-y-5 relative"
+        className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 rounded-xl space-y-6"
       >
-        <h2 className="text-xl font-bold flex justify-between items-center">
+        <h2 className="text-xl font-bold flex justify-between">
           Add Service
-          <button
-            type="button"
-            onClick={() =>
-              setShowHelp(true)
-            }
-            className="text-blue-500 text-lg font-bold"
-          >
+          <button type="button" onClick={() => setShowHelp(true)}>
             ?
           </button>
         </h2>
 
-        {/* Service Name & Description */}
-        <input
-          placeholder="Service Name"
-          className="border p-2 w-full"
-          value={name}
-          onChange={(e) =>
-            setName(e.target.value)
-          }
-        />
-
-        <textarea
-          placeholder="Description"
-          className="border p-2 w-full"
-          value={description}
-          onChange={(e) =>
-            setDescription(
-              e.target.value
-            )
-          }
-        />
-
-        {/* Subcategory */}
-        <input
-          placeholder="Sub Category"
-          className="border p-2 w-full"
-          value={
-            currentCategory.subCategory ||
-            ""
-          }
-          onChange={(e) =>
-            updateCategoryField(
-              "subCategory",
-              e.target.value
-            )
-          }
-        />
-
-        {/* Tags */}
-        <input
-          placeholder="Tags (comma separated)"
-          className="border p-2 w-full"
-          value={
-            currentCategory.tags?.join(
-              ", "
-            ) || ""
-          }
-          onChange={(e) =>
-            updateCategoryField(
-              "tags",
-              e.target.value
-                .split(",")
-                .map((t) =>
-                  t.trim()
-                )
-            )
-          }
-        />
-
-        {/* Duration */}
-        <input
-          type="number"
-          placeholder="Duration (minutes)"
-          className="border p-2 w-full"
-          value={
-            currentCategory.durationMinutes ||
-            ""
-          }
-          onChange={(e) =>
-            updateCategoryField(
-              "durationMinutes",
-              Number(e.target.value)
-            )
-          }
-        />
-
-        {/* Category Select */}
-        <select
-          className="border p-2 w-full"
-          value={
-            currentCategory.category
-          }
-          onChange={(e) =>
-            updateCategoryField(
-              "category",
-              e.target.value
-            )
-          }
-        >
-          <option value="">
-            Select Category
-          </option>
-          <option value="Hair">
-            Hair
-          </option>
-          <option value="Nails">
-            Nails
-          </option>
-          <option value="Waxing">
-            Waxing
-          </option>
-          <option value="Body Enhancements">
-            Body Enhancements
-          </option>
-          <option value="Permanent Makeup">
-            Permanent Makeup
-          </option>
-          <option value="Makeup">
-            Makeup
-          </option>
-          <option value="Beauty Treatments">
-            Beauty Treatments
-          </option>
-        </select>
-
-        {/* CATEGORY-SPECIFIC FIELDS */}
-        {currentCategory.category === "Hair" && (
-          <div className="space-y-2 border p-3 rounded">
-            <h3 className="font-semibold">
-              Hair Details
-            </h3>
-            {[
-              "lengthTier",
-              "density",
-              "installMethod",
-              "retouchType",
-              "brandUsed",
-            ].map((field) => (
-              <input
-                key={field}
-                placeholder={field.replace(
-                  /([A-Z])/g,
-                  " $1"
-                )}
-                className="border p-2 w-full"
-                value={String(
-                  (currentCategory.hair?.[
-                    field as keyof typeof currentCategory.hair
-                  ] as string) ||
-                    ""
-                )}
-                onChange={(e) =>
-                  updateNestedField(
-                    "hair",
-                    field,
-                    e.target.value
-                  )
-                }
-              />
+        {/* CATEGORY */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Category *
+          </label>
+          <select
+            className="border p-2 w-full rounded"
+            value={currentCategory.category}
+            onChange={(e) =>
+              updateField("category", e.target.value)
+            }
+          >
+            <option value="">Select category</option>
+            {CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
             ))}
-          </div>
-        )}
+          </select>
+        </div>
 
-        {currentCategory.category === "Nails" && (
-          <div className="space-y-2 border p-3 rounded">
-            <h3 className="font-semibold">
-              Nails Details
-            </h3>
+        {currentCategory.category === "Other" && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium block">
+              Type Category *
+            </label>
             <input
-              placeholder="Nail Type"
-              className="border p-2 w-full"
-              value={
-                currentCategory.nails
-                  ?.nailType || ""
-              }
+              className="border p-2 w-full rounded"
+              value={currentCategory.customCategory || ""}
               onChange={(e) =>
-                updateNestedField(
-                  "nails",
-                  "nailType",
-                  e.target.value
-                )
+                updateField("customCategory", e.target.value)
               }
-            />
-            <input
-              placeholder="Style"
-              className="border p-2 w-full"
-              value={
-                currentCategory.nails
-                  ?.style || ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "nails",
-                  "style",
-                  e.target.value
-                )
-              }
+              placeholder="e.g. Barbering"
             />
           </div>
         )}
 
-        {currentCategory.category ===
-          "Body Enhancements" && (
-          <div className="space-y-2 border p-3 rounded">
-            <h3 className="font-semibold">
-              Body Modifications
-            </h3>
-            <input
-              placeholder="Size"
-              className="border p-2 w-full"
-              value={
-                currentCategory.bodyMod
-                  ?.size || ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "bodyMod",
-                  "size",
-                  e.target.value
-                )
-              }
-            />
-            <input
-              placeholder="Color Type"
-              className="border p-2 w-full"
-              value={
-                currentCategory.bodyMod
-                  ?.colorType || ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "bodyMod",
-                  "colorType",
-                  e.target.value
-                )
-              }
-            />
-          </div>
-        )}
-
-        {currentCategory.category ===
-          "Permanent Makeup" && (
-          <div className="space-y-2 border p-3 rounded">
-            <h3 className="font-semibold">
-              PMU Details
-            </h3>
-            <input
-              placeholder="Technique"
-              className="border p-2 w-full"
-              value={
-                currentCategory.pmu
-                  ?.technique || ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "pmu",
-                  "technique",
-                  e.target.value
-                )
-              }
-            />
-            <input
-              type="number"
-              placeholder="Touch-Up Duration (Months)"
-              className="border p-2 w-full"
-              value={
-                currentCategory.pmu
-                  ?.touchUpDurationMonths ||
-                ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "pmu",
-                  "touchUpDurationMonths",
-                  Number(e.target.value)
-                )
-              }
-            />
-          </div>
-        )}
-
-        {currentCategory.category ===
-          "Beauty Treatments" && (
-          <div className="space-y-2 border p-3 rounded">
-            <h3 className="font-semibold">
-              Beauty Treatment Details
-            </h3>
-            <input
-              placeholder="Treatment Type"
-              className="border p-2 w-full"
-              value={
-                currentCategory.beauty
-                  ?.treatmentType || ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "beauty",
-                  "treatmentType",
-                  e.target.value
-                )
-              }
-            />
-            <input
-              placeholder="Technique / Focus"
-              className="border p-2 w-full"
-              value={
-                currentCategory.beauty
-                  ?.technique || ""
-              }
-              onChange={(e) =>
-                updateNestedField(
-                  "beauty",
-                  "technique",
-                  e.target.value
-                )
-              }
-            />
-          </div>
-        )}
-
-        {/* PRICING */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Service Name *
+          </label>
           <input
-            type="number"
-            placeholder="Base Price"
-            className="border p-2"
-            value={
-              currentCategory.basePrice ||
-              ""
-            }
-            onChange={(e) =>
-              updateCategoryField(
-                "basePrice",
-                Number(e.target.value)
-              )
-            }
-          />
-
-          <input
-            type="number"
-            placeholder="Price From"
-            className="border p-2"
-            value={
-              currentCategory.priceRangeMin ||
-              ""
-            }
-            onChange={(e) =>
-              updateCategoryField(
-                "priceRangeMin",
-                Number(e.target.value)
-              )
-            }
-          />
-
-          <input
-            type="number"
-            placeholder="Price To"
-            className="border p-2"
-            value={
-              currentCategory.priceRangeMax ||
-              ""
-            }
-            onChange={(e) =>
-              updateCategoryField(
-                "priceRangeMax",
-                Number(e.target.value)
-              )
-            }
+            placeholder="Enter service name"
+            className="border p-2 w-full rounded"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
         </div>
 
-        {/* PRICE TIERS */}
-        <div className="border p-3 rounded space-y-2 mt-2">
-          <h3 className="font-semibold">
-            Price Tiers
-          </h3>
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Description
+          </label>
+          <textarea
+            placeholder="Optional description"
+            className="border p-2 w-full rounded"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
 
-          {(currentCategory.priceTiers ||
-            []).map((tier, i) => (
-            <div
-              key={i}
-              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
-            >
-              <input
-                placeholder="Label"
-                className="border p-2 flex-1 w-full"
-                value={tier.label}
-                onChange={(e) => {
-                  const newTiers = [
-                    ...(currentCategory.priceTiers ||
-                      []),
-                  ];
-                  newTiers[i].label =
-                    e.target.value;
-                  updateCategoryField(
-                    "priceTiers",
-                    newTiers
-                  );
-                }}
-              />
+        {/* DURATION */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Duration *
+          </label>
+          <p className="text-xs text-gray-500">
+            How long will this service take?
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              placeholder="Hours"
+              className="border p-2 rounded"
+              value={
+                Math.floor((currentCategory.durationMinutes || 0) / 60) ||
+                ""
+              }
+              onChange={(e) => {
+                const hours = normalizeNumber(e.target.value);
+                const mins =
+                  currentCategory.durationMinutes
+                    ? currentCategory.durationMinutes % 60
+                    : 0;
+                updateField("durationMinutes", hours * 60 + mins);
+              }}
+            />
+            <input
+              type="number"
+              placeholder="Minutes"
+              className="border p-2 rounded"
+              value={
+                currentCategory.durationMinutes
+                  ? currentCategory.durationMinutes % 60
+                  : ""
+              }
+              onChange={(e) => {
+                const mins = normalizeNumber(e.target.value);
+                const hours =
+                  currentCategory.durationMinutes
+                    ? Math.floor(currentCategory.durationMinutes / 60)
+                    : 0;
+                updateField("durationMinutes", hours * 60 + mins);
+              }}
+            />
+          </div>
+        </div>
 
-              <input
-                type="number"
-                placeholder="Min"
-                className="border p-2 w-full sm:w-24"
-                value={tier.min || ""}
-                onChange={(e) => {
-                  const newTiers = [
-                    ...(currentCategory.priceTiers ||
-                      []),
-                  ];
-                  newTiers[i].min =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "priceTiers",
-                    newTiers
-                  );
-                }}
-              />
+        {/* BASE PRICE */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Base Price *
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-sm text-gray-500">
+              KES
+            </span>
+            <input
+              type="number"
+              disabled={
+                activePricingMode !== null &&
+                activePricingMode !== "base"
+              }
+              className="border pl-12 p-2 w-full rounded"
+              value={currentCategory.basePrice || ""}
+              onChange={e =>
+                updateField(
+                  "basePrice",
+                  normalizeNumber(e.target.value)
+                )
+              }
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            Flat price for this service.
+          </p>
+        </div>
 
-              <input
-                type="number"
-                placeholder="Max"
-                className="border p-2 w-full sm:w-24"
-                value={tier.max || ""}
-                onChange={(e) => {
-                  const newTiers = [
-                    ...(currentCategory.priceTiers ||
-                      []),
-                  ];
-                  newTiers[i].max =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "priceTiers",
-                    newTiers
-                  );
-                }}
-              />
+        {/* ADVANCED TOGGLE */}
+        <button
+          type="button"
+          className="text-sm underline text-[var(--brand-primary)]"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          {showAdvanced
+            ? "Hide Advanced Options"
+            : "Show Advanced Options"}
+        </button>
 
-              <input
-                type="number"
-                placeholder="Price"
-                className="border p-2 w-full sm:w-24"
-                value={tier.price || ""}
-                onChange={(e) => {
-                  const newTiers = [
-                    ...(currentCategory.priceTiers ||
-                      []),
-                  ];
-                  newTiers[i].price =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "priceTiers",
-                    newTiers
-                  );
-                }}
-              />
+        {/* ADVANCED */}
+        {showAdvanced && (
+          <div className="space-y-6 border-t pt-4">
+
+            {/* PRICE RANGE */}
+            <div>
+              <h3 className="font-semibold flex gap-2">
+                Price Range
+                <span title="Use minimum and maximum range pricing">?</span>
+              </h3>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-sm text-gray-500">
+                    KES
+                  </span>
+                  <input
+                    type="number"
+                    disabled={
+                      activePricingMode !== null &&
+                      activePricingMode !== "range"
+                    }
+                    className="border pl-12 p-2 w-full"
+                    placeholder="Min"
+                    value={currentCategory.priceRangeMin || ""}
+                    onChange={e =>
+                      updateField(
+                        "priceRangeMin",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-sm text-gray-500">
+                    KES
+                  </span>
+                  <input
+                    type="number"
+                    disabled={
+                      activePricingMode !== null &&
+                      activePricingMode !== "range"
+                    }
+                    className="border pl-12 p-2 w-full"
+                    placeholder="Max"
+                    value={currentCategory.priceRangeMax || ""}
+                    onChange={e =>
+                      updateField(
+                        "priceRangeMax",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* PRICE TIERS */}
+            <div>
+              <h3 className="font-semibold flex gap-2">
+                Price Tiers
+                <span title="Create pricing based on variations like length or size">?</span>
+              </h3>
+
+              {(currentCategory.priceTiers || []).map((tier, i) => (
+                <div key={i} className="grid grid-cols-4 gap-2 mt-2">
+                  <input
+                    placeholder="Label"
+                    className="border p-2"
+                    value={tier.label}
+                    onChange={e =>
+                      updateArrayItem("priceTiers", i, "label", e.target.value)
+                    }
+                  />
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    className="border p-2"
+                    value={tier.min || ""}
+                    onChange={e =>
+                      updateArrayItem(
+                        "priceTiers",
+                        i,
+                        "min",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    className="border p-2"
+                    value={tier.max || ""}
+                    onChange={e =>
+                      updateArrayItem(
+                        "priceTiers",
+                        i,
+                        "max",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                  <div className="relative">
+                    <span className="absolute left-2 top-2 text-xs text-gray-500">
+                      KES
+                    </span>
+                    <input
+                      type="number"
+                      className="border pl-10 p-2 w-full"
+                      value={tier.price || ""}
+                      onChange={e =>
+                        updateArrayItem(
+                          "priceTiers",
+                          i,
+                          "price",
+                          normalizeNumber(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="col-span-4 bg-red-100 p-1 rounded"
+                    onClick={() => removeArrayItem("priceTiers", i)}
+                  >
+                    Remove Tier
+                  </button>
+                </div>
+              ))}
 
               <button
                 type="button"
-                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
-                onClick={() => {
-                  const newTiers = [
-                    ...(currentCategory.priceTiers ||
-                      []),
-                  ];
-                  newTiers.splice(i, 1);
-                  updateCategoryField(
-                    "priceTiers",
-                    newTiers
-                  );
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            className="bg-gray-200 px-3 py-1 rounded"
-            onClick={() =>
-              updateCategoryField(
-                "priceTiers",
-                [
-                  ...(currentCategory.priceTiers ||
-                    []),
-                  {
+                className="mt-2 bg-gray-200 px-3 py-1 rounded"
+                onClick={() =>
+                  addArrayItem("priceTiers", {
                     label: "",
                     min: 0,
                     max: 0,
                     price: 0,
-                  },
-                ]
-              )
-            }
-          >
-            Add Price Tier
-          </button>
-        </div>
-
-        {/* Add-Ons Section */}
-        <div className="border p-3 rounded space-y-2">
-          <h3 className="font-semibold">
-            Service Add-Ons
-          </h3>
-          {(currentCategory.addOns ||
-            []).map((addOn, i) => (
-            <div
-              key={i}
-              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
-            >
-              <input
-                placeholder="Title"
-                className="border p-2 flex-1 w-full"
-                value={addOn.title}
-                onChange={(e) => {
-                  const newAddOns = [
-                    ...(currentCategory.addOns ||
-                      []),
-                  ];
-                  newAddOns[i].title =
-                    e.target.value;
-                  updateCategoryField(
-                    "addOns",
-                    newAddOns
-                  );
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                className="border p-2 w-full sm:w-24"
-                value={addOn.price}
-                onChange={(e) => {
-                  const newAddOns = [
-                    ...(currentCategory.addOns ||
-                      []),
-                  ];
-                  newAddOns[i].price =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "addOns",
-                    newAddOns
-                  );
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Duration (min)"
-                className="border p-2 w-full sm:w-28"
-                value={
-                  addOn.durationMinutes
+                  })
                 }
-                onChange={(e) => {
-                  const newAddOns = [
-                    ...(currentCategory.addOns ||
-                      []),
-                  ];
-                  newAddOns[i].durationMinutes =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "addOns",
-                    newAddOns
-                  );
-                }}
-              />
-              <button
-                type="button"
-                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
-                onClick={() => {
-                  const newAddOns = [
-                    ...(currentCategory.addOns ||
-                      []),
-                  ];
-                  newAddOns.splice(i, 1);
-                  updateCategoryField(
-                    "addOns",
-                    newAddOns
-                  );
-                }}
               >
-                Remove
+                Add Tier
               </button>
             </div>
-          ))}
-          <button
-            type="button"
-            className="bg-gray-200 px-3 py-1 rounded"
-            onClick={handleAddAddOn}
-          >
-            Add Add-On
-          </button>
-        </div>
 
-        {/* SESSION PACKAGES */}
-        <div className="border p-3 rounded space-y-2 mt-2">
-          <h3 className="font-semibold">
-            Session Packages
-          </h3>
-          {(currentCategory.sessionPackages ||
-            []).map((pkg, i) => (
-            <div
-              key={i}
-              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
-            >
-              <input
-                type="number"
-                placeholder="Sessions"
-                className="border p-2 w-full sm:w-24"
-                value={pkg.sessions}
-                onChange={(e) => {
-                  const newPkgs = [
-                    ...(currentCategory.sessionPackages ||
-                      []),
-                  ];
-                  newPkgs[i].sessions =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "sessionPackages",
-                    newPkgs
-                  );
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                className="border p-2 w-full sm:w-24"
-                value={pkg.price}
-                onChange={(e) => {
-                  const newPkgs = [
-                    ...(currentCategory.sessionPackages ||
-                      []),
-                  ];
-                  newPkgs[i].price =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "sessionPackages",
-                    newPkgs
-                  );
-                }}
-              />
+            {/* SESSION PACKAGES */}
+            <div>
+              <h3 className="font-semibold flex gap-2">
+                Session Packages
+                <span title="Bundle sessions together at discounted rate">?</span>
+              </h3>
+
+              {(currentCategory.sessionPackages || []).map((pkg, i) => (
+                <div key={i} className="grid grid-cols-3 gap-2 mt-2">
+                  <input
+                    type="number"
+                    placeholder="Sessions"
+                    className="border p-2"
+                    value={pkg.sessions}
+                    onChange={e =>
+                      updateArrayItem(
+                        "sessionPackages",
+                        i,
+                        "sessions",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                  <div className="relative">
+                    <span className="absolute left-2 top-2 text-xs text-gray-500">
+                      KES
+                    </span>
+                    <input
+                      type="number"
+                      className="border pl-10 p-2 w-full"
+                      value={pkg.price}
+                      onChange={e =>
+                        updateArrayItem(
+                          "sessionPackages",
+                          i,
+                          "price",
+                          normalizeNumber(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="bg-red-100 rounded"
+                    onClick={() =>
+                      removeArrayItem("sessionPackages", i)
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
               <button
                 type="button"
-                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
-                onClick={() => {
-                  const newPkgs = [
-                    ...(currentCategory.sessionPackages ||
-                      []),
-                  ];
-                  newPkgs.splice(i, 1);
-                  updateCategoryField(
-                    "sessionPackages",
-                    newPkgs
-                  );
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            className="bg-gray-200 px-3 py-1 rounded"
-            onClick={() =>
-              updateCategoryField(
-                "sessionPackages",
-                [
-                  ...(currentCategory.sessionPackages ||
-                    []),
-                  {
+                className="mt-2 bg-gray-200 px-3 py-1 rounded"
+                onClick={() =>
+                  addArrayItem("sessionPackages", {
                     sessions: 1,
                     price: 0,
-                  },
-                ]
-              )
-            }
-          >
-            Add Session Package
-          </button>
-        </div>
-
-        {/* AREA PRICING */}
-        <div className="border p-3 rounded space-y-2 mt-2">
-          <h3 className="font-semibold">
-            Area Pricing
-          </h3>
-          {(currentCategory.areaPricing ||
-            []).map((area, i) => (
-            <div
-              key={i}
-              className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center"
-            >
-              <input
-                placeholder="Area"
-                className="border p-2 flex-1 w-full"
-                value={area.area}
-                onChange={(e) => {
-                  const newAreas = [
-                    ...(currentCategory.areaPricing ||
-                      []),
-                  ];
-                  newAreas[i].area =
-                    e.target.value;
-                  updateCategoryField(
-                    "areaPricing",
-                    newAreas
-                  );
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Min"
-                className="border p-2 w-full sm:w-24"
-                value={area.min || ""}
-                onChange={(e) => {
-                  const newAreas = [
-                    ...(currentCategory.areaPricing ||
-                      []),
-                  ];
-                  newAreas[i].min =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "areaPricing",
-                    newAreas
-                  );
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                className="border p-2 w-full sm:w-24"
-                value={area.max || ""}
-                onChange={(e) => {
-                  const newAreas = [
-                    ...(currentCategory.areaPricing ||
-                      []),
-                  ];
-                  newAreas[i].max =
-                    Number(
-                      e.target.value
-                    );
-                  updateCategoryField(
-                    "areaPricing",
-                    newAreas
-                  );
-                }}
-              />
-              <button
-                type="button"
-                className="bg-red-200 px-2 py-1 rounded w-full sm:w-auto"
-                onClick={() => {
-                  const newAreas = [
-                    ...(currentCategory.areaPricing ||
-                      []),
-                  ];
-                  newAreas.splice(i, 1);
-                  updateCategoryField(
-                    "areaPricing",
-                    newAreas
-                  );
-                }}
+                  })
+                }
               >
-                Remove
+                Add Package
               </button>
             </div>
-          ))}
-          <button
-            type="button"
-            className="bg-gray-200 px-3 py-1 rounded"
-            onClick={() =>
-              updateCategoryField(
-                "areaPricing",
-                [
-                  ...(currentCategory.areaPricing ||
-                    []),
-                  {
+
+            {/* AREA PRICING */}
+            <div>
+              <h3 className="font-semibold flex gap-2">
+                Area Pricing
+                <span title="Charge different rates for different locations">?</span>
+              </h3>
+
+              {(currentCategory.areaPricing || []).map((area, i) => (
+                <div key={i} className="grid grid-cols-4 gap-2 mt-2">
+                  <input
+                    placeholder="Area"
+                    className="border p-2"
+                    value={area.area}
+                    onChange={e =>
+                      updateArrayItem("areaPricing", i, "area", e.target.value)
+                    }
+                  />
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    className="border p-2"
+                    value={area.min || ""}
+                    onChange={e =>
+                      updateArrayItem(
+                        "areaPricing",
+                        i,
+                        "min",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    className="border p-2"
+                    value={area.max || ""}
+                    onChange={e =>
+                      updateArrayItem(
+                        "areaPricing",
+                        i,
+                        "max",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="bg-red-100 rounded"
+                    onClick={() => removeArrayItem("areaPricing", i)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="mt-2 bg-gray-200 px-3 py-1 rounded"
+                onClick={() =>
+                  addArrayItem("areaPricing", {
                     area: "",
                     min: 0,
                     max: 0,
-                  },
-                ]
-              )
-            }
-          >
-            Add Area Pricing
-          </button>
-        </div>
+                  })
+                }
+              >
+                Add Area
+              </button>
+            </div>
 
-        {/* DEPOSIT */}
+            {/* ADD-ONS */}
+            <div>
+              <h3 className="font-semibold flex gap-2">
+                Add-Ons
+                <span title="Optional extras customers can select">?</span>
+              </h3>
+
+              {(currentCategory.addOns || []).map((addOn, i) => (
+                <div key={i} className="grid grid-cols-3 gap-2 mt-2">
+                  <input
+                    placeholder="Title"
+                    className="border p-2"
+                    value={addOn.title}
+                    onChange={e =>
+                      updateArrayItem("addOns", i, "title", e.target.value)
+                    }
+                  />
+                  <div className="relative">
+                    <span className="absolute left-2 top-2 text-xs text-gray-500">
+                      KES
+                    </span>
+                    <input
+                      type="number"
+                      className="border pl-10 p-2 w-full"
+                      value={addOn.price}
+                      onChange={e =>
+                        updateArrayItem(
+                          "addOns",
+                          i,
+                          "price",
+                          normalizeNumber(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Duration (min)"
+                    className="border p-2"
+                    value={addOn.durationMinutes}
+                    onChange={e =>
+                      updateArrayItem(
+                        "addOns",
+                        i,
+                        "durationMinutes",
+                        normalizeNumber(e.target.value)
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="col-span-3 bg-red-100 p-1 rounded"
+                    onClick={() => removeArrayItem("addOns", i)}
+                  >
+                    Remove Add-On
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="mt-2 bg-gray-200 px-3 py-1 rounded"
+                onClick={() =>
+                  addArrayItem("addOns", {
+                    title: "",
+                    price: 0,
+                    durationMinutes: 0,
+                  })
+                }
+              >
+                Add Add-On
+              </button>
+            </div>
+
+           
+
+          </div>
+        )}
         <div className="border p-3 rounded space-y-2">
+              <label className="text-sm font-medium block">
+                Deposit
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={currentCategory.depositEnabled}
+                  onChange={e =>
+                    updateField(
+                      "depositEnabled",
+                      e.target.checked
+                    )
+                  }
+                />
+                Enable deposit to book this service
+              </label>
+
+              {currentCategory.depositEnabled && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <select
+                    className="border p-2 rounded"
+                    value={currentCategory.depositType}
+                    onChange={e =>
+                      updateField(
+                        "depositType",
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="fixed">Fixed</option>
+                    <option value="percent">Percent</option>
+                  </select>
+
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-sm text-gray-500">
+                      {currentCategory.depositType === "fixed"
+                        ? "KES"
+                        : "%"}
+                    </span>
+                    <input
+                      type="number"
+                      className="border pl-12 p-2 w-full rounded"
+                      value={currentCategory.depositValue || ""}
+                      onChange={e =>
+                        updateField(
+                          "depositValue",
+                          normalizeNumber(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                  
+                </div>
+
+                
+              )}
+            </div>
+  {/* MOBILE ELIGIBILITY */}
+        <div className="border p-3 rounded space-y-2">
+          <label className="text-sm font-medium block">
+            Mobile Option
+          </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={
-                currentCategory.depositEnabled ||
-                false
-              }
-              onChange={(e) =>
-                updateCategoryField(
-                  "depositEnabled",
-                  e.target.checked
-                )
+              checked={currentCategory.mobileEligible ?? false}
+              onChange={e =>
+                updateField("mobileEligible", e.target.checked)
               }
             />
-            Enable Deposit
+            Enable at customer location
           </label>
-
-          {currentCategory.depositEnabled && (
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                className="border p-2"
-                value={
-                  currentCategory.depositType ||
-                  "fixed"
-                }
-                onChange={(e) =>
-                  updateCategoryField(
-                    "depositType",
-                    e.target.value as
-                      | "fixed"
-                      | "percent"
-                  )
-                }
-              >
-                <option value="fixed">
-                  Fixed
-                </option>
-                <option value="percent">
-                  Percent
-                </option>
-              </select>
-
-              <input
-                type="number"
-                placeholder="Deposit Value"
-                className="border p-2"
-                value={
-                  currentCategory.depositValue ||
-                  ""
-                }
-                onChange={(e) =>
-                  updateCategoryField(
-                    "depositValue",
-                    Number(e.target.value)
-                  )
-                }
-              />
-            </div>
-          )}
         </div>
-
-        {/* MOBILE ELIGIBILITY */}
-        <label className="flex items-center gap-2 mt-2">
-         <input
-  type="checkbox"
-  checked={currentCategory.mobileEligibility || false}
-  onChange={(e) =>
-    updateCategoryField("mobileEligibility", e.target.checked)
-  }
-/>
-
-          Mobile Eligibility
-        </label>
 
         {/* GALLERY */}
         <ImageUpload
-          value={
-            currentCategory.gallery ||
-            []
-          }
+          value={currentCategory.gallery || []}
           onChange={(files: string[]) =>
-            updateCategoryField(
-              "gallery",
-              files
-            )
+            updateField("gallery", files)
           }
         />
 
-        {error && (
-          <p className="text-red-500 text-sm">
-            {error}
-          </p>
-        )}
-
-        {/* SAVE & CANCEL */}
+        {/* SAVE */}
         <div className="flex gap-2">
+          {!!initialData?._id && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={async () => {
+                if (!initialData?._id) return;
+                setLoading(true);
+                try {
+                  const res = await fetch(
+                    `/api/services/${initialData._id}`,
+                    { method: "DELETE" }
+                  );
+                  const data = await res.json();
+                  if (!res.ok || !data?.success) {
+                    throw new Error(data?.error || "Delete failed");
+                  }
+                  showPopup("Service deleted successfully", {
+                    closeForm: true,
+                    deletedId: initialData._id,
+                    variant: "success",
+                  });
+                } catch (err) {
+                  showPopup(
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to delete service",
+                    { variant: "error" }
+                  );
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="bg-red-600 text-white px-4 py-2 rounded"
+            >
+              Delete
+            </button>
+          )}
           <button
             type="submit"
             disabled={loading}
             className="bg-[var(--brand-primary)] text-white px-4 py-2 rounded flex-1"
           >
-            {loading
-              ? "Saving..."
-              : "Save Service"}
+            {loading ? "Saving..." : "Save Service"}
           </button>
-
           <button
             type="button"
             onClick={onClose}
@@ -1218,6 +996,23 @@ delete body.depositValue;
           </button>
         </div>
       </form>
+      <ThemedPopup
+        message={popup?.message || null}
+        variant={popup?.variant || "success"}
+        onClose={async () => {
+          const shouldCloseForm = popup?.closeForm;
+          const deletedId = popup?.deletedId;
+          setPopup(null);
+          if (deletedId && onDelete) {
+            await onDelete(deletedId);
+          }
+          if (shouldCloseForm) {
+            onClose();
+          }
+        }}
+      />
     </div>
   );
 }
+
+

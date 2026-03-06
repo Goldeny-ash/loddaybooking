@@ -2,14 +2,28 @@
 
 import { useState, useMemo } from "react";
 import ServiceCard from "./ServiceCard";
-import type { Service, AddOn } from "@/components/public/PublicBookingPageClient";
+import type { Service, AddOn, Theme } from "@/components/public/PublicBookingPageClient";
+
+interface AddToSummaryPayload {
+  service: Service;
+  selectedRefs: string[];
+  isMobile: boolean;
+  selectedAddOns?: AddOn[];
+  selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
+  selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
+  selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
+  promotions?: { _id: string; title: string; type: "percent" | "fixed" | string; value: number }[];
+  price?: number;
+  durationMinutes?: number;
+  depositAmount?: number;
+}
 
 interface ServicesGridProps {
   services: Service[];
   username: string;
   requiresDeposit: boolean;
-  theme: any;
-  onAddToSummary: (service: Service, selectedRefs: string[], isMobile: boolean, addOns?: AddOn[]) => void;
+  theme: Theme;
+  onAddToSummary: (data: AddToSummaryPayload) => void;
 }
 
 export default function ServicesGrid({

@@ -5,6 +5,8 @@ import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
 import SetupClient from "@/components/setup/SetupClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function SetupPage() {
   const { userId } = await auth();
 

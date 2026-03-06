@@ -90,6 +90,7 @@ export default function DashboardBusinessSettings({
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>("General");
   const [business, setBusiness] = useState({ ...initialBusiness });
   const [mapZoom, setMapZoom] = useState(17);
+  const [depositSaving, setDepositSaving] = useState(false);
 
  // Track unsaved changes
   const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -109,6 +110,39 @@ export default function DashboardBusinessSettings({
       setUnsavedChanges(true);
       return { ...prev, [field]: value };
     });
+  };
+
+  const handleDepositToggle = async (enabled: boolean) => {
+    try {
+      setDepositSaving(true);
+      const res = await fetch(`/api/business/${business._id}/deposit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to update deposit settings");
+      }
+
+     setBusiness((prev) => ({
+  ...prev,
+  depositPolicy: {
+    ...(prev.depositPolicy || {}),
+    enabled,
+  },
+}));
+    } catch (err) {
+      console.error(err);
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Unable to update deposit settings"
+      );
+    } finally {
+      setDepositSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -257,12 +291,8 @@ const TabSaveButton = () => (
       <input
         type="checkbox"
         checked={business.depositPolicy?.enabled || false}
-        onChange={(e) =>
-          handleChange("depositPolicy", {
-            ...business.depositPolicy,
-            enabled: e.target.checked,
-          })
-        }
+        onChange={(e) => handleDepositToggle(e.target.checked)}
+        disabled={depositSaving}
       />
       Enable Deposits
     </label>

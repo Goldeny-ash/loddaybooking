@@ -8,6 +8,9 @@ const BookingSchema = new Schema(
     services: [
       {
         serviceId: { type: Schema.Types.ObjectId, ref: "Service", required: true },
+        serviceName: { type: String },
+        serviceDescription: { type: String },
+        serviceImage: { type: String },
         durationMinutes: { type: Number, required: true },
         price: { type: Number, required: true },
         selectedReferenceImages: [
@@ -75,13 +78,28 @@ const BookingSchema = new Schema(
   },
 ],
 promoCode: String,
+status: {
+  type: String,
+  enum: [
+    "pending",
+    "pendingDeposit",
+    "confirmed",
+    "completed",
+    "cancelled",
+    "rescheduled",
+    "refunded",
+    "rejected",
+    "no_show" // 🔥 ADD THIS
+  ],
+  default: "pending",
+  index: true,
+},
 
-    status: {
-      type: String,
-      enum: ["pending", "pendingDeposit", "confirmed", "cancelled", "rescheduled", "refunded", "rejected"],
-      default: "pending",
-      index: true,
-    },
+completedAt: Date,
+
+completionReminderSent: { type: Boolean, default: false },
+thankYouSent: { type: Boolean, default: false },
+noShowMarked: { type: Boolean, default: false },
     rejectionReason: String,
 
     depositAmount: { type: Number, default: 0 },
@@ -93,15 +111,29 @@ promoCode: String,
     bookingKey: { type: String, required: true },
     rescheduleCount: { type: Number, default: 0 },
 
-    completedBy: { type: Schema.Types.ObjectId, ref: "Staff" },
-    completedAt: Date,
+    assignedTo: { type: Schema.Types.ObjectId, ref: "Staff", index: true },
+assignedAt: Date,
+
+staffInternalNote: {
+  type: String,
+},
     source: { type: String, default: "public_link" },
+  reminder24hSent: { type: Boolean, default: false },
+reminder1hSent: { type: Boolean, default: false },
+reminder30mSent: { type: Boolean, default: false },
+reminder10mSent: { type: Boolean, default: false },
+slotReleasedAt: Date, 
+checkedIn: { type: Boolean, default: false },
+ 
   },
+  
   { timestamps: true }
 );
 
 // Indexes
 BookingSchema.index({ businessId: 1, date: 1, status: 1 });
 BookingSchema.index({ bookingKey: 1 }, { unique: true });
+BookingSchema.index({ status: 1, date: 1 });
+BookingSchema.index({ status: 1, reminder24hSent: 1 });
 
 export default models.Booking || model("Booking", BookingSchema);

@@ -1,4 +1,5 @@
 // app/b/[username]/select/page.tsx
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
@@ -7,6 +8,36 @@ import BookingClient from "@/components/public/BookingClient";
 
 interface PageProps {
   params: Promise<{ username: string }>;
+}
+
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const { username } = await props.params;
+
+  if (!username) {
+    return {
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  await connectDB();
+  const business = await Business.findOne({ username }).select("name").lean();
+
+  const businessName = business?.name || username;
+
+  return {
+    title: `Complete booking with ${businessName}`,
+    description: `Choose services and complete your appointment request with ${businessName}.`,
+    alternates: {
+      canonical: `/b/${encodeURIComponent(username)}`,
+    },
+    robots: {
+      index: false,
+      follow: true,
+    },
+  };
 }
 
 export default async function BookingPage(props: PageProps) {
@@ -39,7 +70,7 @@ export default async function BookingPage(props: PageProps) {
         }}
       />
 
-      <div className="max-w-xl mx-auto p-6">
+      <div className="min-h-screen w-full">
         <BookingClient username={username} business={business} />
       </div>
     </>

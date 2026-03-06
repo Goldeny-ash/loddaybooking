@@ -9,7 +9,7 @@ interface Props {
   description?: string;
   autoApprove?: boolean;
   locationLink?: string | null;
-  locationLabel?: string;
+  locationLabel?: string | null;
   openingHours?: Record<string, { open: string; close: string; closed?: boolean }>;
   depositRequired?: boolean;
   responseTime?: string;
@@ -41,12 +41,28 @@ export default function PublicBusinessHeader({
 
   const hoursToday = useMemo(() => {
     if (!openingHours) return null;
-    const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
-    const today = new Date().getDay();
-    const hours = openingHours[days[today]];
+
+    const days = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+    const todayKey = days[new Date().getDay()];
+    const matchedKey = Object.keys(openingHours).find(
+      (key) => key.toLowerCase() === todayKey
+    );
+    const hours = matchedKey ? openingHours[matchedKey] : openingHours[todayKey];
+
     if (!hours) return null;
     return hours.closed ? "Closed today" : `${hours.open} - ${hours.close}`;
   }, [openingHours]);
+
+  const locationText = locationLabel?.trim() || "Not provided";
+  const depositText = depositRequired ? "Required" : "Not required";
 
   return (
     <div
@@ -55,10 +71,8 @@ export default function PublicBusinessHeader({
         background: `linear-gradient(135deg, ${theme?.primary} 0%, ${theme?.accent} 100%)`,
       }}
     >
-      {/* Glass panel overlay */}
-      <div className="absolute inset-0 bg-white/20 backdrop-blur-md pointer-events-none rounded-xl"></div>
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-md pointer-events-none rounded-xl" />
 
-      {/* Content */}
       <div className="relative flex flex-col items-center gap-4 max-w-3xl">
         {logoUrl ? (
           <Image
@@ -81,17 +95,28 @@ export default function PublicBusinessHeader({
         {description && <p className="text-white/90 text-base">{description}</p>}
 
         <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-white/90 mt-2">
-          {locationLink && (
-            <a href={locationLink} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
-              📍 {locationLabel || "View location"}
+          {locationLink ? (
+            <a
+              href={locationLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:opacity-80"
+            >
+              Location: {locationText}
             </a>
+          ) : (
+            <span>Location: {locationText}</span>
           )}
-          {hoursToday && <span>⏰ <span className="font-medium">{hoursToday}</span></span>}
+
+          <span>
+            Hours today: <span className="font-medium">{hoursToday || "Not set"}</span>
+          </span>
+
           {autoApprove !== undefined && (
-            <span>{autoApprove ? "⚡ Instant confirmation" : "⏳ Approval required"}</span>
+            <span>{autoApprove ? "Instant confirmation" : "Approval required"}</span>
           )}
-          {depositRequired && <span>💰 Deposit required</span>}
-          {responseTime && <span>⏱ Response: {responseTime}</span>}
+          <span>Deposit: {depositText}</span>
+          {responseTime && <span>Response: {responseTime}</span>}
         </div>
 
         <a

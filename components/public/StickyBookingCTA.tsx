@@ -1,24 +1,59 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
+import { AnimatePresence, motion } from "framer-motion";
+
+/* ============================================================
+   TYPES
+============================================================ */
+
+interface SelectedAddOn {
+  title: string;
+  price: number;
+  durationMinutes?: number;
+}
+
+interface SelectedSession {
+  sessions: number;
+  price: number;
+  durationMinutes?: number;
+}
+
+interface SelectedArea {
+  area: string;
+  min?: number;
+  max?: number;
+  price?: number;
+}
+
+interface SelectedTier {
+  label: string;
+  price?: number;
+}
+
+interface Promotion {
+  _id: string;
+  title: string;
+  type: "percent" | "fixed";
+  value: number;
+}
 
 interface SelectedService {
   _id: string;
   name: string;
-  basePrice?: number;
-  price?: number;
-  durationMinutes: number;
+  price?: number; // final computed price from modal
+  durationMinutes?: number; // final computed duration from modal
   isMobile?: boolean;
   selectedRefs?: string[];
-  selectedAddOns?: { title: string; price: number; durationMinutes: number }[];
-  selectedSessions?: { sessions: number; price: number; durationMinutes: number }[];
-  selectedAreas?: { area: string; min: number; max?: number; price?: number }[];
-  selectedTier?: { label: string; price: number };
-  promotions?: { _id: string; title: string; type: "percent" | "fixed"; value: number }[];
+  selectedAddOns?: SelectedAddOn[];
+  selectedSessions?: SelectedSession[];
+  selectedAreas?: SelectedArea[];
+  selectedTier?: SelectedTier | null;
+  promotions?: Promotion[];
 }
 
 interface Props {
@@ -29,6 +64,10 @@ interface Props {
   username: string;
 }
 
+/* ============================================================
+   COMPONENT
+============================================================ */
+
 export default function StickyBookingCTA({
   selectedServices = [],
   status,
@@ -38,114 +77,253 @@ export default function StickyBookingCTA({
 }: Props) {
   const router = useRouter();
   const disabled = status === "EXPIRED" || status === "INACTIVE";
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  /* ============================================================
+     TOTALS (NO RECOMPUTATION LOGIC — TRUST MODAL PRICE)
+  ============================================================ */
 
   const totals = useMemo(() => {
     let totalPrice = 0;
     let totalMinutes = 0;
 
-    selectedServices.forEach(s => {
-      let price = s.basePrice || s.price || 0;
-      let duration = s.durationMinutes || 0;
-
-      if (s.selectedAddOns?.length) {
-        price += s.selectedAddOns.reduce((sum, a) => sum + (a.price || 0), 0);
-        duration += s.selectedAddOns.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
-      }
-
-      if (s.selectedSessions?.length) {
-        price += s.selectedSessions.reduce((sum, a) => sum + (a.price || 0), 0);
-        duration += s.selectedSessions.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
-      }
-
-      if (s.selectedAreas?.length) {
-        price += s.selectedAreas.reduce((sum, a) => sum + (a.price || a.min || 0), 0);
-        duration += s.selectedAreas.reduce((sum, a) => sum + (a.min || 0), 0);
-      }
-
-      if (s.selectedTier?.price) price += s.selectedTier.price;
-
-      if (s.promotions?.length) {
-        s.promotions.forEach(p => {
-          if (p.type === "percent") price *= 1 - (p.value || 0) / 100;
-          else if (p.type === "fixed") price -= p.value || 0;
-        });
-      }
-
-      totalPrice += Math.max(price, 0);
-      totalMinutes += duration;
+    selectedServices.forEach((service) => {
+      totalPrice += Math.max(service.price ?? 0, 0);
+      totalMinutes += service.durationMinutes ?? 0;
     });
 
-    return { totalPrice, totalMinutes };
+    return {
+      totalPrice,
+      totalMinutes,
+    };
   }, [selectedServices]);
+
+  /* ============================================================
+     CONTINUE HANDLER
+  ============================================================ */
 
   const handleContinue = () => {
     if (!selectedServices.length) return;
 
-    // Generate a unique key for sessionStorage
     const key = `booking_services_${uuidv4()}`;
     sessionStorage.setItem(key, JSON.stringify(selectedServices));
-
     router.push(`/b/${username}/select?key=${key}`);
   };
 
+  /* ============================================================
+     AUTO CLOSE MOBILE DRAWER IF EMPTY
+  ============================================================ */
+
+  useEffect(() => {
+    if (!selectedServices.length) {
+      setMobileOpen(false);
+    }
+  }, [selectedServices.length]);
+
+  /* ============================================================
+     MOBILE CTA BAR
+  ============================================================ */
+
   return (
     <>
-      {/* MOBILE CTA */}
-      <div className="fixed bottom-0 inset-x-0 md:hidden z-50 p-3 bg-white border-t">
-        <button
-          disabled={disabled || selectedServices.length === 0}
-          onClick={handleContinue}
-          className="w-full py-3 rounded-xl font-semibold text-white transition"
-          style={{ backgroundColor: theme?.primary }}
-        >
-          {selectedServices.length > 0
-            ? `Continue • ${totals.totalMinutes} mins • KES ${totals.totalPrice} • ${selectedServices.reduce((sum, s) => sum + (s.selectedRefs?.length || 0), 0)} refs`
-            : "Select a service to continue"}
-        </button>
-      </div>
+      {/* MOBILE BOTTOM BAR */}
+      <div className="fixed bottom-0 inset-x-0 md:hidden z-50 bg-white border-t shadow-lg">
+        <div className="flex items-center justify-between p-4">
+          <div className="text-sm font-semibold">
+            {selectedServices.length > 0 ? (
+              <>
+                {totals.totalMinutes} mins • KES{" "}
+                {totals.totalPrice.toLocaleString()}
+              </>
+            ) : (
+              "No services selected"
+            )}
+          </div>
 
-      {/* DESKTOP SUMMARY */}
-      <aside className="hidden md:block sticky top-24 w-80 h-fit border rounded-xl p-4 space-y-3 bg-white shadow left-4">
-        <h4 className="font-semibold text-lg" style={{ color: theme?.primary }}>
-          Summary
-        </h4>
-
-        {selectedServices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No services selected yet</p>
-        ) : (
-          <>
-            <ul className="space-y-2">
-              {selectedServices.map((s, idx) => (
-                <li key={`${s._id}-${idx}`} className="flex justify-between items-center text-sm border-b pb-1">
-                  <div>
-                    <p className="font-medium">{s.name} {s.isMobile ? "(Customer Location)" : "(At Location)"}</p>
-                    <p className="text-xs text-gray-500">
-                      {s.durationMinutes} mins • KES {s.price || 0} • {s.selectedRefs?.length || 0} refs •
-                      {s.selectedAddOns?.length || 0} add-ons • {s.selectedSessions?.length || 0} sessions • {s.selectedAreas?.length || 0} areas
-                    </p>
-                  </div>
-                  <button onClick={() => onRemoveService(s._id)} className="text-red-500 hover:text-red-700 transition" title="Remove service">
-                    <X size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-
-            <div className="text-sm font-medium mt-2">
-              Total: {totals.totalMinutes} mins • KES {totals.totalPrice}
-            </div>
+          <div className="flex items-center gap-3">
+            {selectedServices.length > 0 && (
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="text-xs underline font-medium"
+              >
+                View
+              </button>
+            )}
 
             <Button
               disabled={disabled || selectedServices.length === 0}
               onClick={handleContinue}
-              className="w-full py-2 mt-2 text-white font-medium transition"
+              className="text-white"
+              style={{ backgroundColor: theme?.primary }}
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================
+         MOBILE SLIDE DRAWER
+      ============================================================ */}
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black z-40 md:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+
+            {/* Drawer */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 260, damping: 25 }}
+              className="fixed bottom-0 inset-x-0 bg-white rounded-t-3xl z-50 md:hidden max-h-[85vh] overflow-y-auto p-6"
+            >
+              <div className="flex justify-between items-center mb-5">
+                <h4
+                  className="font-semibold text-lg"
+                  style={{ color: theme?.primary }}
+                >
+                  Booking Summary
+                </h4>
+                <button onClick={() => setMobileOpen(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {selectedServices.map((service, index) => (
+                  <div
+                    key={`${service._id}-${index}`}
+                    className="border-b pb-3"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {service.name}{" "}
+                          {service.isMobile
+                            ? "(Customer Location)"
+                            : "(At Location)"}
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-1">
+                          {service.durationMinutes ?? 0} mins • KES{" "}
+                          {(service.price ?? 0).toLocaleString()}
+                        </p>
+
+                        <p className="text-xs text-gray-400 mt-1">
+                          {service.selectedRefs?.length ?? 0} refs •{" "}
+                          {service.selectedAddOns?.length ?? 0} add-ons
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => onRemoveService(service._id)}
+                        className="text-red-500"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 font-semibold text-sm">
+                Total: {totals.totalMinutes} mins • KES{" "}
+                {totals.totalPrice.toLocaleString()}
+              </div>
+
+              <Button
+                disabled={disabled}
+                onClick={handleContinue}
+                className="w-full mt-5 text-white"
+                style={{ backgroundColor: theme?.primary }}
+              >
+                Continue to Booking
+              </Button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ============================================================
+         DESKTOP SUMMARY PANEL
+      ============================================================ */}
+
+      <AnimatePresence>
+        {selectedServices.length > 0 && (
+          <motion.aside
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="hidden md:block fixed right-6 top-28 w-80 bg-white border rounded-2xl p-5 shadow-2xl z-40"
+          >
+            <h4
+              className="font-semibold text-lg mb-4"
+              style={{ color: theme?.primary }}
+            >
+              Summary
+            </h4>
+
+            <div className="space-y-4 max-h-[50vh] overflow-y-auto">
+              {selectedServices.map((service, index) => (
+                <div
+                  key={`${service._id}-${index}`}
+                  className="flex justify-between items-start border-b pb-3"
+                >
+                  <div>
+                    <p className="font-medium text-sm">
+                      {service.name}{" "}
+                      {service.isMobile
+                        ? "(Customer Location)"
+                        : "(At Location)"}
+                    </p>
+
+                    <p className="text-xs text-gray-500 mt-1">
+                      {service.durationMinutes ?? 0} mins • KES{" "}
+                      {(service.price ?? 0).toLocaleString()}
+                    </p>
+
+                    <p className="text-xs text-gray-400 mt-1">
+                      {service.selectedRefs?.length ?? 0} refs •{" "}
+                      {service.selectedAddOns?.length ?? 0} add-ons
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => onRemoveService(service._id)}
+                    className="text-red-500"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 font-semibold text-sm">
+              Total: {totals.totalMinutes} mins • KES{" "}
+              {totals.totalPrice.toLocaleString()}
+            </div>
+
+            <Button
+              disabled={disabled}
+              onClick={handleContinue}
+              className="w-full mt-5 text-white"
               style={{ backgroundColor: theme?.primary }}
             >
               Continue to Booking
             </Button>
-          </>
+          </motion.aside>
         )}
-      </aside>
+      </AnimatePresence>
     </>
   );
 }

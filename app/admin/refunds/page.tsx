@@ -1,4 +1,3 @@
-// app/admin/refunds/page.tsx
 import { connectDB } from "@/lib/mongoDB";
 import Refund from "@/lib/models/Refund";
 import { currentUser } from "@clerk/nextjs/server";
@@ -12,12 +11,11 @@ export default async function AdminRefundsPage() {
 
   await connectDB();
 
-  // Fetch all refunds with booking populated
   const refunds = await Refund.find()
     .populate("bookingId")
+    .populate("depositId")
     .sort({ createdAt: -1 })
     .lean();
 
-  // Pass to client component for interaction
-  return <RefundsList refunds={refunds} />;
+  return <RefundsList refunds={JSON.parse(JSON.stringify(refunds))} />;
 }

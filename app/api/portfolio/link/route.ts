@@ -7,9 +7,9 @@ export async function POST(req: Request) {
 
   const { refImageId, serviceIds } = await req.json();
 
-  if (!refImageId || !serviceIds?.length) {
+  if (!refImageId || !Array.isArray(serviceIds)) {
     return new Response(
-      JSON.stringify({ error: "Missing refImageId or serviceIds" }),
+      JSON.stringify({ error: "Missing refImageId or invalid serviceIds" }),
       { status: 400 }
     );
   }
@@ -22,16 +22,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // Merge existing linked services with new ones, remove duplicates
- // Assuming linkedServiceIds is Array<mongoose.Types.ObjectId | string>
-refImage.linkedServiceIds = Array.from(
-  new Set([
-    ...refImage.linkedServiceIds.map((id: string | mongoose.Types.ObjectId) =>
-      id.toString()
-    ),
-    ...serviceIds, // assuming serviceIds is string[]
-  ])
-);
+  // Persist exact service set for this reference image.
+  refImage.linkedServiceIds = Array.from(
+    new Set(
+      serviceIds
+        .map((id: string | mongoose.Types.ObjectId) => id.toString())
+        .filter(Boolean)
+    )
+  );
 
 await refImage.save();
 

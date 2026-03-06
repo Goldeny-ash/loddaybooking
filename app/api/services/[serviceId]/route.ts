@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/mongoDB";
 import { NextResponse } from "next/server";
 import Service from "@/lib/models/Service";
+import Business from "@/lib/models/Business";
 import Promotion from "@/lib/models/Promotion";
 import {
   validateServicePayload,
@@ -50,16 +51,22 @@ export async function PATCH(
   }
 
   try {
-    await validateServicePayload(updates);
+    const validated = await validateServicePayload(updates);
 
     const updated = await Service.findOneAndUpdate(
       { _id: serviceId, businessId: business._id },
-      updates,
+      validated,
       { new: true }
     ).populate("promotions");
 
     if (!updated)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if (updated.depositOverride?.enabled) {
+      await Business.findByIdAndUpdate(business._id, {
+        "depositPolicy.enabled": true,
+      });
+    }
 
     return NextResponse.json({ success: true, service: updated });
   } catch (err: any) {

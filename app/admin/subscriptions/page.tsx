@@ -13,10 +13,10 @@ export default async function AdminSubscriptionsPage() {
   await connectDB();
 
   const businesses = await Business.find({
-    "access.subscriptionId": { $exists: true, $ne: null },
+    "access.status": { $in: ["ACTIVE", "TRIAL", "GRACE", "EXPIRED", "INACTIVE"] },
   })
     .select(
-      "name access.status access.planId access.subscriptionId access.subscriptionExpiresAt access.nextChargeAt"
+      "name access.status access.subscriptionExpiresAt access.nextChargeAt access.lastChargeAt"
     )
     .lean();
 

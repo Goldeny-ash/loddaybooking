@@ -226,6 +226,10 @@ export default function ServiceCard({
           open={editOpen}
           onClose={() => setEditOpen(false)}
           onAdd={handleEditSave}
+          onDelete={async (serviceId) => {
+            await onRemove(serviceId);
+            setEditOpen(false);
+          }}
           initialData={service}
         />
       )}

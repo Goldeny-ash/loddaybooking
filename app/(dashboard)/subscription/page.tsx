@@ -4,7 +4,6 @@ import { connectDB } from "@/lib/mongoDB";
 import { currentUser } from "@clerk/nextjs/server";
 import Business from "@/lib/models/Business";
 import Subscription from "@/lib/models/Subscription";
-import { SubscriptionTransaction } from "@/lib/models/SubscriptionTransaction";
 import SubscriptionManagerClient from "@/components/dashboard/SubscriptionManagerClient";
 
 export default async function SubscriptionPage() {
@@ -23,18 +22,10 @@ export default async function SubscriptionPage() {
     businessId: business._id,
   }).lean();
 
-  const transactions = await SubscriptionTransaction.find({
-    businessId: business._id,
-  })
-    .sort({ chargedAt: -1 })
-    .limit(3)
-    .lean();
-
   return (
     <SubscriptionManagerClient
       business={business}
       subscription={subscription}
-      transactions={transactions}
     />
   );
 }

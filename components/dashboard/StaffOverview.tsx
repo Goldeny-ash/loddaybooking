@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import StaffAvailability from "./StaffAvailability";
 import ImageUpload from "@/components/ImageUpload";
-import { toast } from "react-hot-toast";
+import ThemedPopup from "@/components/ThemedPopup";
+import Image from "next/image";
 
 interface Staff {
   _id: string;
@@ -44,10 +45,6 @@ export default function StaffOverview({
     Record<string, Record<string, { start: string; end: string; closed: boolean }>>
   >({});
   
-  const [staffServices, setStaffServices] = useState<Record<string, string[]>>(
-    {}
-  );
-
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [formState, setFormState] = useState<Partial<Staff>>({});
 
@@ -63,7 +60,13 @@ export default function StaffOverview({
   weeklyAvailability: {},
 });
 
+const [popup, setPopup] = useState<string | null>(null);
 
+const showPopup = (message: string) => {
+  setPopup(message);
+};
+
+  const selectedNewStaffServices = newStaff.services || [];
 
   /* ---------------- INIT ---------------- */
 
@@ -71,28 +74,30 @@ export default function StaffOverview({
     setStaff(initialStaff);
 
     const availMap: typeof availability = {};
-    const serviceMap: typeof staffServices = {};
 
     initialStaff.forEach(s => {
       availMap[s._id] = s.weeklyAvailability || {};
-      serviceMap[s._id] = s.services || [];
     });
 
     setAvailability(availMap);
-    setStaffServices(serviceMap);
   }, [initialStaff]);
 
   /* ---------------- OPEN EDIT ---------------- */
 
- const openEdit = (id: string) => {
+const openEdit = (id: string) => {
   const s = staff.find(x => x._id === id);
   if (!s) return;
 
   setFormState({
     ...s,
-    services: s.services || [], // use staff.services directly
-    weeklyAvailability: s.weeklyAvailability || {},
+    services: s.services || [],
   });
+
+  // 🔥 IMPORTANT: sync availability state
+  setAvailability(prev => ({
+    ...prev,
+    [id]: s.weeklyAvailability || {},
+  }));
 
   setOpenCard(id);
 };
@@ -107,6 +112,13 @@ export default function StaffOverview({
 
   const saveEdit = async () => {
     if (!formState._id) return;
+    if (!isKenyanPhone(formState.phone)) {
+  return showPopup("Enter valid Kenyan phone number (07XXXXXXXX or +2547XXXXXXXX)");
+}
+
+if (!isValidEmail(formState.email)) {
+  return showPopup("Enter valid email address");
+}
     const previousServices =
       staff.find((s) => s._id === formState._id)?.services || [];
     const nextServices = formState.services || [];
@@ -138,13 +150,14 @@ export default function StaffOverview({
         prev.map(s => (s._id === data.staff._id ? data.staff : s))
       );
 
-      if (addedServices.length) {
-        toast.success("Service connected to staff");
-      }
-      toast.success("Staff updated");
+     if (addedServices.length) {
+  showPopup("Service connected to staff");
+} else {
+  showPopup("Staff updated successfully");
+}
       closeEdit();
     } catch {
-      toast.error("Update failed");
+      showPopup("Update failed");
     }
   };
 const deleteStaff = async () => {
@@ -163,17 +176,27 @@ const deleteStaff = async () => {
 
     setStaff(prev => prev.filter(s => s._id !== formState._id));
 
-    toast.success("Staff deleted");
+   showPopup("Staff deleted successfully");
     closeEdit();
   } catch {
-    toast.error("Delete failed");
+    showPopup("Failed to delete staff");
   }
 };
 
   /* ---------------- ADD STAFF ---------------- */
 
   const createStaff = async () => {
-    if (!newStaff.name) return toast.error("Name required");
+    if (!newStaff.name) {
+  return showPopup("Staff name is required");
+}
+
+if (!isKenyanPhone(newStaff.phone)) {
+  return showPopup("Enter valid Kenyan phone number (07XXXXXXXX or +2547XXXXXXXX)");
+}
+
+if (!isValidEmail(newStaff.email)) {
+  return showPopup("Enter valid email address");
+}
 
     try {
       const weeklyAvailability = availability[NEW_STAFF_ID] || {};
@@ -189,16 +212,24 @@ const deleteStaff = async () => {
 
       setStaff(prev => [...prev, data.staff]);
       setOpenAdd(false);
-      setNewStaff({ name: "", email: "", phone: "", photo: "" ,role: ""});
+      setNewStaff({
+        name: "",
+        email: "",
+        phone: "",
+        role: "",
+        photo: "",
+        services: [],
+        weeklyAvailability: {},
+      });
       setAvailability((prev) => {
         const updated = { ...prev };
         delete updated[NEW_STAFF_ID];
         return updated;
       });
 
-      toast.success("Staff added");
+    showPopup("New staff added successfully");
     } catch {
-      toast.error("Create failed");
+      showPopup("Failed to create staff");
     }
   };
 
@@ -216,6 +247,26 @@ const deleteStaff = async () => {
     });
   };
 
+  const toggleNewStaffService = (serviceId: string) => {
+    setNewStaff((prev) => {
+      const current = prev.services || [];
+      return {
+        ...prev,
+        services: current.includes(serviceId)
+          ? current.filter((id) => id !== serviceId)
+          : [...current, serviceId],
+      };
+    });
+  };
+const isKenyanPhone = (phone?: string) => {
+  if (!phone) return true; // allow empty
+  return /^(\+2547\d{8}|07\d{8})$/.test(phone);
+};
+
+const isValidEmail = (email?: string) => {
+  if (!email) return true; // allow empty
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
   /* ================= RENDER ================= */
 
   return (
@@ -246,8 +297,11 @@ const deleteStaff = async () => {
         >
           <div className="flex gap-3 items-center">
            {s.photo && (
-  <img
+  <Image
     src={s.photo}
+    alt={`${s.name} profile`}
+    width={48}
+    height={48}
     className="w-12 h-12 rounded-full object-cover"
   />
 )}
@@ -317,11 +371,40 @@ const deleteStaff = async () => {
   maxFiles={1}
 />
 
-            <StaffAvailability
+             <StaffAvailability
               staffId={NEW_STAFF_ID}
               availability={availability}
               setAvailability={setAvailability}
             />
+
+            <div>
+              <p className="font-semibold text-sm mb-1">Assign Services</p>
+              <p className="text-xs text-gray-600 mb-2">
+                Pick the services this staff member can perform ({selectedNewStaffServices.length} selected).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {services.map((service) => {
+                  const assigned = selectedNewStaffServices.includes(service._id);
+                  return (
+                    <button
+                      key={service._id}
+                      type="button"
+                      onClick={() => toggleNewStaffService(service._id)}
+                      className={`px-3 py-2 rounded text-left text-sm border ${
+                        assigned
+                          ? "bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]"
+                          : "bg-white text-gray-800 border-gray-300"
+                      }`}
+                    >
+                      <span className="block font-medium">{service.name}</span>
+                      <span className="block text-xs opacity-80">
+                        KES {service.basePrice ?? 0} • {service.durationMinutes ?? 0} min
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
 
             <div className="flex gap-2 pt-2">
@@ -386,7 +469,10 @@ const deleteStaff = async () => {
 
 
             <div>
-              <p className="font-semibold text-sm mb-1">Services</p>
+              <p className="font-semibold text-sm mb-1">Assign Services</p>
+              <p className="text-xs text-gray-600 mb-2">
+                Select all services this staff member can perform ({formState.services?.length || 0} selected).
+              </p>
               <div className="flex flex-wrap gap-2">
                 {services.map(service => {
                   const assigned =
@@ -452,6 +538,10 @@ const deleteStaff = async () => {
           </div>
         </div>
       )}
+      <ThemedPopup
+  message={popup}
+  onClose={() => setPopup(null)}
+/>
     </div>
   );
 }

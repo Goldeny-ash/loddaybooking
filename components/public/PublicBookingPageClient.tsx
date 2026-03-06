@@ -1,13 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import PublicBusinessHeader from "@/components/public/PublicBusinessHeader";
 import ServicesGrid from "@/components/public/ServicesGrid";
 import StickyBookingCTA from "@/components/public/StickyBookingCTA";
+import PortfolioShowcase from "@/components/public/PortfolioShowcase";
 
 export interface ReferenceImage {
   _id: string;
-  url: string;
+  images?: Array<{
+    url?: string;
+    description?: string;
+    dateDone?: string;
+    totalCost?: number;
+    likes?: number;
+  }>;
+  linkedServiceIds?: string[];
 }
 
 export interface AddOn {
@@ -31,25 +39,81 @@ export interface BundleItem {
 export interface Service {
   _id: string;
   name: string;
-  price?: number;
-  priceRange?: { min: number; max: number };
+  username?: string;
+  category?: string;
   currency?: string;
+  isBundle?: boolean;
+
+  basePrice?: number;
+
+  priceRange?: {
+    min?: number;
+    max?: number;
+  };
+
+  priceTiers?: {
+    label: string;
+    price?: number;
+  }[];
+
+  sessionPackages?: {
+    sessions: number;
+    price: number;
+  }[];
+
+  areaPricing?: {
+    area: string;
+    price?: number;
+  }[];
+
   durationMinutes: number;
+
   gallery?: string[];
   mobileEligible?: boolean;
-  isBundle?: boolean;
-  bundleItems?: BundleItem[];
-  category?: string;
   featured?: boolean;
+
   promotions?: Promotion[];
   addOns?: AddOn[];
+  businessDepositPolicy?: {
+    enabled?: boolean;
+    type?: "fixed" | "percent";
+    value?: number;
+    applyToCallout?: boolean;
+  };
 }
 
 export interface SelectedService extends Service {
   selectedReferenceImages: string[];
+  selectedRefs?: string[];
   isMobile: boolean;
-  addOns?: AddOn[];
+  selectedAddOns?: AddOn[];
+  selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
+  selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
+  selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
+  price?: number;
+  depositAmount?: number;
   promotions?: { _id: string; title: string; type: "percent" | "fixed"; value: number }[];
+   businessDepositPolicy?: {
+    enabled?: boolean;
+    type?: "fixed" | "percent";
+    value?: number;
+    applyToCallout?: boolean;
+  };
+}
+
+
+interface AddToSummaryPayload {
+  service: Service;
+  selectedRefs: string[];
+  isMobile: boolean;
+  selectedAddOns?: AddOn[];
+  selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
+  selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
+  selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
+  promotions?: { _id: string; title: string; type: "percent" | "fixed" | string; value: number }[];
+  price?: number;
+  durationMinutes?: number;
+  depositAmount?: number;
 }
 
 export interface Business {
@@ -58,9 +122,24 @@ export interface Business {
   name: string;
   logo?: string;
   description?: string;
+
   bookingRules?: { autoApprove?: boolean };
-  workingHours?: any;
-  depositPolicy?: { enabled?: boolean };
+
+  openingHours?: Record<
+    string,
+    { open: string; close: string; closed?: boolean }
+  >;
+
+  locationLabel?: string | null;
+  locationLink?: string | null;
+
+  depositRequired?: boolean;
+  depositPolicy?: {
+    enabled?: boolean;
+    type?: "fixed" | "percent";
+    value?: number;
+    applyToCallout?: boolean;
+  };
 }
 
 export interface Theme {
@@ -78,24 +157,81 @@ interface Props {
   services: Service[];
   referenceImages: ReferenceImage[];
   theme: Theme;
+  seo: {
+    summarySentence: string;
+    searchIntentPhrases: string[];
+  };
+}
+
+function hexToRgb(hex: string) {
+  const clean = (hex || "").replace("#", "");
+  const normalized =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean;
+  const bigint = parseInt(normalized || "000000", 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
+  };
+}
+
+function luminance(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const a = [r, g, b].map((v) => {
+    const val = v / 255;
+    return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+}
+
+function getReadableText(bg: string) {
+  return luminance(bg) > 0.55 ? "#000000" : "#ffffff";
+}
+
+function isLight(hex: string) {
+  return luminance(hex) > 0.6;
+}
+
+function cardFor(bg: string) {
+  return isLight(bg) ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.34)";
+}
+
+function borderFor(bg: string) {
+  return isLight(bg) ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.18)";
+}
+
+function shadowFor(bg: string) {
+  return isLight(bg)
+    ? "0 20px 50px rgba(0,0,0,0.10)"
+    : "0 20px 60px rgba(0,0,0,0.80), 0 0 0 1px rgba(255,255,255,0.05)";
 }
 
 export default function PublicBookingPageClient({
   business,
   status,
   services,
+  referenceImages,
   theme,
+  seo,
 }: Props) {
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
+  const base = theme?.primaryLight || "#ffffff";
+  const pageBg = useMemo(
+    () => `linear-gradient(135deg, ${theme.primaryLight} 0%, ${theme.accentLight} 100%)`,
+    [theme.accentLight, theme.primaryLight]
+  );
+  const cardBg = cardFor(base);
+  const cardBorder = borderFor(base);
+  const cardShadow = shadowFor(base);
+  const cardText = getReadableText(base);
 
-  const handleAddToSummary = (
-    service: Service,
-    selectedRefs: string[],
-    isMobile: boolean,
-    addOns?: AddOn[]
-  ) => {
-    // Map promotions to only include ones compatible with StickyBookingCTA
-    const mappedPromotions = service.promotions
+  const handleAddToSummary = (data: AddToSummaryPayload) => {
+    const mappedPromotions = (data.promotions || data.service.promotions || [])
       ?.filter(p => p.type === "fixed" || p.type === "percent")
       .map(p => ({
         _id: p._id,
@@ -107,10 +243,17 @@ export default function PublicBookingPageClient({
     setSelectedServices(prev => [
       ...prev,
       {
-        ...service,
-        selectedReferenceImages: selectedRefs,
-        isMobile,
-        addOns,
+        ...data.service,
+        selectedReferenceImages: data.selectedRefs,
+        selectedRefs: data.selectedRefs,
+        isMobile: data.isMobile,
+        selectedAddOns: data.selectedAddOns,
+        selectedSessions: data.selectedSessions,
+        selectedAreas: data.selectedAreas,
+        selectedTier: data.selectedTier,
+        price: data.price,
+        durationMinutes: data.durationMinutes ?? data.service.durationMinutes,
+        depositAmount: data.depositAmount,
         promotions: mappedPromotions,
       },
     ]);
@@ -119,31 +262,96 @@ export default function PublicBookingPageClient({
   const handleRemoveService = (serviceId: string) => {
     setSelectedServices(prev => prev.filter(s => s._id !== serviceId));
   };
+  const servicesWithDepositPolicy = useMemo(() => {
+  return services.map(service => ({
+    ...service,
+    businessDepositPolicy: business.depositPolicy,
+  }));
+}, [services, business.depositPolicy]);
 
   return (
     <div
-      className="min-h-screen p-4"
+      className="min-h-screen p-4 md:p-6 space-y-5"
       style={{
-        background: `linear-gradient(135deg, ${theme.primaryLight} 0%, ${theme.accentLight} 100%)`,
-        color: theme.primaryDark,
+        background: pageBg,
+        color: cardText,
       }}
     >
-      <PublicBusinessHeader
-        name={business.name}
-        logo={business.logo}
-        autoApprove={business.bookingRules?.autoApprove}
-        description={business.description}
-        openingHours={business.workingHours}
-        theme={theme}
-      />
+      <div
+        className="rounded-2xl p-3 md:p-4"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <PublicBusinessHeader
+          name={business.name}
+          logo={business.logo}
+          autoApprove={business.bookingRules?.autoApprove}
+          description={business.description}
+          openingHours={business.openingHours}
+          locationLink={business.locationLink}
+          locationLabel={business.locationLabel}
+          depositRequired={business.depositRequired}
+          theme={theme}
+        />
+      </div>
 
-      <ServicesGrid
-        services={services}
-        username={business.username}
-        theme={theme}
-        requiresDeposit={business.depositPolicy?.enabled || false}
-        onAddToSummary={handleAddToSummary}
-      />
+      <div
+        className="rounded-2xl p-4 md:p-5"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <PortfolioShowcase referenceImages={referenceImages} theme={theme} />
+      </div>
+
+      <section
+        id="services"
+        className="rounded-2xl p-4 md:p-5"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <h2 className="text-xl font-semibold mb-4">Services and online booking</h2>
+        <ServicesGrid
+  services={servicesWithDepositPolicy}
+  username={business.username}
+  theme={theme}
+ requiresDeposit={business.depositPolicy?.enabled || false}
+  onAddToSummary={handleAddToSummary}
+/>
+      </section>
+
+      <section
+        className="rounded-2xl p-4 md:p-5"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <h2 className="text-lg font-semibold mb-2">Book services online</h2>
+        <p className="text-sm leading-6">{seo.summarySentence}</p>
+        {seo.searchIntentPhrases.length > 0 ? (
+          <p className="text-sm leading-6 mt-2">
+            Popular searches: {seo.searchIntentPhrases.join(", ")}.
+          </p>
+        ) : null}
+      </section>
 
       <StickyBookingCTA
         selectedServices={selectedServices}

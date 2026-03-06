@@ -3,41 +3,72 @@ import { NextResponse } from "next/server";
 import Service from "@/lib/models/Service";
 import { validateServicePayload } from "@/lib/validators/serviceValidation";
 import { getCurrentBusiness } from "@/lib/getCurrentBusiness";
+import { enableBusinessDeposits } from "@/lib/server/enableBusinessDeposits";
 
 export async function POST(req: Request) {
-  await connectDB();
-  const business = await getCurrentBusiness();
+  console.log("🔵 POST /api/services called");
 
-  const body = await req.json();
+  await connectDB();
+  console.log("✅ DB connected");
+
+  const business = await getCurrentBusiness();
+  console.log("🔎 Current business:", business?._id);
+
+  if (!business) {
+    console.log("❌ No business found (Unauthorized)");
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  let body;
+  try {
+    body = await req.json();
+    console.log("📦 Request body:", body);
+  } catch (err) {
+    console.error("❌ Failed parsing JSON:", err);
+    return NextResponse.json(
+      { success: false, error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
 
   try {
+    console.log("🛠 Running validation...");
     const validated = await validateServicePayload({
       ...body,
       businessId: business._id,
     });
 
-    const service = await Service.create(validated);
+    console.log("✅ Validation passed");
+
+    const service = new Service(validated);
+    await service.save();
+    console.log("✅ Service created:", service._id);
+
+    if (service.depositOverride?.enabled === true) {
+      console.log("💰 Deposit override enabled → Enabling business deposits");
+
+      const walletResult = await enableBusinessDeposits(
+        service.businessId.toString()
+      );
+
+      console.log("🏦 Wallet result:", walletResult);
+    }
+
+    console.log("🎉 Service creation completed successfully");
 
     return NextResponse.json({ success: true, service });
-  } catch (err: any) {
+  } catch (error: unknown) {
+    console.error("🔥 POST /api/services ERROR:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Invalid request";
+
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: message },
       { status: 400 }
     );
   }
 }
-
-export async function GET() {
-  await connectDB();
-  const business = await getCurrentBusiness();
-
-  const services = await Service.find({ businessId: business._id })
-    .populate({
-      path: "promotions",
-      select: "_id title type value", // explicitly select required fields including _id
-    })
-    .sort({ createdAt: -1 });
-
-  return NextResponse.json({ success: true, services });
-}
-

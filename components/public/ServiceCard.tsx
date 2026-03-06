@@ -3,19 +3,75 @@
 import { useState } from "react";
 import Image from "next/image";
 import ServiceModal from "./ServiceModal";
-import type { Service, AddOn } from "@/components/public/PublicBookingPageClient";
+import type { Service, AddOn, Theme } from "@/components/public/PublicBookingPageClient";
+
+interface AddToSummaryPayload {
+  service: Service;
+  selectedRefs: string[];
+  isMobile: boolean;
+  selectedAddOns?: AddOn[];
+  selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
+  selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
+  selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
+  promotions?: { _id: string; title: string; type: "percent" | "fixed" | string; value: number }[];
+  price?: number;
+  durationMinutes?: number;
+  depositAmount?: number;
+}
 
 interface ServiceCardProps {
   service: Service;
   username: string;
   requiresDeposit: boolean;
-  theme: any;
-  onAddToSummary: (service: Service, selectedRefs: string[], isMobile: boolean, addOns?: AddOn[]) => void;
+  theme: Theme;
+  onAddToSummary: (data: AddToSummaryPayload) => void;
 }
 
 export default function ServiceCard({ service, username, requiresDeposit, theme, onAddToSummary }: ServiceCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const heroImage = service.gallery?.[0] || "/images/placeholder.png";
+  const formatDuration = (service: Service) => {
+  const mins = service.durationMinutes || 0;
+  const hours = Math.floor(mins / 60);
+  const remainder = mins % 60;
+
+  if (hours && remainder) return `${hours}h ${remainder}min`;
+  if (hours) return `${hours}h`;
+  return `${remainder} min`;
+};
+
+const getPreviewPrice = (service: Service) => {
+  const currency = "KES";
+
+  if (service.basePrice) {
+    return `${currency} ${service.basePrice.toLocaleString()}`;
+  }
+
+  if (service.priceRange?.min) {
+    return `From ${currency} ${service.priceRange.min.toLocaleString()}`;
+  }
+
+  if (service.priceTiers?.length) {
+    const validTiers = service.priceTiers.filter(
+      (t): t is { label: string; price: number } =>
+        typeof t.price === "number" && t.price > 0
+    );
+    if (!validTiers.length) return "Click to view pricing";
+    const min = Math.min(...validTiers.map(t => t.price));
+    return `Starts from ${currency} ${min.toLocaleString()}`;
+  }
+
+  if (service.sessionPackages?.length) {
+    const min = Math.min(...service.sessionPackages.map(p => p.price || 0));
+    return `Packages from ${currency} ${min.toLocaleString()}`;
+  }
+
+  return "Click to view pricing";
+};
+
+const serviceRequiresDeposit =
+  service.businessDepositPolicy?.enabled ||
+  requiresDeposit;
 
   return (
     <>
@@ -37,14 +93,18 @@ export default function ServiceCard({ service, username, requiresDeposit, theme,
           <h3 className="text-lg font-semibold" style={{ color: theme?.primary }}>
             {service.name}
           </h3>
-          <p className="text-sm text-black/80">⏱ {service.durationMinutes} min</p>
-          <p className="text-sm text-black/90">
-            {service.priceRange
-              ? `${service.currency || "KES"} ${service.priceRange.min} - ${service.priceRange.max}`
-              : service.price
-              ? `${service.currency || "KES"} ${service.price}`
-              : "Price on request"}
-          </p>
+          {/* Duration */}
+<p className="text-sm text-black/80">
+  ⏱ {formatDuration(service)}
+</p>
+
+{/* Pricing */}
+<p
+  className="text-sm font-semibold"
+  style={{ color: theme.primaryDark }}
+>
+  {getPreviewPrice(service)}
+</p>
 
           <div className="flex flex-wrap gap-2 mt-2">
             {service.featured && (
@@ -80,7 +140,12 @@ export default function ServiceCard({ service, username, requiresDeposit, theme,
             </span>
           )}
 
-          {requiresDeposit && <p className="text-xs text-black/70">⚠ Deposit required to book</p>}
+          {serviceRequiresDeposit && <p className="text-xs text-black/70">⚠ Deposit required to book</p>}
+          {service.addOns?.length ? (
+  <span className="text-xs px-2 py-1 bg-white/20 rounded-full text-black/90 w-fit inline-block mt-1">
+    ➕ Add-ons available
+  </span>
+) : null}
         </div>
       </div>
 
@@ -90,9 +155,10 @@ export default function ServiceCard({ service, username, requiresDeposit, theme,
           theme={theme}
           onClose={() => setIsModalOpen(false)}
           onAddToSummary={(data) => {
-            onAddToSummary(data.service, data.selectedRefs, data.isMobile, data.selectedAddOns);
+            onAddToSummary(data);
             setIsModalOpen(false);
           }}
+          username={username}
         />
       )}
     </>

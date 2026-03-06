@@ -25,10 +25,24 @@ gender: {
   
 },
 
-isOwner: {
+  isOwner: {
   type: Boolean,
   default: false,
 },
+
+  availabilityOverrides: [
+    {
+      date: { type: String, required: true }, // YYYY-MM-DD
+      closed: { type: Boolean, default: false },
+      blocks: [
+        {
+          start: String, // HH:mm
+          end: String, // HH:mm
+          reason: String,
+        },
+      ],
+    },
+  ],
 
 });
 

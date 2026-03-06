@@ -7,7 +7,7 @@ export function emailLayout(
 ) {
   return `
   <table width="100%" cellpadding="0" cellspacing="0" 
-    style="background:${theme.backgroundSoft}; padding:30px; font-family:Arial, sans-serif;">
+    style="background:${theme.backgroundSoft}; padding:30px; font-family:'Inria Serif', serif;">
     
     <tr>
       <td align="center">

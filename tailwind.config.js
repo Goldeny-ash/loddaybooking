@@ -7,8 +7,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        grand: ["var(--font-grand-hotel)", "cursive"],
-        sacramento: ["var(--font-sacramento)", "cursive"],
+        sans: ["var(--font-inria-serif)", "serif"],
+        serif: ["var(--font-inria-serif)", "serif"],
       },
       colors: {
         blackManga: "#001524",

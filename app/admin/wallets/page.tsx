@@ -1,11 +1,9 @@
-// app/admin/subscriptions/plans/page.tsx
-
 import { connectDB } from "@/lib/mongoDB";
-import {SubscriptionPlan} from "@/lib/models/SubscriptionPlan";
+import Wallet from "@/lib/models/Wallet";
 import { currentUser } from "@clerk/nextjs/server";
-import PlansListClient from "@/components/admin/PlansListClient";
+import WalletsListClient from "@/components/admin/WalletsListClient";
 
-export default async function AdminPlansPage() {
+export default async function AdminWalletsPage() {
   const user = await currentUser();
 
   if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
@@ -14,9 +12,10 @@ export default async function AdminPlansPage() {
 
   await connectDB();
 
-  const plans = await SubscriptionPlan.find()
+  const wallets = await Wallet.find()
+    .populate("businessId", "name email")
     .sort({ createdAt: -1 })
     .lean();
 
-  return <PlansListClient plans={plans} />;
+  return <WalletsListClient wallets={wallets} />;
 }

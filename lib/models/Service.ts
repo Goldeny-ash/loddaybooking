@@ -47,9 +47,18 @@ const ServiceSchema = new Schema(
 
     category: {
       type: String,
+      enum: [
+        "Hair",
+        "Nails",
+        "Body Enhancements",
+        "Permanent Makeup",
+        "Beauty Treatments",
+        "Other",
+      ],
       required: true,
       index: true,
     },
+    customCategory: String,
 
     subCategory: String,
 
@@ -64,7 +73,9 @@ const ServiceSchema = new Schema(
       default: "unisex",
     },
 
-    durationMinutes: Number,
+   durationMinutes: { type: Number, required: true },
+durationHours: { type: Number },
+durationRemainderMinutes: { type: Number },
 
     bufferMinutes: { type: Number, default: 0 },
 

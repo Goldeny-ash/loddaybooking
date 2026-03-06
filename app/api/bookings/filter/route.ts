@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
+import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   await connectDB();
@@ -19,54 +20,59 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "businessId is required" }, { status: 400 });
   }
 
-  const query: any = { businessId };
+  if (!mongoose.Types.ObjectId.isValid(businessId)) {
+    return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
+  }
+
+  const query: Record<string, unknown> = {
+    businessId: new mongoose.Types.ObjectId(businessId),
+  };
 
   // ---- STATUS ----
   if (status) query.status = status;
 
   // ---- DATE EXACT ----
   if (date) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-
-    query.date = { $gte: start, $lte: end };
+    query.date = date;
   }
 
   // ---- RANGE ----
   if (range === "today") {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-
-    query.date = { $gte: start, $lte: end };
+    const today = new Date().toISOString().slice(0, 10);
+    query.date = today;
   }
 
   if (range === "week") {
     const start = new Date();
     start.setDate(start.getDate() - 7);
-
-    query.date = { $gte: start };
+    const startDate = start.toISOString().slice(0, 10);
+    const endDate = new Date().toISOString().slice(0, 10);
+    query.date = { $gte: startDate, $lte: endDate };
   }
 
   const skip = (page - 1) * pageSize;
 
   const bookings = await Booking.find(query)
-    .populate("serviceId", "name price durationMinutes")
-    .populate("staffId", "name")
+    .populate("services.serviceId", "name price durationMinutes")
+    .populate("assignedTo", "name")
     .sort({ date: -1 })
     .skip(skip)
     .limit(pageSize)
     .lean();
 
+  const normalizedBookings = bookings.map((booking) => {
+    const firstService = Array.isArray(booking?.services) ? booking.services[0] : null;
+    return {
+      ...booking,
+      serviceId: firstService && "serviceId" in firstService ? firstService.serviceId : null,
+      staffId: booking?.assignedTo || null,
+    };
+  });
+
   const total = await Booking.countDocuments(query);
 
   return NextResponse.json({
-    bookings,
+    bookings: normalizedBookings,
     total,
     page,
     pageSize,

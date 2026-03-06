@@ -8,21 +8,22 @@ export interface SlotWindow {
 export function generateSlots(
   start: string,
   end: string,
-  duration: number,
-  step = 15
+  duration: number
 ): SlotWindow[] {
   const slots: SlotWindow[] = [];
 
-  let cursor = toMinutes(start);
-  const limit = toMinutes(end);
+  const startMin = toMinutes(start);
+  const endMin = toMinutes(end);
 
-  while (cursor + duration <= limit) {
+  let cursor = startMin;
+
+  while (cursor + duration <= endMin) {
     slots.push({
       startTime: fromMinutes(cursor),
       endTime: fromMinutes(cursor + duration),
     });
 
-    cursor += step;
+    cursor += duration; // clean spacing
   }
 
   return slots;

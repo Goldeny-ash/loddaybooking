@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
+import mongoose from "mongoose";
 
 export async function GET(req: Request) {
   await connectDB();
@@ -17,7 +18,13 @@ export async function GET(req: Request) {
     );
   }
 
-  const query: any = { businessId };
+  if (!mongoose.Types.ObjectId.isValid(businessId)) {
+    return Response.json({ error: "Invalid businessId" }, { status: 400 });
+  }
+
+  const query: Record<string, unknown> = {
+    businessId: new mongoose.Types.ObjectId(businessId),
+  };
 
   if (status) {
     query.status = status;
@@ -28,10 +35,19 @@ export async function GET(req: Request) {
   }
 
   const bookings = await Booking.find(query)
-    .populate("serviceId", "name durationMinutes")
-    .populate("staffId", "name")
+    .populate("services.serviceId", "name durationMinutes")
+    .populate("assignedTo", "name")
     .sort({ createdAt: -1 })
     .limit(100);
 
-  return Response.json({ bookings });
+  const normalized = bookings.map((booking) => {
+    const firstService = Array.isArray(booking?.services) ? booking.services[0] : null;
+    return {
+      ...booking.toObject(),
+      serviceId: firstService && "serviceId" in firstService ? firstService.serviceId : null,
+      staffId: booking?.assignedTo || null,
+    };
+  });
+
+  return Response.json({ bookings: normalized });
 }

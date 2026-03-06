@@ -3,8 +3,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import PublicBusinessHeader from "./PublicBusinessHeader";
+import SelectedServicesSummary from "./SelectedServicesSummary";
 import SlotPicker from "./SlotPicker";
 import CustomerDetailsForm from "./CustomerDetailsForm";
+import { getTheme } from "@/lib/theme";
 
 interface CartService {
   _id: string;
@@ -24,17 +26,32 @@ interface CartService {
 
 }
 
+interface SlotSelection {
+  startTime: string;
+  endTime: string;
+  staffAssignments?: { staffId?: string }[];
+}
+
+interface BookingBusiness {
+  _id: string;
+  name: string;
+  logo?: string;
+  bookingRules?: { autoApprove?: boolean };
+  [key: string]: unknown;
+}
+
 interface BookingClientProps {
   username: string;
-  business: any;
+  business: BookingBusiness;
 }
 
 export default function BookingClient({ username, business }: BookingClientProps) {
   const router = useRouter();
+  const theme = useMemo(() => getTheme(business), [business]);
 
   const [services, setServices] = useState<CartService[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [slot, setSlot] = useState<any>(null);
+  const [slot, setSlot] = useState<SlotSelection | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -67,19 +84,13 @@ export default function BookingClient({ username, business }: BookingClientProps
     }
   }, [router, username]);
 
-  const totalCalloutFee = useMemo(
-    () =>
-      services.reduce((sum, s) => (s.isMobile ? s.selectedTier?.price || s.price || 0 : 0) + sum, 0),
-    [services]
-  );
-
   const depositInfo = useMemo(() => {
   const totalDeposit = services.reduce((sum, s) => sum + (s.depositAmount || 0), 0);
   return { required: totalDeposit > 0, amount: totalDeposit };
 }, [services]);
 
 
-  const handleSlotSelected = useCallback((newSlot: any) => setSlot(newSlot), []);
+  const handleSlotSelected = useCallback((newSlot: SlotSelection) => setSlot(newSlot), []);
   const handleDateChange = useCallback((date: string) => {
     setSelectedDate(date);
     setSlot(null);
@@ -149,34 +160,124 @@ export default function BookingClient({ username, business }: BookingClientProps
     if (!res.ok) throw new Error(data.error || "Booking failed");
 
     router.push(`/b/${username}/thank-you?bookingId=${data.bookingId}&token=${data.manageToken}`);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Booking POST error:", err);
-    setError(err.message || "Failed to create booking");
+    setError(err instanceof Error ? err.message : "Failed to create booking");
   } finally {
     setLoading(false);
   }
 };
 
 
+  function hexToRgb(hex: string) {
+    const clean = (hex || "").replace("#", "");
+    const normalized =
+      clean.length === 3
+        ? clean
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : clean;
+    const bigint = parseInt(normalized || "000000", 16);
+    return {
+      r: (bigint >> 16) & 255,
+      g: (bigint >> 8) & 255,
+      b: bigint & 255,
+    };
+  }
+
+  function luminance(hex: string) {
+    const { r, g, b } = hexToRgb(hex);
+    const a = [r, g, b].map((v) => {
+      const val = v / 255;
+      return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  }
+
+  function getReadableText(bg: string) {
+    return luminance(bg) > 0.55 ? "#000000" : "#ffffff";
+  }
+
+  function isLight(hex: string) {
+    return luminance(hex) > 0.6;
+  }
+
+  function cardFor(bg: string) {
+    return isLight(bg) ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.35)";
+  }
+
+  function borderFor(bg: string) {
+    return isLight(bg) ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.18)";
+  }
+
+  function shadowFor(bg: string) {
+    return isLight(bg)
+      ? "0 20px 50px rgba(0,0,0,0.10)"
+      : "0 20px 60px rgba(0,0,0,0.80), 0 0 0 1px rgba(255,255,255,0.05)";
+  }
+
+  const gradientBg = `linear-gradient(135deg, ${theme.primaryLight} 0%, ${theme.accentLight} 100%)`;
+  const base = theme.primaryLight || "#ffffff";
+  const cardBg = cardFor(base);
+  const cardBorder = borderFor(base);
+  const cardShadow = shadowFor(base);
+  const cardText = getReadableText(base);
+  const primaryText = getReadableText(theme.primary || "#000000");
+
   return (
-    <div className="space-y-8 max-w-xl mx-auto">
+    <div className="space-y-6 max-w-xl mx-auto p-4 md:p-6 rounded-2xl" style={{ background: gradientBg }}>
       <PublicBusinessHeader
         name={business.name}
         logo={business.logo}
         autoApprove={business.bookingRules?.autoApprove}
         depositRequired={depositInfo.required}
+        theme={theme}
       />
 
-      <SlotPicker
-        businessId={business._id}
-        serviceIds={services.map((s) => s._id)}
-        date={selectedDate}
-        onDateChange={handleDateChange}
-        onSlotSelected={handleSlotSelected}
-      />
+      {services.length > 0 && (
+        <SelectedServicesSummary
+          services={services.map((s) => ({
+            _id: s._id,
+            name: s.name,
+            price: s.price,
+            durationMinutes: s.durationMinutes,
+            isMobile: s.isMobile,
+          }))}
+          theme={theme}
+        />
+      )}
+
+      <div
+        className="rounded-2xl p-4"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <SlotPicker
+          businessId={business._id}
+          serviceIds={services.map((s) => s._id)}
+          date={selectedDate}
+          onDateChange={handleDateChange}
+          onSlotSelected={handleSlotSelected}
+        />
+      </div>
 
       {slot && (
-        <div className="border-t pt-6 space-y-4">
+        <div
+          className="pt-6 space-y-4 rounded-2xl p-4"
+          style={{
+            background: cardBg,
+            color: cardText,
+            border: `1px solid ${cardBorder}`,
+            boxShadow: cardShadow,
+            backdropFilter: "blur(14px)",
+          }}
+        >
           <CustomerDetailsForm
             customerName={customerName}
             customerPhone={customerPhone}
@@ -204,8 +305,8 @@ export default function BookingClient({ username, business }: BookingClientProps
             type="button"
             disabled={loading}
             onClick={confirmBooking}
-            className="w-full py-2 rounded-xl text-white font-medium disabled:opacity-50"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="w-full py-2 rounded-xl font-medium disabled:opacity-50"
+            style={{ backgroundColor: theme.primary, color: primaryText }}
           >
             {loading ? "Submitting Booking..." : "Submit Booking"}
           </button>

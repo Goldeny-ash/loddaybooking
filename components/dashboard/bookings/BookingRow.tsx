@@ -3,24 +3,42 @@
 import BookingActions from "./BookingActions";
 import BookingStatusBadge from "./BookingStatusBadge";
 import { getTheme } from "@/lib/theme";
+import {
+  type DashboardBooking,
+  resolvePrimaryServiceName,
+} from "./bookingDisplay";
 
 export default function BookingRow({
   booking,
   onUpdate,
   business,
+  onOpenDetails,
 }: {
-  booking: any;
-  onUpdate: (b: any) => void;
-  business: any;
+  booking: DashboardBooking;
+  onUpdate: (b: DashboardBooking) => void;
+  business: unknown;
+  onOpenDetails?: (booking: DashboardBooking) => void;
 }) {
   const theme = getTheme(business);
 
   return (
     <div
+      role={onOpenDetails ? "button" : undefined}
+      tabIndex={onOpenDetails ? 0 : undefined}
+      onClick={() => onOpenDetails?.(booking)}
+      onKeyDown={(e) => {
+        if (!onOpenDetails) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetails(booking);
+        }
+      }}
       className="flex flex-col md:flex-row items-start md:items-center justify-between py-4 px-3 border-b last:border-b-0"
-      style={{ backgroundColor: theme.backgroundSoft }}
+      style={{
+        backgroundColor: theme.backgroundSoft,
+        cursor: onOpenDetails ? "pointer" : "default",
+      }}
     >
-      {/* -------- Customer & Booking Info -------- */}
       <div className="flex flex-col md:flex-row gap-4 flex-1">
         <div className="min-w-[200px]">
           <p className="font-medium" style={{ color: theme.primaryDark }}>
@@ -40,20 +58,20 @@ export default function BookingRow({
 
         <div className="min-w-[220px]">
           <p className="text-sm" style={{ color: theme.accentDark }}>
-            {booking.date} · {booking.startTime} – {booking.endTime}
+            {booking.date} · {booking.startTime} - {booking.endTime}
           </p>
           <p className="text-sm" style={{ color: theme.accentDark }}>
-            {booking.serviceId?.name || "Service"}{' '}
-            {booking.staffId?.name ? `· ${booking.staffId?.name}` : ""}
+            {resolvePrimaryServiceName(booking)}
+            {booking.staffId?.name ? ` · ${booking.staffId.name}` : ""}
           </p>
         </div>
 
         <div className="min-w-[120px]">
-          {booking.depositAmount > 0 && (
+          {booking.depositAmount ? (
             <p className="text-sm font-medium" style={{ color: theme.primary }}>
-              Deposit: KES {booking.depositAmount}
+              Deposit: KES {booking.depositAmount.toLocaleString()}
             </p>
-          )}
+          ) : null}
           {booking.rejectionReason && (
             <p className="text-sm text-red-600">
               Rejection reason: {booking.rejectionReason}
@@ -62,9 +80,11 @@ export default function BookingRow({
         </div>
       </div>
 
-      {/* -------- Status & Actions -------- */}
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mt-3 md:mt-0">
-        <BookingStatusBadge status={booking.status} business={business} />
+      <div
+        className="flex flex-col md:flex-row items-start md:items-center gap-3 mt-3 md:mt-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <BookingStatusBadge status={booking.status || "pending"} business={business} />
         <BookingActions booking={booking} onUpdate={onUpdate} business={business} />
       </div>
     </div>

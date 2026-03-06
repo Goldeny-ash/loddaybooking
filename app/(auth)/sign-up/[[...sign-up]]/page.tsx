@@ -16,10 +16,7 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFECD1] px-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg flex flex-col gap-6">
-        <h1
-          className="text-4xl font-semibold text-[#001524] text-center"
-          style={{ fontFamily: "Grand Hotel, cursive" }}
-        >
+        <h1 className="text-4xl font-semibold text-[#001524] text-center">
           Create Your Account
         </h1>
 

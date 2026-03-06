@@ -1,214 +1,158 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
 import Subscription from "@/lib/models/Subscription";
-import { SubscriptionPlan } from "@/lib/models/SubscriptionPlan";
-import { currentUser } from "@clerk/nextjs/server";
-import { createCustomer, createSubscription } from "@/lib/intasend";
+import Affiliate from "@/lib/models/Affiliate";
+import AffiliateReferralUse from "@/lib/models/AffiliateReferralUse";
+import type { Types } from "mongoose";
 
-const PLAN_ID = "NKBOWY4";
+const SUBSCRIPTION_AMOUNT = 600;
+const AFFILIATE_DISCOUNT = 50;
+
+function normalizePhone(raw: string) {
+  const cleaned = raw.trim().replace(/\s+/g, "");
+  if (cleaned.startsWith("0")) return `254${cleaned.slice(1)}`;
+  return cleaned.replace("+", "");
+}
+
+type AffiliateDoc = {
+  _id: Types.ObjectId;
+  referralCode?: string;
+};
+
+type ReferralUseDoc = {
+  _id: Types.ObjectId;
+};
 
 export async function POST(request: NextRequest) {
-  console.log("🔵 [START] Subscription start triggered");
-
   try {
-    /* -------------------------------
-       1️⃣ AUTH
-    -------------------------------- */
-    const user = await currentUser();
-    console.log("🟡 Clerk user:", user?.id);
+    const { userId } = await auth();
 
-    if (!user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+if (!userId) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
-    /* -------------------------------
-       2️⃣ DB
-    -------------------------------- */
+const user = await currentUser();
     await connectDB();
-    console.log("🟢 DB connected");
 
-    const business = await Business.findOne({
-      clerkUserId: user.id,
-    });
-
+    const business = await Business.findOne({ clerkUserId: userId });
     if (!business) {
-      console.log("🔴 Business not found");
-      return NextResponse.json(
-        { error: "Business not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
     }
 
-    console.log("🟢 Business ID:", business._id.toString());
+    const body = await request.json().catch(() => ({}));
+    const phoneInput = String(
+      body.phoneNumber || business.phone || user?.phoneNumbers?.[0]?.phoneNumber || ""
+    );
+    const affiliateCode = String(body.affiliateCode || "").trim().toUpperCase();
 
-    /* -------------------------------
-       3️⃣ PREVENT DUPLICATE ACTIVE
-    -------------------------------- */
-    const existingActive = await Subscription.findOne({
-      businessId: business._id.toString(),
-      status: "ACTIVE",
-    });
-
-    if (existingActive) {
-      console.log("🔴 Active subscription already exists");
+    if (!phoneInput) {
       return NextResponse.json(
-        { error: "Business already has an active subscription" },
+        { error: "Phone number is required for STK push" },
         { status: 400 }
       );
     }
 
-    /* -------------------------------
-       4️⃣ FETCH PLAN SNAPSHOT
-    -------------------------------- */
-    const plan = await SubscriptionPlan.findOne({
-      planId: PLAN_ID,
-      isActive: true,
+    const phoneNumber = normalizePhone(phoneInput);
+    const now = new Date();
+    const isRenewal = business.access?.status === "ACTIVE";
+
+    let finalAmount = SUBSCRIPTION_AMOUNT;
+    let affiliateDoc: AffiliateDoc | null = null;
+    let referralUse: ReferralUseDoc | null = null;
+    let discountApplied = false;
+
+    if (affiliateCode) {
+      affiliateDoc = await Affiliate.findOne({
+        referralCode: affiliateCode,
+        status: "ACTIVE",
+        codeExpiresAt: { $gt: now },
+      });
+
+      if (affiliateDoc) {
+        referralUse = await AffiliateReferralUse.findOne({
+          affiliateId: affiliateDoc._id,
+          businessId: business._id,
+          referralCode: affiliateCode,
+        });
+
+        if (!referralUse) {
+          finalAmount = SUBSCRIPTION_AMOUNT - AFFILIATE_DISCOUNT;
+          discountApplied = true;
+        }
+      }
+    } else {
+      const existingReferral = await AffiliateReferralUse.findOne({
+        businessId: business._id,
+      }).sort({ createdAt: -1 });
+
+      if (existingReferral) {
+        affiliateDoc = await Affiliate.findById(existingReferral.affiliateId);
+      }
+    }
+
+    const externalReference = `SUB-${business._id}-${Date.now()}`;
+    const baseUrl =
+      process.env.INTASEND_TEST === "true"
+        ? "https://sandbox.intasend.com"
+        : "https://api.intasend.com";
+
+    const response = await fetch(`${baseUrl}/api/v1/payment/mpesa-stk-push/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        first_name: business.name || "Business",
+        last_name: "Subscription",
+        email: business.email || user?.primaryEmailAddress?.emailAddress || "billing@lodday.com",
+        host: process.env.NEXT_PUBLIC_APP_URL,
+        amount: finalAmount,
+        phone_number: phoneNumber,
+        api_ref: externalReference,
+      }),
     });
 
-    if (!plan) {
-      console.log("🔴 Plan not found or inactive");
+    const data = await response.json();
+    if (!response.ok) {
       return NextResponse.json(
-        { error: "Subscription plan not found or inactive" },
-        { status: 404 }
+        { error: "IntaSend STK initiation failed", details: data },
+        { status: 502 }
       );
     }
 
-    console.log("🟢 Plan loaded:", PLAN_ID);
-
-    /* -------------------------------
-       5️⃣ ENSURE CUSTOMER
-    -------------------------------- */
-    let customerId = business.access?.billing?.customerId;
-
-    if (!customerId) {
-      console.log("🟡 Creating IntaSend customer...");
-
-      const customer = await createCustomer({
-        email: business.email,
-        firstName: business.name,
-        lastName: "",
-        reference: `BUS-${business._id}`,
-        country: "KE",
-      });
-
-      customerId = customer.customer_id;
-
-      business.access = business.access || {};
-      business.access.billing = business.access.billing || {};
-      business.access.billing.customerId = customerId;
-
-      await business.save();
-
-      console.log("🟢 Customer saved:", customerId);
-    } else {
-      console.log("🟢 Using existing customer:", customerId);
-    }
-
-    /* -------------------------------
-       6️⃣ CREATE PROVIDER SUBSCRIPTION
-    -------------------------------- */
-    console.log("🟡 Creating provider subscription...");
-
-    const providerSub = await createSubscription({
-      customerId,
-      planId: PLAN_ID,
-      reference: `SUB-${business._id}`,
-      startDate: new Date().toISOString().split("T")[0],
-      redirectUrl: `${request.nextUrl.origin}/subscription/success`,
-    });
-
-    console.log("🟢 Provider response:", providerSub);
-
-    /* -------------------------------
-       7️⃣ SAFE DATE PARSING
-    -------------------------------- */
-
-    let startsAt: Date | undefined;
-    let providerCreatedAt: Date | undefined;
-    let providerUpdatedAt: Date | undefined;
-
-    if (providerSub.start_date) {
-      const parsed = new Date(providerSub.start_date);
-      if (!isNaN(parsed.getTime())) {
-        startsAt = parsed;
-      } else {
-        console.log("⚠ Invalid start_date:", providerSub.start_date);
-      }
-    }
-
-    if (providerSub.created_at) {
-      const parsed = new Date(providerSub.created_at);
-      if (!isNaN(parsed.getTime())) {
-        providerCreatedAt = parsed;
-      }
-    }
-
-    if (providerSub.updated_at) {
-      const parsed = new Date(providerSub.updated_at);
-      if (!isNaN(parsed.getTime())) {
-        providerUpdatedAt = parsed;
-      }
-    }
-
-    /* -------------------------------
-       8️⃣ SAVE SUBSCRIPTION LOCALLY
-    -------------------------------- */
+    const invoiceId = data?.invoice?.invoice_id || null;
     await Subscription.create({
       businessId: business._id.toString(),
-      subscriptionId: providerSub.subscription_id,
-      customerId,
-      planId: PLAN_ID,
-      externalReference: `SUB-${business._id}`,
-
-      // Billing snapshot
-      currency: plan.currency,
-      amount: plan.amount,
-      frequency: plan.frequency,
-      frequencyUnit: plan.frequencyUnit,
-      billingCycles: plan.billingCycles ?? null,
-
-      status: providerSub.status || "PENDING",
-      setupUrl: providerSub.setup_url,
-
-      startsAt,
-      providerCreatedAt,
-      providerUpdatedAt,
+      externalReference,
+      apiRef: externalReference,
+      invoiceId,
+      amount: finalAmount,
+      currency: "KES",
+      status: "PENDING",
+      phoneNumber,
+      isRenewal,
+      affiliateCode:
+        affiliateDoc && affiliateCode
+          ? affiliateCode
+          : affiliateDoc
+            ? String(affiliateDoc.referralCode || "")
+            : undefined,
+      affiliateId: affiliateDoc?._id,
+      affiliateDiscountApplied: discountApplied,
     });
 
-    console.log("🟢 Subscription saved");
-
-    /* -------------------------------
-       9️⃣ UPDATE BUSINESS ACCESS
-    -------------------------------- */
-    business.access.subscriptionId = providerSub.subscription_id;
-    business.access.planId = PLAN_ID;
-    business.access.status = "INACTIVE";
-
-    await business.save();
-
-    console.log("🟢 Business updated");
-
-    /* -------------------------------
-       🔟 RETURN SETUP URL
-    -------------------------------- */
     return NextResponse.json({
-      setup_url: providerSub.setup_url,
+      success: true,
+      amount: finalAmount,
+      reference: externalReference,
+      invoiceId,
+      affiliateDiscountApplied: discountApplied,
     });
-
-  } catch (error: any) {
-    console.error("🔴 Subscription start failed");
-
-    if (error.response) {
-      console.error("Provider status:", error.response.status);
-      console.error("Provider data:", error.response.data);
-    } else {
-      console.error("Error:", error.message);
-    }
-
-    return NextResponse.json(
-      { error: "Subscription start failed" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("POST /api/subscription/start failed:", error);
+    return NextResponse.json({ error: "Failed to start subscription" }, { status: 500 });
   }
 }

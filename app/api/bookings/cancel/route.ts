@@ -22,27 +22,34 @@ export async function POST(req: Request) {
   }
 
   // Only create refund if deposit exists and hasn't been refunded
-  if (booking.depositAmount > 0 && !booking.depositRefunded) {
-    const existingRefund = await Refund.findOne({ bookingId: booking._id });
-    if (!existingRefund) {
-      // Fetch deposit for this booking
-      const deposit = await Deposit.findOne({ bookingId: booking._id }).sort({ createdAt: -1 });
-      const refundPhoneNumber = deposit?.phoneNumber;
-      if (!refundPhoneNumber) {
-        return NextResponse.json({ error: "Deposit phone number not found" }, { status: 400 });
-      }
+ if (booking.depositAmount > 0 && !booking.depositRefunded) {
 
-      // Create refund
-      await Refund.create({
-        bookingId: booking._id,
-        businessId: booking.businessId,
-        depositId: deposit._id,
-        amount: booking.depositAmount,
-        phoneNumber: refundPhoneNumber,
-        status: "REQUESTED",
-      });
-    }
+  const deposit = await Deposit.findOne({ bookingId: booking._id });
+
+  if (!deposit) {
+    return NextResponse.json({ error: "Deposit not found" }, { status: 400 });
   }
+
+  if (deposit.refundLocked) {
+    return NextResponse.json({ error: "Refund already in progress" }, { status: 400 });
+  }
+
+  if (deposit.depositPaidOut) {
+    return NextResponse.json({ error: "Deposit already paid out, cannot refund" }, { status: 400 });
+  }
+
+  deposit.refundLocked = true;
+  await deposit.save();
+
+  await Refund.create({
+    bookingId: booking._id,
+    businessId: booking.businessId,
+    depositId: deposit._id,
+    amount: booking.depositAmount,
+    phoneNumber: deposit.phoneNumber,
+    status: "REQUESTED",
+  });
+}
 
   // Now cancel booking
   booking.status = "cancelled";
