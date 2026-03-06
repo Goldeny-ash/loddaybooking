@@ -19,21 +19,18 @@ export default function RenewSubscriptionModal({
 
       const res = await fetch("/api/subscription/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber,
-          affiliateCode: affiliateCode || undefined,
-        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed");
+        throw new Error(
+          data?.details?.[0]?.message || data.error || "Failed"
+        );
       }
 
-      window.location.href = "/subscription/success";
-    } catch {
+      window.location.href = data.setup_url;
+    } catch (err) {
       alert("Failed to start subscription");
       setLoading(false);
     }
@@ -57,23 +54,17 @@ export default function RenewSubscriptionModal({
           KES 600 / month (KES 550 with valid affiliate code)
         </div>
 
-        <p className="text-xs text-gray-400">
-          Payments secured by IntaSend STK Push
-        </p>
-
         <input
-          placeholder="M-Pesa phone number"
+          type="tel"
+          placeholder="M-Pesa phone e.g. 07XXXXXXXX"
           value={phoneNumber}
           onChange={(e) => setPhoneNumber(e.target.value)}
           className="w-full border rounded px-3 py-2 text-sm"
         />
 
-        <input
-          placeholder="Affiliate code (optional)"
-          value={affiliateCode}
-          onChange={(e) => setAffiliateCode(e.target.value.toUpperCase())}
-          className="w-full border rounded px-3 py-2 text-sm"
-        />
+        <p className="text-xs text-gray-400">
+          Payments secured by IntaSend (M-Pesa / Card)
+        </p>
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
