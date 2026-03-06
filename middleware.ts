@@ -30,11 +30,12 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  const publicPaths = ["/", "/pricing", "/b"];
+  const publicPaths = ["/", "/pricing", "/b", "/sitemap.xml", "/robots.txt"];
   const authPages = ["/sign-in", "/sign-up"];
   const setupPath = "/setup";
 
-  const isPublicBooking = pathname.startsWith("/b/");
+  const isPublicBooking =
+    /^\/b\/[^/]+(?:\/.*)?$/.test(pathname) || pathname.startsWith("/b/");
   const isPublic =
     publicPaths.includes(pathname) || isPublicBooking;
 
