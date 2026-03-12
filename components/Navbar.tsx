@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import {
   Home,
@@ -10,6 +11,7 @@ import {
   Mail,
   LogIn,
   UserPlus,
+  LayoutDashboard,
 } from "lucide-react";
 
 const navItems = [
@@ -21,6 +23,42 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const [activeHref, setActiveHref] = useState("/");
+
+  useEffect(() => {
+    if (pathname !== "/") {
+      setActiveHref(pathname);
+      return;
+    }
+
+    const sections = ["/", "#features", "#pricing", "#contact"];
+
+    const updateActiveSection = () => {
+      const scrollY = window.scrollY;
+      if (scrollY < 160) {
+        setActiveHref("/");
+        return;
+      }
+
+      let current = "/";
+      for (const href of sections.slice(1)) {
+        const id = href.slice(1);
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top + window.scrollY - 180;
+        if (scrollY >= top) current = href;
+      }
+      setActiveHref(current);
+    };
+
+    updateActiveSection();
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("hashchange", updateActiveSection);
+    return () => {
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("hashchange", updateActiveSection);
+    };
+  }, [pathname]);
 
   return (
     <nav className="fixed top-4 left-0 right-0 z-[100] px-4 md:top-6">
@@ -28,7 +66,7 @@ export default function Navbar() {
         <div className="flex items-center justify-center gap-2 md:gap-4 px-3 py-2.5 md:px-5 md:py-3">
           <div className="hidden md:flex items-center gap-3">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = activeHref === item.href;
 
               return (
                 <Link
@@ -47,6 +85,13 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-[#15616D]/20 px-4 py-2 text-sm font-medium text-[#15616D] hover:bg-black/5"
+            >
+              <LayoutDashboard size={16} />
+              Dashboard
+            </Link>
             <SignedOut>
               <Link
                 href="/sign-in?redirect_url=/setup"
@@ -69,7 +114,7 @@ export default function Navbar() {
 
           <div className="md:hidden flex items-center gap-2">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = activeHref === item.href;
 
               return (
                 <Link
@@ -87,6 +132,14 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <Link
+              href="/dashboard"
+              aria-label="Dashboard"
+              title="Dashboard"
+              className="p-2 rounded-lg border border-[#15616D]/20 text-[#15616D]"
+            >
+              <LayoutDashboard size={18} />
+            </Link>
 
             <SignedOut>
               <Link

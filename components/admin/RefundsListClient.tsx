@@ -8,8 +8,13 @@ interface RefundType {
   status: string;
   amount: number;
   phoneNumber: string;
-  bookingId: any;
-  depositId: any;
+  bookingId: {
+    _id?: string;
+    customerName?: string;
+  } | null;
+  depositId: {
+    amount?: number;
+  } | null;
 }
 
 export default function RefundsList({ refunds }: { refunds: RefundType[] }) {
@@ -53,6 +58,9 @@ export default function RefundsList({ refunds }: { refunds: RefundType[] }) {
         {localRefunds.map((refund) => {
           const booking = refund.bookingId;
           const deposit = refund.depositId;
+          const customerName = booking?.customerName || "Deleted booking";
+          const bookingLabel = booking?._id || "Unavailable";
+          const depositAmount = deposit?.amount ?? 0;
 
           return (
             <div
@@ -61,16 +69,16 @@ export default function RefundsList({ refunds }: { refunds: RefundType[] }) {
             >
               <div className="space-y-1">
                 <p>
-                  <strong>Customer:</strong> {booking.customerName}
+                  <strong>Customer:</strong> {customerName}
                 </p>
                 <p>
                   <strong>Phone:</strong> {refund.phoneNumber}
                 </p>
                 <p>
-                  <strong>Booking ID:</strong> {booking._id}
+                  <strong>Booking ID:</strong> {bookingLabel}
                 </p>
                 <p>
-                  <strong>Deposit:</strong> KES {deposit.amount}
+                  <strong>Deposit:</strong> KES {depositAmount}
                 </p>
                 <p>
                   <strong>Refund Amount:</strong> KES {refund.amount}

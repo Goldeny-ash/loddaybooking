@@ -14,6 +14,11 @@ interface ReviewFormProps {
   token?: string;
   source?: "home" | "manage" | "email" | "direct";
   defaultReviewType?: ReviewType;
+  fixedReviewType?: ReviewType;
+  initialBusinessId?: string;
+  initialBusinessName?: string;
+  initialBusinessUsername?: string;
+  initialBusinessLogo?: string;
   className?: string;
   onSubmitted?: () => void;
 }
@@ -58,6 +63,11 @@ export default function ReviewForm({
   token,
   source = "direct",
   defaultReviewType = "platform",
+  fixedReviewType,
+  initialBusinessId = "",
+  initialBusinessName = "",
+  initialBusinessUsername = "",
+  initialBusinessLogo = "",
   className = "",
   onSubmitted,
 }: ReviewFormProps) {
@@ -66,20 +76,31 @@ export default function ReviewForm({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  const [reviewType, setReviewType] = useState<ReviewType>(defaultReviewType);
+  const [reviewType, setReviewType] = useState<ReviewType>(fixedReviewType || defaultReviewType);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [reviewerName, setReviewerName] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [businessId, setBusinessId] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [businessUsername, setBusinessUsername] = useState("");
-  const [businessLogo, setBusinessLogo] = useState("");
+  const [businessId, setBusinessId] = useState(initialBusinessId);
+  const [businessName, setBusinessName] = useState(initialBusinessName);
+  const [businessUsername, setBusinessUsername] = useState(initialBusinessUsername);
+  const [businessLogo, setBusinessLogo] = useState(initialBusinessLogo);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [avatarKind, setAvatarKind] = useState<AvatarKind>("initials");
   const [avatarValue, setAvatarValue] = useState("Lion");
 
   useEffect(() => {
+    if (fixedReviewType) {
+      setReviewType(fixedReviewType);
+    }
+  }, [fixedReviewType]);
+
+  useEffect(() => {
+    if (!bookingId) {
+      setLoadingContext(false);
+      return;
+    }
+
     let mounted = true;
 
     const params = new URLSearchParams();
@@ -92,23 +113,14 @@ export default function ReviewForm({
         if (!mounted) return;
 
         const fromBooking = data.booking;
-        const fromBusiness = data.loggedBusiness;
 
         if (fromBooking) {
-          setReviewType("business");
           setReviewerName(fromBooking.customerName || "");
           setBusinessId(fromBooking.businessId || "");
           setBusinessName(fromBooking.businessName || "");
           setBusinessUsername(fromBooking.businessUsername || "");
           setBusinessLogo(fromBooking.businessLogo || "");
           if (fromBooking.businessLogo) setAvatarKind("logo");
-        } else if (fromBusiness) {
-          setReviewerName(fromBusiness.name || "");
-          setBusinessId(fromBusiness.id || "");
-          setBusinessName(fromBusiness.name || "");
-          setBusinessUsername(fromBusiness.username || "");
-          setBusinessLogo(fromBusiness.logo || "");
-          if (fromBusiness.logo) setAvatarKind("logo");
         }
       })
       .catch(() => {})
@@ -183,22 +195,24 @@ export default function ReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-5 rounded-3xl border border-[#15616D]/20 bg-white/90 p-6 shadow-xl ${className}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setReviewType("platform")}
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${reviewType === "platform" ? "bg-[#15616D] text-white" : "bg-[#FFF4E1] text-[#15616D]"}`}
-        >
-          Review Platform
-        </button>
-        <button
-          type="button"
-          onClick={() => setReviewType("business")}
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${reviewType === "business" ? "bg-[#78290F] text-white" : "bg-[#FFECD1] text-[#78290F]"}`}
-        >
-          Review Business
-        </button>
-      </div>
+      {!fixedReviewType && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setReviewType("platform")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${reviewType === "platform" ? "bg-[#15616D] text-white" : "bg-[#FFF4E1] text-[#15616D]"}`}
+          >
+            Review Platform
+          </button>
+          <button
+            type="button"
+            onClick={() => setReviewType("business")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${reviewType === "business" ? "bg-[#78290F] text-white" : "bg-[#FFECD1] text-[#78290F]"}`}
+          >
+            Review Business
+          </button>
+        </div>
+      )}
 
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">Star Rating</label>
@@ -237,7 +251,7 @@ export default function ReviewForm({
             <input
               value={businessUsername}
               onChange={(e) => setBusinessUsername(e.target.value)}
-              placeholder="Required if business is not auto-detected"
+              placeholder="Enter the business username"
               className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm outline-none focus:border-[#15616D]"
             />
           </div>

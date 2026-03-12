@@ -67,6 +67,7 @@ async function getPageData(username: string) {
   const services = servicesRaw.map((service) => ({
     ...service,
     _id: service._id.toString(),
+    businessId: service.businessId?.toString?.() || business._id.toString(),
     businessDepositPolicy: businessRaw.depositPolicy
       ? {
           enabled: Boolean(businessRaw.depositPolicy.enabled),

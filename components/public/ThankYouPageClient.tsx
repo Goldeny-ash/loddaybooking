@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle } from "lucide-react";
 import { getTheme, applyThemeToRoot } from "@/lib/theme";
-import DepositModal from "./DepositModal";
-import ReschedulePanel from "./ReschedulePanel";
-
-/* ======================================================
-   WCAG Contrast Utilities
-====================================================== */
+import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatBookingPriceMin } from "@/lib/utils/bookingPresentation";
 
 function hexToRgb(hex: string) {
   const c = hex.replace("#", "");
@@ -28,11 +24,6 @@ function luminance(hex: string) {
 
 function getReadableText(bg: string) {
   return luminance(bg) > 0.55 ? "#000000" : "#ffffff";
-}
-
-function mix(hex: string, opacity: number) {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
 function isLight(hex: string) {
@@ -57,11 +48,12 @@ function shadowFor(bg: string) {
     : "0 20px 60px rgba(0,0,0,0.80), 0 0 0 1px rgba(255,255,255,0.05)";
 }
 
-/* ======================================================
-   Component
-====================================================== */
+function normalizeStatus(status?: string) {
+  return String(status || "").replace(/[\s_-]/g, "").toLowerCase();
+}
 
 export default function ThankYouPageClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("bookingId");
   const token = searchParams.get("token");
@@ -70,11 +62,7 @@ export default function ThankYouPageClient() {
   const [theme, setTheme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showDeposit, setShowDeposit] = useState(false);
-  const [showReschedule, setShowReschedule] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  // Fetch booking from the same endpoint as ManageBookingClient
   useEffect(() => {
     if (!bookingId || !token) {
       setError("Invalid booking link");
@@ -83,26 +71,36 @@ export default function ThankYouPageClient() {
     }
 
     fetch(`/api/bookings/manage?bookingId=${bookingId}&token=${token}`)
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then((data) => {
         if (data.error) throw new Error(data.error);
         setBooking(data);
 
         if (data.business) {
-          const t = getTheme(data.business);
-          setTheme(t);
-          applyThemeToRoot(t);
-        }
-
-        if (data.status === "pendingDeposit" && data.depositAmount > 0) {
-          setShowDeposit(true);
+          const nextTheme = getTheme(data.business);
+          setTheme(nextTheme);
+          applyThemeToRoot(nextTheme);
         }
       })
-      .catch((e) => setError(e.message))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [bookingId, token]);
 
-  if (loading) return <p className="p-10 text-center">Loading…</p>;
+  useEffect(() => {
+    if (!booking?.business?.username) return;
+
+    const publicUrl = `/b/${booking.business.username}`;
+    window.history.pushState({ thankYouGuard: true }, "", window.location.href);
+
+    const handlePopState = () => {
+      router.replace(publicUrl);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [booking?.business?.username, router]);
+
+  if (loading) return <p className="p-10 text-center">Loading...</p>;
   if (error || !booking) return <p className="p-10 text-red-600">{error}</p>;
   if (!theme) return null;
 
@@ -115,17 +113,24 @@ export default function ThankYouPageClient() {
   const glassShadow = shadowFor(base);
   const primaryText = getReadableText(theme.primary);
   const accentText = getReadableText(theme.accent);
-  const badgeText = getReadableText(theme.accentLight);
+
+  const normalizedStatus = normalizeStatus(booking.status);
+  const heading = normalizedStatus === "pending" ? "Booking Received" : "Booking Confirmed";
+  const statusLabel = normalizedStatus === "pending" ? "Pending" : "Confirmed";
+  const grandTotal = typeof booking.grandTotal === "number" ? booking.grandTotal : 0;
 
   const manageUrl = `/b/${booking.business.username}/manage?bookingId=${booking._id}&token=${token}`;
-  const reviewUrl = `/review/${booking._id}?token=${token}&source=manage`;
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-
-  const calendarUrl = booking.date && booking.startTime && booking.endTime
-    ? `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-        booking.services.map((s: any) => s.serviceName).join(", ")
-      )}&dates=${new Date(`${booking.date}T${booking.startTime}:00`).toISOString().replace(/-|:|\.\d+/g, "")}/${new Date(`${booking.date}T${booking.endTime}:00`).toISOString().replace(/-|:|\.\d+/g, "")}&details=${encodeURIComponent(`Booking with ${booking.business.name}`)}`
-    : "";
+  const businessUrl = `/b/${booking.business.username}`;
+  const calendarUrl =
+    booking.date && booking.startTime && booking.endTime
+      ? `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+          booking.services.map((s: any) => s.serviceName).join(", ")
+        )}&dates=${new Date(`${booking.date}T${booking.startTime}:00`)
+          .toISOString()
+          .replace(/-|:|\.\d+/g, "")}/${new Date(`${booking.date}T${booking.endTime}:00`)
+          .toISOString()
+          .replace(/-|:|\.\d+/g, "")}&details=${encodeURIComponent(`Booking with ${booking.business.name}`)}`
+      : "";
 
   return (
     <div
@@ -144,13 +149,14 @@ export default function ThankYouPageClient() {
       >
         <div className="text-center space-y-6">
           <CheckCircle className="mx-auto h-16 w-16" style={{ color: theme.accent }} />
-          <h1 className="text-3xl font-bold">Booking Confirmed!</h1>
-          {booking.business.logo && <img src={booking.business.logo} alt={booking.business.name} className="h-14 mx-auto" />}
+          <h1 className="text-3xl font-bold">{heading}</h1>
+          {booking.business.logo ? (
+            <img src={booking.business.logo} alt={booking.business.name} className="h-14 mx-auto" />
+          ) : null}
           <p className="opacity-80">
             Thank you for booking with <strong>{booking.business.name}</strong>
           </p>
 
-          {/* Booking Details */}
           <div
             className="rounded-xl p-5 space-y-3 text-left"
             style={{
@@ -159,32 +165,52 @@ export default function ThankYouPageClient() {
               border: `1px solid ${glassBorder}`,
             }}
           >
-            {booking.services.map((s: any, idx: number) => (
-              <div key={idx} className="space-y-1">
-                <p><b>{s.serviceName}</b></p>
-                {s.staffName && <p>Staff: {s.staffName}</p>}
-                <p>Price: KES {s.price}</p>
+            {booking.services.map((service: any, index: number) => (
+              <div key={index} className="space-y-1">
+                <p>
+                  <b>{service.serviceName}</b>
+                </p>
+                {service.staffName ? <p>Staff: {service.staffName}</p> : null}
+                <p>Duration: {formatDuration(service.durationMinutes) || "Not set"}</p>
+                <p>Price: {formatBookingPriceMin(service)}</p>
               </div>
             ))}
-            <p>Date & Time: {booking.date} · {booking.startTime} – {booking.endTime}</p>
-            <p>Status: {booking.status}</p>
-            {booking.note && <p>Note: {booking.note}</p>}
+            <p>
+              Date and Time: {booking.date} - {booking.startTime} to {booking.endTime}
+            </p>
+            <p>Status: {statusLabel}</p>
+            <p>
+              Total: <b>KES {grandTotal.toLocaleString()}</b>
+            </p>
+            {booking.note ? <p>Note: {booking.note}</p> : null}
           </div>
 
-          {/* Actions */}
           <div className="space-y-3">
-            <a href={manageUrl} className="block py-3 rounded-xl font-semibold" style={{ background: theme.accent, color: accentText }}>
+            <a
+              href={manageUrl}
+              className="block py-3 rounded-xl font-semibold"
+              style={{ background: theme.accent, color: accentText }}
+            >
               Manage / Reschedule
             </a>
-            <a href={reviewUrl} className="block py-3 rounded-xl font-semibold" style={{ background: theme.primary, color: primaryText }}>
-              Leave a Review
+            {calendarUrl ? (
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block py-3 rounded-xl"
+                style={{ background: cardBg, color: cardText }}
+              >
+                Add to Google Calendar
+              </a>
+            ) : null}
+            <a
+              href={businessUrl}
+              className="block py-3 rounded-xl font-semibold"
+              style={{ background: theme.primary, color: primaryText }}
+            >
+              Back to Booking Page
             </a>
-            <a href={calendarUrl} target="_blank" className="block py-3 rounded-xl" style={{ background: cardBg, color: cardText }}>
-              Add to Google Calendar
-            </a>
-            <button onClick={() => navigator.share?.({ title: "My Booking", url: shareUrl })} className="block w-full py-3 rounded-xl" style={{ background: cardBg, color: cardText }}>
-              Share confirmation
-            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DatePicker from "@/components/public/DatePicker";
 import TimeSlotGrid from "./TimeSlotGrid";
 
@@ -13,8 +13,10 @@ interface Props {
   businessId: string;
   serviceIds: string[];
   date: string;
+  refreshKey?: number;
   onDateChange: (date: string) => void;
   onSlotSelected: (slot: Slot) => void;
+  onSlotUnavailable?: () => void;
   setLoading?: (loading: boolean) => void;
 }
 
@@ -22,18 +24,24 @@ export default function SlotPicker({
   businessId,
   serviceIds,
   date,
+  refreshKey = 0,
   onDateChange,
   onSlotSelected,
+  onSlotUnavailable,
   setLoading: setParentLoading,
 }: Props) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [loading, setLoading] = useState(false);
+  const serviceIdsKey = serviceIds.join(",");
 
-  useEffect(() => {
-  if (!date || !businessId || !serviceIds.length) return;
+  const loadAvailability = useCallback(async () => {
+    if (!date || !businessId || !serviceIds.length) {
+      setSlots([]);
+      setSelectedSlot(null);
+      return [];
+    }
 
-  async function loadAvailability() {
     setLoading(true);
     setParentLoading?.(true);
     setSelectedSlot(null);
@@ -42,70 +50,74 @@ export default function SlotPicker({
       const params = new URLSearchParams();
       params.set("businessId", businessId);
       params.set("date", date);
-      params.set("services", serviceIds.join(","));
+      params.set("services", serviceIdsKey);
 
-      const res = await fetch(`/api/availability?${params.toString()}`);
+      const res = await fetch(`/api/availability?${params.toString()}`, {
+        cache: "no-store",
+      });
+
       if (!res.ok) {
         console.error(await res.text());
         setSlots([]);
-        return;
+        return [];
       }
 
       const data = await res.json();
-      setSlots(
-        Array.isArray(data.slots)
-          ? data.slots.map((s: any) => ({
-              startTime: s.startTime,
-              endTime: s.endTime,
-            }))
-          : []
-      );
+      const nextSlots = Array.isArray(data.slots)
+        ? data.slots.map((slot: Slot) => ({
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+          }))
+        : [];
+
+      setSlots(nextSlots);
+      return nextSlots;
     } catch (err) {
       console.error("Availability error", err);
       setSlots([]);
+      return [];
     } finally {
       setLoading(false);
       setParentLoading?.(false);
     }
-  }
+  }, [businessId, date, serviceIds.length, serviceIdsKey, setParentLoading]);
 
-  loadAvailability();
-  // --- use JSON.stringify for stable dependency ---
-}, [date, businessId, JSON.stringify(serviceIds), setParentLoading]);
-
+  useEffect(() => {
+    void loadAvailability();
+  }, [loadAvailability, refreshKey]);
 
   const handleSelect = (slot: Slot) => {
     setSelectedSlot(slot);
     onSlotSelected(slot);
   };
 
-  const skeletonSlots = Array.from({ length: 6 }, (_, i) => i);
+  const skeletonSlots = Array.from({ length: 6 }, (_, index) => index);
 
   return (
     <div className="flex flex-col gap-6">
       <DatePicker date={date} onChange={onDateChange} />
 
-      {loading && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {skeletonSlots.map(i => (
-            <div key={i} className="h-12 rounded-md bg-gray-200 animate-pulse" />
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {skeletonSlots.map((index) => (
+            <div key={index} className="h-12 animate-pulse rounded-md bg-gray-200" />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {!loading && date && (
+      {!loading && date ? (
         <TimeSlotGrid
           slots={slots}
           selectedSlot={selectedSlot ?? undefined}
-          onSelect={handleSelect}
+          onSelect={(slot) => {
+            handleSelect(slot);
+          }}
         />
-      )}
+      ) : null}
 
-      {!loading && date && slots.length === 0 && (
-        <p className="text-sm text-gray-500">
-          No available slots for this date. Try another day.
-        </p>
-      )}
+      {!loading && date && slots.length === 0 ? (
+        <p className="text-sm text-gray-500">No available slots for this date. Try another day.</p>
+      ) : null}
     </div>
   );
 }

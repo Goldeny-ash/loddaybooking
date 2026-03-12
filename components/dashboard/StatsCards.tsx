@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 type Range = "today" | "week" | "month" | "all";
 
@@ -25,30 +24,56 @@ export default function StatsCards({
 }: {
   businessId: string;
 }) {
-  const router = useRouter();
-
   const [range, setRange] = useState<Range>("month");
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   /* ---------------- Fetch unified stats ---------------- */
 
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-
-    const res = await fetch(
-      `/api/dashboard/stats?businessId=${businessId}&range=${range}`,
-      { cache: "no-store" }
-    );
-
-    const data = await res.json();
-    setStats(data);
-    setLoading(false);
-  }, [businessId, range]);
-
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    let cancelled = false;
+
+    async function loadStats() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch(
+          `/api/dashboard/stats?businessId=${businessId}&range=${range}`,
+          { cache: "no-store" }
+        );
+
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        if (!res.ok) {
+          setStats(null);
+          setError(
+            typeof data?.error === "string" ? data.error : "Failed to load stats"
+          );
+          return;
+        }
+
+        setStats(data);
+      } catch {
+        if (cancelled) return;
+        setStats(null);
+        setError("Failed to load stats");
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, range]);
 
   /* ---------------- Formatters ---------------- */
 
@@ -88,36 +113,46 @@ export default function StatsCards({
       label: "Bookings",
       value: stats.bookings,
       trend: stats.trends.bookings,
-      onClick: () => router.push(`/dashboard/bookings?range=${range}`),
     },
     {
       label: "Revenue",
       value: kes.format(stats.revenue),
       trend: stats.trends.revenue,
       note: `Deposits collected: ${kes.format(stats.depositsHeld || 0)}`,
-      onClick: () => router.push("/dashboard/finance"),
     },
     {
       label: "No-show Rate",
       value: `${stats.noShows}%`,
       trend: stats.trends.noShows,
-      onClick: () => router.push("/dashboard/bookings?status=no-show"),
     },
     {
       label: "Staff",
       value: stats.staff,
-      onClick: () => router.push("/dashboard/staff"),
     },
     {
       label: "Services",
       value: stats.services,
-      onClick: () => router.push("/dashboard/services"),
     },
   ];
 
   /* ---------------- Skeleton ---------------- */
 
   if (loading || !stats) {
+    if (!loading && error) {
+      return (
+        <div
+          className="mb-6 rounded-xl border px-4 py-3 text-sm"
+          style={{
+            backgroundColor: "var(--brand-bg-soft)",
+            borderColor: "var(--brand-primary)",
+            color: "var(--brand-primary-dark)",
+          }}
+        >
+          {error}
+        </div>
+      );
+    }
+
     return (
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -154,10 +189,9 @@ export default function StatsCards({
       {/* Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {cards && cards.map((c) => (
-          <button
+          <div
             key={c.label}
-            onClick={c.onClick}
-            className="p-4 rounded-xl shadow text-left hover:scale-[1.01] transition"
+            className="p-4 rounded-xl shadow text-left"
             style={{
               backgroundColor: "var(--brand-bg-soft)",
               border: "1px solid var(--brand-primary)",
@@ -184,7 +218,7 @@ export default function StatsCards({
             {c.note && (
               <p className="text-[10px] mt-1 opacity-70">{c.note}</p>
             )}
-          </button>
+          </div>
         ))}
       </div>
     </div>

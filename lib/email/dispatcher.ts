@@ -2,6 +2,7 @@ import { sendEmail } from "./sendEmail";
 import type { TemplateKey } from "./sendEmail";
 import { EmailEvent } from "./types";
 import { getTheme } from "@/lib/theme";
+import { buildDashboardUrl } from "@/lib/booking/utils";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -107,12 +108,12 @@ const send = async (
       if ((Number(bookingObj.depositAmount) || 0) > 0) {
         await send("DEPOSIT_PAYMENT_REQUEST",
           { to: bookingObj.customerEmail },
-          { booking, paymentUrl: payload.paymentUrl }
+          { booking, manageUrl: payload.manageUrl }
         );
       } else {
         await send("BOOKING_CONFIRMED_WITH_DEPOSIT",
           { to: bookingObj.customerEmail },
-          { booking, calendarUrl: payload.calendarUrl }
+          { booking, manageUrl: payload.manageUrl }
         );
       }
       break;
@@ -134,12 +135,12 @@ const send = async (
     case "DEPOSIT_PAID":
       await send("BOOKING_CONFIRMED_WITH_DEPOSIT",
         { to: bookingObj.customerEmail },
-        { booking, calendarUrl: payload.calendarUrl }
+        { booking, manageUrl: payload.manageUrl }
       );
 
       await send("DEPOSIT_RECEIVED",
         { to: businessObj.email },
-        { booking }
+        { booking, dashboardUrl: payload.dashboardUrl || buildDashboardUrl() }
       );
       break;
 

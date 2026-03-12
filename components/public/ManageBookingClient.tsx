@@ -6,6 +6,8 @@ import DepositModal from "./DepositModal";
 import { getTheme } from "@/lib/theme";
 import type { BrandTheme } from "@/lib/theme";
 import { toast } from "react-hot-toast";
+import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatBookingPriceMin } from "@/lib/utils/bookingPresentation";
 
 /* ======================================================
    WCAG Contrast Utilities
@@ -89,8 +91,18 @@ interface ManageBookingClientProps {
 interface ServiceItem {
   serviceName: string;
   price: number;
+  priceRange?: {
+    min?: number;
+    max?: number;
+  };
   depositAmount?: number;
   staffName?: string | null;
+  durationMinutes?: number;
+  serviceDescription?: string;
+  selectedAddOns?: { title?: string; price?: number; durationMinutes?: number }[];
+  selectedSessions?: { sessions?: number; price?: number; durationMinutes?: number }[];
+  selectedAreas?: { area?: string; min?: number; max?: number; price?: number }[];
+  selectedTier?: { label?: string; min?: number; max?: number; price?: number } | null;
 }
 
 interface BookingData {
@@ -101,6 +113,7 @@ interface BookingData {
   endTime: string;
   customerName?: string;
   depositAmount?: number;
+  grandTotal?: number;
   calloutFee?: number;
   services: ServiceItem[];
   business?: Record<string, unknown>;
@@ -205,6 +218,7 @@ export default function ManageBookingClient({
   const reviewUrl = booking
     ? `/review/${booking._id}?token=${token}&source=manage`
     : "";
+  const grandTotal = Number(booking?.grandTotal || 0);
 
   /* ======================================================
      Actions
@@ -402,7 +416,11 @@ export default function ManageBookingClient({
                 Staff: {s.staffName}
               </p>
             )}
-            <p>Price: KES {s.price}</p>
+            {s.serviceDescription ? (
+              <p className="text-sm opacity-80">{s.serviceDescription}</p>
+            ) : null}
+            <p>Duration: {formatDuration(s.durationMinutes) || "Not set"}</p>
+            <p>Price: {formatBookingPriceMin(s)}</p>
             {Number(s.depositAmount) > 0 && (
               <p className="text-sm">
                 Deposit:{" "}
@@ -413,6 +431,18 @@ export default function ManageBookingClient({
             )}
           </div>
         ))}
+
+        <div
+          className="p-4 rounded-xl shadow-md"
+          style={{
+            background: cardBg,
+            color: cardText,
+            border: `1px solid ${mix(theme?.primary || "#fff", 0.4)}`,
+          }}
+        >
+          <p className="font-semibold">Booking Total</p>
+          <p className="text-lg font-bold">KES {grandTotal.toLocaleString()}</p>
+        </div>
 
         {/* Deposit Button */}
         {canPayDeposit && !showDeposit && (

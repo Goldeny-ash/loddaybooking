@@ -130,6 +130,12 @@ const HomePage = () => {
                 >
                   Start Free
                 </Link>
+                <Link
+                  href="/dashboard"
+                  className="px-10 py-4 rounded-full border border-[#15616D]/20 bg-white/70 text-[#15616D] shadow-sm transition-transform hover:scale-105"
+                >
+                  Dashboard
+                </Link>
                 <p className="mt-2 md:mt-0 text-sm opacity-70 text-[#15616D]">
                   No credit card required • Cancel anytime
                 </p>
@@ -179,7 +185,7 @@ const HomePage = () => {
       {/* Features Section */}
       <FeaturesSection features={features} id="features" />
 
-      <ReviewsSection />
+      <ReviewsSection scope="platform" />
 
       {/* Pricing */}
       <div id="pricing">

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import QRCode from "react-qr-code";
 import { toPng } from "html-to-image";
 import { useRef, useState } from "react";
@@ -18,7 +17,6 @@ type SizePreset = "small" | "sticker" | "poster";
 type StylePreset =
   | "clean"
   | "bunny"
-  | "phoneMockup"
   | "neon"
   | "softPeach"
   | "darkPremium"
@@ -107,7 +105,6 @@ export default function QRCodeCard({
     clean: "bg-white border-4 border-[#FE7F2D]",
     bunny:
       "bg-gradient-to-br from-[#FFECD1] to-[#FFF4E1] border-4 border-[#FE7F2D]",
-    phoneMockup: "bg-transparent",
     neon:
       "bg-black text-white border-4 border-[#00FFB2] shadow-[0_0_40px_#00FFB2]",
     softPeach:
@@ -144,7 +141,6 @@ export default function QRCodeCard({
           {([
             "clean",
             "bunny",
-            "phoneMockup",
             "neon",
             "softPeach",
             "darkPremium",
@@ -198,107 +194,89 @@ export default function QRCodeCard({
 
       {/* Preview */}
       <div className="flex justify-center">
-        {stylePreset === "phoneMockup" ? (
-          <div
-  ref={ref}
-  className={`relative text-center rounded-3xl p-8 shadow-2xl ${containerStyles[stylePreset]}`}
-  style={{ width: sizes[size] + 260 }}
->
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-3 bg-gray-700 rounded-full" />
-            <div className="bg-white rounded-3xl p-6 h-full flex flex-col items-center justify-center">
-              <Image
-                src="/lodday1.png"
-                alt="Lodday"
-                width={160}
-                height={48}
-                className="h-12 w-auto mb-6"
-              />
-              <h2 className="font-bold mb-4 text-center">
-                {business.name}
-              </h2>
-              <QRCode
-                value={trackedUrl}
-                size={220}
-                bgColor={qrColors[qrColor].bg}
-                fgColor={qrColors[qrColor].fg}
-              />
-            </div>
-          </div>
-        ) : (
-          <div
-  ref={ref}
-  className={`relative text-center rounded-3xl p-8 shadow-2xl ${containerStyles[stylePreset]}`}
-  style={{ width: sizes[size] + 260 }}
->
-  {/* BIG BRAND HEADER */}
- {/* BRAND HEADER */}
-{/* FULL WIDTH BRAND HEADER */}
-<div className="flex justify-center mb-6">
-  <img
-    src="/lodday1.png"
-    alt="Lodday Logo"
-    className="h-[90px] w-auto object-contain"
-    style={{
-      imageRendering: "crisp-edges"
-    }}
-  />
-</div>
-
-  <h2 className="text-2xl font-bold mb-4">
-    {business.name}
-  </h2>
-
-  {/* QR SECTION */}
-  <div className="flex justify-center">
-    <div className="relative bg-white p-6 rounded-2xl shadow-xl">
-      <QRCode
-        value={trackedUrl}
-        size={qrSize}
-        bgColor={qrColors[qrColor].bg}
-        fgColor={qrColors[qrColor].fg}
-      />
-
-      {centerLogo && (
         <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: logoSize,
-            height: logoSize,
-            backgroundColor: "#ffffff",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 6,
-          }}
+          ref={ref}
+          className={`relative overflow-hidden text-center shadow-2xl ${containerStyles[stylePreset]}`}
+          style={{ width: sizes[size] + 260, maxWidth: "100%", borderRadius: 36 }}
         >
-          <img
-            src={centerLogo}
-            alt="Center Logo"
+          <div
+            className="relative min-h-[400px] overflow-hidden bg-contain bg-center bg-no-repeat"
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              borderRadius: "50%",
+              backgroundColor: "#8b2b17",
+              backgroundImage: "url('/lodday1.png')",
             }}
-          />
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(131,28,12,0.72)_0%,rgba(184,53,21,0.58)_45%,rgba(116,26,18,0.72)_100%)]" />
+            <div className="absolute inset-x-0 top-0 h-16 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_70%)]" />
+
+            <div className="relative z-10 flex h-full flex-col items-center px-8 pb-28 pt-10 text-white">
+              <p className="max-w-[18ch] text-center text-[clamp(18px,2.2vw,28px)] font-medium uppercase leading-tight tracking-[0.12em] break-words">
+                {business.name}
+              </p>
+
+              <h2 className="mt-2 text-[clamp(64px,8vw,112px)] font-black uppercase tracking-[0.08em] leading-none">
+                Scan
+              </h2>
+
+              <p className="mt-4 max-w-[14ch] text-center text-[clamp(22px,2.6vw,34px)] font-extrabold uppercase leading-tight">
+                to view our services and book
+              </p>
+            </div>
+
+            <div className="absolute -bottom-16 left-1/2 h-40 w-[140%] -translate-x-1/2 rounded-[50%] bg-white" />
+          </div>
+
+          <div className="relative z-10 -mt-6 px-8 pb-10">
+            <div className="mx-auto flex justify-center">
+              <div className="relative rounded-[28px] border-4 border-[#C84E22] bg-white p-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
+                <QRCode
+                  value={trackedUrl}
+                  size={qrSize}
+                  bgColor={qrColors[qrColor].bg}
+                  fgColor={qrColors[qrColor].fg}
+                />
+
+                {centerLogo && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: logoSize,
+                      height: logoSize,
+                      backgroundColor: "#ffffff",
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 6,
+                    }}
+                  >
+                    <img
+                      src={centerLogo}
+                      alt="Center Logo"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        borderRadius: "50%",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="mt-8 text-[clamp(20px,2.4vw,34px)] font-extrabold uppercase leading-tight text-[#9A381A]">
+              we hope you have a good time with us!
+            </p>
+
+            <p className="mt-5 text-sm font-medium text-[#A65535]">
+              {trackedUrl}
+            </p>
+          </div>
         </div>
-      )}
-    </div>
-  </div>
-
-  <p className="text-sm mt-8 font-medium">
-    Scan to book instantly
-  </p>
-
-  <p className="text-xs break-all mt-2 text-gray-500">
-    {trackedUrl}
-  </p>
-</div>
-        )}
       </div>
 
       <div className="flex justify-center gap-4">

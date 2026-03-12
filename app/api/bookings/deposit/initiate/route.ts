@@ -215,6 +215,7 @@ const deposit = await Deposit.create({
 
     return NextResponse.json({
       externalReference,
+      mobileTariff: Number(invoice.charges || 0),
     });
 
   } catch (err: any) {

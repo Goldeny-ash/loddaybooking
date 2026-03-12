@@ -1,10 +1,13 @@
-import { NextRequest } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/mongoDB";
+import Business from "@/lib/models/Business";
 import Booking from "@/lib/models/Booking";
 import Staff from "@/lib/models/Staff";
 import Service from "@/lib/models/Service";
+import { getBookingRevenueValue } from "@/lib/utils/bookingPresentation";
 
 /* ---------------- Date Helpers ---------------- */
 
@@ -51,118 +54,121 @@ function getRange(range: string) {
 /* ---------------- GET ---------------- */
 
 export async function GET(req: NextRequest) {
-  await connectDB();
-
-  const { searchParams } = new URL(req.url);
-
-  const businessId = searchParams.get("businessId");
-  const range = searchParams.get("range") || "month";
-
-  if (!businessId || !mongoose.Types.ObjectId.isValid(businessId)) {
-    return Response.json({ error: "Invalid businessId" }, { status: 400 });
-  }
-
-  const { start, prevStart, prevEnd } = getRange(range);
-
-  /* ---------------- Fetch core datasets ---------------- */
-
-  const baseQuery = {
-    businessId,
-    createdAt: { $gte: start },
-  };
-
-  const prevQuery = {
-    businessId,
-    createdAt: { $gte: prevStart, $lt: prevEnd },
-  };
-
-  const [
-    bookings,
-    prevBookings,
-    staffCount,
-    servicesCount,
-  ] = await Promise.all([
-    Booking.find(baseQuery).lean(),
-    Booking.find(prevQuery).lean(),
-    Staff.countDocuments({ businessId }),
-    Service.countDocuments({ businessId, hidden: false }),
-  ]);
-
-  /* ---------------- Metrics ---------------- */
-
-  const totalBookings = bookings.length;
-
-  const confirmed = bookings.filter(
-    (b) => b.status === "confirmed"
-  );
-
-  const prevConfirmed = prevBookings.filter(
-    (b) => b.status === "confirmed"
-  );
-
-  const noShows = bookings.filter(
-    (b) => b.status === "cancelled"
-  ).length;
-
-  const noShowRate = totalBookings
-    ? Math.round((noShows / totalBookings) * 100)
-    : 0;
-
-  /* ---------------- Revenue + Deposits ---------------- */
-
-  const getBookingValue = (b: {
-    grandTotal?: number;
-    subtotal?: number;
-    calloutFee?: number;
-    services?: Array<{ price?: number }>;
-    serviceId?: { price?: number };
-  }) => {
-    if (typeof b.grandTotal === "number") return b.grandTotal;
-    if (typeof b.subtotal === "number") return b.subtotal + (b.calloutFee || 0);
-    if (Array.isArray(b.services) && b.services.length > 0) {
-      return b.services.reduce(
-        (sum: number, svc: { price?: number }) => sum + (svc.price || 0),
-        0
-      ) + (b.calloutFee || 0);
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return (b.serviceId?.price || 0) + (b.calloutFee || 0);
-  };
 
-  const revenue = confirmed.reduce((sum, b) => sum + getBookingValue(b), 0);
+    await connectDB();
 
-  const prevRevenue = prevConfirmed.reduce(
-    (sum, b) => sum + getBookingValue(b),
-    0
-  );
+    const { searchParams } = new URL(req.url);
 
-  const depositsHeld = confirmed.reduce((sum, b) => {
-    if (b.depositAmount && !b.depositRefunded) return sum + b.depositAmount;
-    return sum;
-  }, 0);
+    const businessId = searchParams.get("businessId");
+    const range = searchParams.get("range") || "month";
 
-  /* ---------------- Trends ---------------- */
+    if (!businessId || !mongoose.Types.ObjectId.isValid(businessId)) {
+      return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
+    }
 
-  const pct = (cur: number, prev: number) => {
-    if (!prev) return 0;
-    return Math.round(((cur - prev) / prev) * 100);
-  };
+    const business = await Business.findOne({
+      _id: businessId,
+      clerkUserId: userId,
+    })
+      .select({ _id: 1 })
+      .lean();
 
-  const trends = {
-    bookings: pct(totalBookings, prevBookings.length),
-    revenue: pct(revenue, prevRevenue),
-    noShows: pct(noShowRate, 0),
-  };
+    if (!business) {
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    }
 
-  /* ---------------- Response ---------------- */
+    const { start, prevStart, prevEnd } = getRange(range);
 
-  return Response.json({
-    bookings: totalBookings,
-    revenue,
-    noShows: noShowRate,
-    depositsHeld,
-    staff: staffCount,
-    services: servicesCount,
+    const normalizedBusinessId = new mongoose.Types.ObjectId(businessId);
 
-    trends,
-  });
+    /* ---------------- Fetch core datasets ---------------- */
+
+    const baseQuery = {
+      businessId: normalizedBusinessId,
+      createdAt: { $gte: start },
+    };
+
+    const prevQuery = {
+      businessId: normalizedBusinessId,
+      createdAt: { $gte: prevStart, $lt: prevEnd },
+    };
+
+    const [bookings, prevBookings, staffCount, servicesCount] = await Promise.all([
+      Booking.find(baseQuery).lean(),
+      Booking.find(prevQuery).lean(),
+      Staff.countDocuments({ businessId: normalizedBusinessId }),
+      Service.countDocuments({ businessId: normalizedBusinessId, hidden: false }),
+    ]);
+
+    /* ---------------- Metrics ---------------- */
+
+    const totalBookings = bookings.length;
+
+    const revenueBookings = bookings.filter(
+      (b) => b.status === "confirmed" || b.status === "completed"
+    );
+
+    const prevRevenueBookings = prevBookings.filter(
+      (b) => b.status === "confirmed" || b.status === "completed"
+    );
+
+    const noShows = bookings.filter((b) => b.status === "cancelled").length;
+
+    const noShowRate = totalBookings
+      ? Math.round((noShows / totalBookings) * 100)
+      : 0;
+
+    /* ---------------- Revenue + Deposits ---------------- */
+
+    const revenue = revenueBookings.reduce(
+      (sum, b) => sum + getBookingRevenueValue(b),
+      0
+    );
+
+    const prevRevenue = prevRevenueBookings.reduce(
+      (sum, b) => sum + getBookingRevenueValue(b),
+      0
+    );
+
+    const depositsHeld = revenueBookings.reduce((sum, b) => {
+      if (b.depositAmount && !b.depositRefunded) return sum + b.depositAmount;
+      return sum;
+    }, 0);
+
+    /* ---------------- Trends ---------------- */
+
+    const pct = (cur: number, prev: number) => {
+      if (!prev) return 0;
+      return Math.round(((cur - prev) / prev) * 100);
+    };
+
+    const trends = {
+      bookings: pct(totalBookings, prevBookings.length),
+      revenue: pct(revenue, prevRevenue),
+      noShows: pct(noShowRate, 0),
+    };
+
+    /* ---------------- Response ---------------- */
+
+    return NextResponse.json({
+      bookings: totalBookings,
+      revenue,
+      noShows: noShowRate,
+      depositsHeld,
+      staff: staffCount,
+      services: servicesCount,
+      trends,
+    });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    return NextResponse.json(
+      { error: "Failed to load dashboard stats" },
+      { status: 500 }
+    );
+  }
 }

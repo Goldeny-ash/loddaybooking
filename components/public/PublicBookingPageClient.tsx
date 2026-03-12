@@ -5,6 +5,7 @@ import PublicBusinessHeader from "@/components/public/PublicBusinessHeader";
 import ServicesGrid from "@/components/public/ServicesGrid";
 import StickyBookingCTA from "@/components/public/StickyBookingCTA";
 import PortfolioShowcase from "@/components/public/PortfolioShowcase";
+import ReviewsSection from "@/components/home/ReviewsSection";
 
 export interface ReferenceImage {
   _id: string;
@@ -38,6 +39,7 @@ export interface BundleItem {
 
 export interface Service {
   _id: string;
+  businessId?: string;
   name: string;
   username?: string;
   category?: string;
@@ -71,8 +73,6 @@ export interface Service {
   gallery?: string[];
   mobileEligible?: boolean;
   featured?: boolean;
-
-  promotions?: Promotion[];
   addOns?: AddOn[];
   businessDepositPolicy?: {
     enabled?: boolean;
@@ -92,7 +92,6 @@ export interface SelectedService extends Service {
   selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
   price?: number;
   depositAmount?: number;
-  promotions?: { _id: string; title: string; type: "percent" | "fixed"; value: number }[];
    businessDepositPolicy?: {
     enabled?: boolean;
     type?: "fixed" | "percent";
@@ -110,7 +109,6 @@ interface AddToSummaryPayload {
   selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
   selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
   selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
-  promotions?: { _id: string; title: string; type: "percent" | "fixed" | string; value: number }[];
   price?: number;
   durationMinutes?: number;
   depositAmount?: number;
@@ -231,15 +229,6 @@ export default function PublicBookingPageClient({
   const cardText = getReadableText(base);
 
   const handleAddToSummary = (data: AddToSummaryPayload) => {
-    const mappedPromotions = (data.promotions || data.service.promotions || [])
-      ?.filter(p => p.type === "fixed" || p.type === "percent")
-      .map(p => ({
-        _id: p._id,
-        title: p.title ?? "Promotion",
-        type: p.type as "fixed" | "percent",
-        value: p.value ?? 0,
-      }));
-
     setSelectedServices(prev => [
       ...prev,
       {
@@ -254,7 +243,6 @@ export default function PublicBookingPageClient({
         price: data.price,
         durationMinutes: data.durationMinutes ?? data.service.durationMinutes,
         depositAmount: data.depositAmount,
-        promotions: mappedPromotions,
       },
     ]);
   };
@@ -300,6 +288,14 @@ export default function PublicBookingPageClient({
         />
       </div>
 
+      <StickyBookingCTA
+        selectedServices={selectedServices}
+        status={status}
+        theme={theme}
+        username={business.username}
+        onRemoveService={handleRemoveService}
+      />
+
       <div
         className="rounded-2xl p-4 md:p-5"
         style={{
@@ -334,8 +330,20 @@ export default function PublicBookingPageClient({
 />
       </section>
 
+      <ReviewsSection
+        scope="business"
+        businessId={business._id}
+        title={`Client Reviews for ${business.name}`}
+        formReviewType="business"
+        formBusinessId={business._id}
+        formBusinessName={business.name}
+        formBusinessUsername={business.username}
+        formBusinessLogo={business.logo || ""}
+      />
+
       <section
-        className="rounded-2xl p-4 md:p-5"
+        className="hidden rounded-2xl p-4 md:p-5"
+        aria-hidden="true"
         style={{
           background: cardBg,
           color: cardText,
@@ -353,13 +361,6 @@ export default function PublicBookingPageClient({
         ) : null}
       </section>
 
-      <StickyBookingCTA
-        selectedServices={selectedServices}
-        status={status}
-        theme={theme}
-        username={business.username}
-        onRemoveService={handleRemoveService}
-      />
     </div>
   );
 }

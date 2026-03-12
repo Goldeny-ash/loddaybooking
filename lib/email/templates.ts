@@ -1,10 +1,129 @@
 import { emailLayout } from "./layout";
 import { BrandTheme } from "@/lib/theme";
+import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatBookingPrice } from "@/lib/utils/bookingPresentation";
 
 type TemplateDefinition = {
   subject: (data: any) => string;
   html: (data: any) => string;
 };
+
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function formatCurrency(value: unknown) {
+  const amount = Number(value || 0);
+  return `KES ${amount.toLocaleString()}`;
+}
+
+function renderIf(condition: unknown, html: string) {
+  return condition ? html : "";
+}
+
+function renderDetail(label: string, value: unknown) {
+  if (value === null || value === undefined || value === "") return "";
+  return `<p style="margin:0 0 8px;"><strong>${label}:</strong> ${value}</p>`;
+}
+
+function renderList(items: string[]) {
+  const filtered = items.filter(Boolean);
+  if (!filtered.length) return "";
+  return `<ul style="margin:8px 0 0;padding-left:18px;">${filtered
+    .map((item) => `<li style="margin-bottom:4px;">${item}</li>`)
+    .join("")}</ul>`;
+}
+
+function renderEmailButton(url: string, label: string, color: string) {
+  return `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-top:24px;">
+  <tr>
+    <td align="center" bgcolor="${color}" style="border-radius:999px;">
+      <a href="${url}"
+        style="
+          display:inline-block;
+          padding:14px 24px;
+          font-weight:600;
+          color:#ffffff;
+          text-decoration:none;
+          border-radius:999px;
+          font-family:'Inria Serif', serif;
+        ">
+        ${label}
+      </a>
+    </td>
+  </tr>
+</table>
+`;
+}
+
+function renderServiceCards(services: any[], options?: { imageOnLeft?: boolean }) {
+  return (services || [])
+    .map((service: any) => {
+      const title = service.serviceName || service?.serviceId?.name || "Selected Service";
+      const details = [
+        renderDetail("Price", formatBookingPrice(service)),
+        renderDetail("Duration", formatDuration(service.durationMinutes)),
+        renderDetail(
+          "Tier",
+          service.selectedTier?.label
+            ? service.selectedTier.label
+            : ""
+        ),
+      ]
+        .filter(Boolean)
+        .join("");
+
+      const metaList = [
+        ...(service.selectedAddOns || []).map(
+          (item: any) => `Add-on: ${item.title}${item.price !== undefined ? ` - ${formatCurrency(item.price)}` : ""}`
+        ),
+        ...(service.selectedSessions || []).map(
+          (item: any) =>
+            `${item.sessions} Sessions${item.price !== undefined ? ` - ${formatCurrency(item.price)}` : ""}`
+        ),
+        ...(service.selectedAreas || []).map(
+          (item: any) => `${item.area}${item.price !== undefined ? ` - ${formatCurrency(item.price)}` : ""}`
+        ),
+      ];
+
+      const imageCell = hasText(service.serviceImage)
+        ? `
+          <td style="width:168px;padding-right:18px;vertical-align:top;">
+            <img
+              src="${service.serviceImage}"
+              alt="${title}"
+              draggable="false"
+              style="display:block;width:168px;height:168px;object-fit:cover;border-radius:16px;-webkit-user-drag:none;pointer-events:none;"
+            />
+          </td>
+        `
+        : "";
+
+      const contentCell = `
+        <td style="vertical-align:top;">
+          <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1f2937;">${title}</p>
+          ${renderIf(hasText(service.serviceDescription), `<p style="margin:0 0 10px;color:#6b7280;">${service.serviceDescription}</p>`)}
+          ${details}
+          ${renderList(metaList)}
+        </td>
+      `;
+
+      return `
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+          style="margin:0 0 16px;background:#ffffff;border:1px solid rgba(0,0,0,0.08);border-radius:20px;">
+          <tr>
+            ${
+              options?.imageOnLeft !== false
+                ? `${imageCell}${contentCell}`
+                : `${contentCell}${imageCell}`
+            }
+          </tr>
+        </table>
+      `;
+    })
+    .join("");
+}
 
 export const emailTemplates: Record<string, TemplateDefinition> = {
 
@@ -25,72 +144,23 @@ BOOKING_RECEIVED_CUSTOMER: {
 
     const isConfirmed = booking.status === "confirmed";
 
-    const servicesList = booking.services
-      .map((s: any) => {
-
-        const tier = s.selectedTier
-          ? `<p><strong>Tier:</strong> ${s.selectedTier.label} - KES ${s.selectedTier.price}</p>`
-          : "";
-
-        const addOns =
-          s.selectedAddOns?.length
-            ? `<ul>${s.selectedAddOns
-                .map((a: any) => `<li>Add-on: ${a.title} - KES ${a.price}</li>`)
-                .join("")}</ul>`
-            : "";
-
-        const sessions =
-          s.selectedSessions?.length
-            ? `<ul>${s.selectedSessions
-                .map((ss: any) => `<li>${ss.sessions} Sessions - KES ${ss.price}</li>`)
-                .join("")}</ul>`
-            : "";
-
-        const areas =
-          s.selectedAreas?.length
-            ? `<ul>${s.selectedAreas
-                .map((ar: any) => `<li>${ar.area} - KES ${ar.price}</li>`)
-                .join("")}</ul>`
-            : "";
-
-        const image =
-          s.serviceImage
-            ? `<img src="${s.serviceImage}" style="max-width:320px;border-radius:8px;margin-top:8px;" />`
-            : "";
-
-        const description =
-          s.serviceDescription
-            ? `<p style="color:#666;margin:4px 0;">${s.serviceDescription}</p>`
-            : "";
-
-        const serviceLabel =
-          s.serviceName ||
-          s?.serviceId?.name ||
-          "Selected Service";
-
-        return `
-          <li style="margin-bottom:20px;">
-            <strong>${serviceLabel}</strong>
-            ${description}
-            ${image}
-
-            <p><strong>Price:</strong> KES ${s.price}</p>
-
-            ${tier}
-            ${addOns}
-            ${sessions}
-            ${areas}
-          </li>
-        `;
-      })
-      .join("");
-
     const mobileBlock =
       booking.isMobile && booking.customerLocation
         ? `
-          <p><strong>Mobile Service</strong></p>
-          <p>Service Address: ${booking.customerLocation.address}</p>
-          <p>Distance: ${booking.distanceKm?.toFixed(1)} km</p>
+          <div style="margin:18px 0;padding:16px;border-radius:16px;background:${theme.backgroundSoft};">
+            <p style="margin:0 0 8px;"><strong>Mobile Service</strong></p>
+            ${renderDetail("Service Address", booking.customerLocation.address)}
+            ${renderDetail(
+              "Google Maps",
+              hasText(booking.customerLocation.mapsLink)
+                ? `<a href="${booking.customerLocation.mapsLink}" target="_blank" rel="noreferrer">Open location</a>`
+                : ""
+            )}
+            ${renderDetail(
+              "Distance",
+              typeof booking.distanceKm === "number" ? `${booking.distanceKm.toFixed(1)} km` : ""
+            )}
+          </div>
         `
         : "";
 
@@ -98,52 +168,29 @@ BOOKING_RECEIVED_CUSTOMER: {
       ? `<p>Your appointment with <strong>${business.name}</strong> has been <strong>confirmed</strong>.</p>`
       : `<p>Your booking request with <strong>${business.name}</strong> has been submitted and is awaiting approval.</p>`;
 
-    const button = `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-top:25px;">
-  <tr>
-    <td align="center" bgcolor="${theme.primaryColor}" style="border-radius:6px;">
-      <a href="${manageUrl}"
-        style="
-          display:inline-block;
-          padding:12px 22px;
-          font-weight:600;
-          color:#ffffff;
-          text-decoration:none;
-          border-radius:6px;
-          font-family:'Inria Serif', serif;
-        ">
-        Manage Booking
-      </a>
-    </td>
-  </tr>
-</table>
-`;
-
     const content = `
       <p>Hi ${booking.customerName},</p>
 
       ${statusText}
 
-      <p><strong>Date:</strong> ${booking.date}</p>
-      <p><strong>Time:</strong> ${booking.startTime} - ${booking.endTime}</p>
+      ${renderDetail("Date", booking.date)}
+      ${renderDetail("Time", hasText(booking.startTime) && hasText(booking.endTime) ? `${booking.startTime} - ${booking.endTime}` : "")}
 
       ${mobileBlock}
 
-      <h4>Services Selected</h4>
+      <h4 style="margin:24px 0 12px;">Services Selected</h4>
 
-      <ul style="list-style:none;padding:0;">
-        ${servicesList}
-      </ul>
+      ${renderServiceCards(booking.services, { imageOnLeft: true })}
 
-      <p>Subtotal: KES ${booking.subtotal}</p>
-      ${booking.calloutFee ? `<p>Callout Fee: KES ${booking.calloutFee}</p>` : ""}
-      <p><strong>Grand Total: KES ${booking.grandTotal}</strong></p>
+      ${renderDetail("Subtotal", formatCurrency(booking.subtotal))}
+      ${renderDetail("Callout Fee", Number(booking.calloutFee || 0) > 0 ? formatCurrency(booking.calloutFee) : "")}
+      <p><strong>Grand Total: ${formatCurrency(booking.grandTotal)}</strong></p>
 
       ${
         booking.depositAmount > 0
           ? `
           <p>
-            If approved, a deposit of <strong>KES ${booking.depositAmount}</strong> 
+            If approved, a deposit of <strong>${formatCurrency(booking.depositAmount)}</strong>
             will be required. This deposit is part of the total service cost.
           </p>
           <p>
@@ -154,7 +201,7 @@ BOOKING_RECEIVED_CUSTOMER: {
           : ""
       }
 
-      ${button}
+      ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
     `;
 
     return emailLayout(business, theme, content);
@@ -178,57 +225,23 @@ NEW_BOOKING_BUSINESS: {
 
     const isConfirmed = booking.status === "confirmed";
 
-    const servicesList = booking.services
-      .map((s: any) => {
-
-        const image =
-          s.serviceImage
-            ? `<img src="${s.serviceImage}" style="max-width:320px;border-radius:8px;margin-top:8px;" />`
-            : "";
-
-        const description =
-          s.serviceDescription
-            ? `<p style="color:#666;margin:4px 0;">${s.serviceDescription}</p>`
-            : "";
-
-        const tier =
-          s.selectedTier
-            ? `<p><strong>Tier:</strong> ${s.selectedTier.label} - KES ${s.selectedTier.price}</p>`
-            : "";
-
-        const addOns =
-          s.selectedAddOns?.length
-            ? `<ul>${s.selectedAddOns
-                .map((a: any) => `<li>Add-on: ${a.title} - KES ${a.price}</li>`)
-                .join("")}</ul>`
-            : "";
-
-        const serviceLabel =
-          s.serviceName ||
-          s?.serviceId?.name ||
-          "Selected Service";
-
-        return `
-          <li style="margin-bottom:20px;">
-            <strong>${serviceLabel}</strong>
-            ${description}
-            ${image}
-
-            <p><strong>Price:</strong> KES ${s.price}</p>
-
-            ${tier}
-            ${addOns}
-          </li>
-        `;
-      })
-      .join("");
-
     const mobileBlock =
       booking.isMobile && booking.customerLocation
         ? `
-          <p><strong>Mobile Service</strong></p>
-          <p>Address: ${booking.customerLocation.address}</p>
-          <p>Distance: ${booking.distanceKm?.toFixed(1)} km</p>
+          <div style="margin:18px 0;padding:16px;border-radius:16px;background:${theme.backgroundSoft};">
+            <p style="margin:0 0 8px;"><strong>Mobile Service</strong></p>
+            ${renderDetail("Address", booking.customerLocation.address)}
+            ${renderDetail(
+              "Google Maps",
+              hasText(booking.customerLocation.mapsLink)
+                ? `<a href="${booking.customerLocation.mapsLink}" target="_blank" rel="noreferrer">Open location</a>`
+                : ""
+            )}
+            ${renderDetail(
+              "Distance",
+              typeof booking.distanceKm === "number" ? `${booking.distanceKm.toFixed(1)} km` : ""
+            )}
+          </div>
         `
         : "";
 
@@ -236,50 +249,26 @@ NEW_BOOKING_BUSINESS: {
       ? `<p>A new booking has been <strong>automatically confirmed</strong>.</p>`
       : `<p>A new booking request has been submitted and is awaiting your approval.</p>`;
 
-    const button = `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-top:25px;">
-  <tr>
-    <td align="center" bgcolor="${theme.primaryColor}" style="border-radius:6px;">
-      <a href="${dashboardUrl}"
-        style="
-          display:inline-block;
-          padding:12px 22px;
-          font-weight:600;
-          color:#ffffff;
-          text-decoration:none;
-          border-radius:6px;
-          font-family:'Inria Serif', serif;
-        ">
-        View Booking in Dashboard
-      </a>
-    </td>
-  </tr>
-</table>
-`;
-
     const content = `
       <p>Hello ${business.name},</p>
 
       ${statusText}
 
-      <p><strong>Customer:</strong> ${booking.customerName}</p>
-      <p><strong>Reference:</strong> ${booking.bookingKey}</p>
-      <p><strong>Date:</strong> ${booking.date}</p>
-      <p><strong>Time:</strong> ${booking.startTime} - ${booking.endTime}</p>
+      ${renderDetail("Customer", booking.customerName)}
+      ${renderDetail("Date", booking.date)}
+      ${renderDetail("Time", hasText(booking.startTime) && hasText(booking.endTime) ? `${booking.startTime} - ${booking.endTime}` : "")}
 
       ${mobileBlock}
 
-      <h4>Services Selected</h4>
+      <h4 style="margin:24px 0 12px;">Services Selected</h4>
 
-      <ul style="list-style:none;padding:0;">
-        ${servicesList}
-      </ul>
+      ${renderServiceCards(booking.services, { imageOnLeft: true })}
 
-      <p>Subtotal: KES ${booking.subtotal}</p>
-      ${booking.calloutFee ? `<p>Callout Fee: KES ${booking.calloutFee}</p>` : ""}
-      <p><strong>Grand Total: KES ${booking.grandTotal}</strong></p>
+      ${renderDetail("Subtotal", formatCurrency(booking.subtotal))}
+      ${renderDetail("Callout Fee", Number(booking.calloutFee || 0) > 0 ? formatCurrency(booking.calloutFee) : "")}
+      <p><strong>Grand Total: ${formatCurrency(booking.grandTotal)}</strong></p>
 
-      ${button}
+      ${renderEmailButton(dashboardUrl, "Open Dashboard", theme.primary)}
     `;
 
     return emailLayout(business, theme, content);
@@ -299,31 +288,9 @@ NEW_BOOKING_BUSINESS: {
   },
 
   html: (data) => {
-    const { business, theme, booking, paymentUrl } = data;
+    const { business, theme, booking, manageUrl } = data;
 
     const hasDeposit = (Number(booking.depositAmount) || 0) > 0;
-
-    const button = `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-top:20px;">
-<tr>
-<td align="center" bgcolor="${theme.primaryColor}" style="border-radius:6px;">
-<a href="${paymentUrl}"
-style="
-display:inline-block;
-padding:12px 22px;
-font-weight:600;
-color:#ffffff;
-text-decoration:none;
-border-radius:6px;
-background-color:${theme.primaryColor};
-font-family:'Inria Serif', serif;
-">
-${hasDeposit ? "Pay Deposit" : "View Booking"}
-</a>
-</td>
-</tr>
-</table>
-`;
 
     const content = hasDeposit
       ? `
@@ -334,7 +301,7 @@ ${hasDeposit ? "Pay Deposit" : "View Booking"}
         </p>
 
         <p>
-          A deposit of <strong>KES ${booking.depositAmount}</strong> is required
+          A deposit of <strong>${formatCurrency(booking.depositAmount)}</strong> is required
           to secure your appointment.
         </p>
 
@@ -343,10 +310,10 @@ ${hasDeposit ? "Pay Deposit" : "View Booking"}
           from the final amount.
         </p>
 
-        ${button}
+        ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
 
         <p>
-          Once the deposit is paid, your booking will be fully confirmed.
+          Open the booking page to pay the deposit and complete confirmation.
         </p>
       `
       : `
@@ -361,7 +328,7 @@ ${hasDeposit ? "Pay Deposit" : "View Booking"}
           No deposit is required. Your appointment is secured.
         </p>
 
-        ${button}
+        ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
       `;
 
     return emailLayout(business, theme, content);
@@ -376,7 +343,7 @@ ${hasDeposit ? "Pay Deposit" : "View Booking"}
       `Booking Confirmed: ${data.business.name}`,
 
     html: (data) => {
-      const { business, theme, booking, calendarUrl } = data;
+      const { business, theme, booking, manageUrl } = data;
 
       const content = `
         <p>Hi ${booking.customerName},</p>
@@ -388,14 +355,10 @@ ${hasDeposit ? "Pay Deposit" : "View Booking"}
         </p>
 
         <p>
-          Add to calendar:
-          <a href="${calendarUrl}" target="_blank">Add to Google Calendar</a>
+          You can review or manage the appointment any time from your booking page.
         </p>
 
-        <p>
-          Please remember to mark the booking complete after your appointment
-          so funds can be released.
-        </p>
+        ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
       `;
 
       return emailLayout(business, theme, content);
@@ -451,16 +414,16 @@ DEPOSIT_RECEIVED: {
   subject: () => `Deposit Received`,
 
   html: (data) => {
-    const { business, theme, booking } = data;
+    const { business, theme, booking, dashboardUrl } = data;
 
     const content = `
-      <p>A deposit of <strong>KES ${booking.depositAmount}</strong> has been received.</p>
+      <p>A deposit of <strong>${formatCurrency(booking.depositAmount)}</strong> has been received.</p>
 
       <p>
         Funds are securely held and will be released once the booking is marked complete.
       </p>
 
-      <p>Reference: ${booking.bookingKey}</p>
+      ${renderEmailButton(dashboardUrl || `${process.env.APP_URL || "https://booking.lodday.com"}/dashboard`, "Open Dashboard", theme.primary)}
     `;
 
     return emailLayout(business, theme, content);
@@ -1002,7 +965,8 @@ STAFF_BOOKING_ASSIGNED: {
                   .map(
                     (a: any) =>
                       `<li>Add-on: ${a.title} (+${a.durationMinutes} mins)</li>`
-                  )
+                      
+                   )
                   .join("")}
                </ul>`
             : "";
@@ -1030,8 +994,8 @@ STAFF_BOOKING_ASSIGNED: {
           <div style="margin-bottom:15px;">
             <strong>${s.serviceName || s?.serviceId?.name || "Service"}</strong><br/>
             ${s.serviceDescription ? `<span style="color:#666;">${s.serviceDescription}</span><br/>` : ""}
-            Duration: ${s.durationMinutes} mins<br/>
-            Price: KES ${s.price}
+            Duration: ${formatDuration(s.durationMinutes) || "Not set"}<br/>
+            Price: ${formatBookingPrice(s)}
             ${tier}
             ${sessions}
             ${areas}
@@ -1099,7 +1063,7 @@ STAFF_BOOKING_ASSIGNED: {
 
       <hr/>
 
-      <p><strong>Total Duration:</strong> ${booking.totalDurationMinutes} mins</p>
+      <p><strong>Total Duration:</strong> ${formatDuration(booking.totalDurationMinutes) || "Not set"}</p>
       <p><strong>Total Value:</strong> KES ${booking.grandTotal}</p>
 
       ${depositBlock}

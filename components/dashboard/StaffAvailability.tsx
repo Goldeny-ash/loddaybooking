@@ -36,10 +36,11 @@ export default function StaffAvailability({
   availability,
   setAvailability,
 }: Props) {
-  const toggleClosed = (day: string) => {
-    setAvailability(prev => {
-      const staff = prev[staffId] ?? {};
+  const monday = DAYS[0];
 
+  const toggleClosed = (day: string) => {
+    setAvailability((prev) => {
+      const staff = prev[staffId] ?? {};
       const current = staff[day] ?? EMPTY_SLOT;
 
       return {
@@ -57,12 +58,8 @@ export default function StaffAvailability({
     });
   };
 
-  const updateTime = (
-    day: string,
-    field: "start" | "end",
-    value: string
-  ) => {
-    setAvailability(prev => {
+  const updateTime = (day: string, field: "start" | "end", value: string) => {
+    setAvailability((prev) => {
       const staff = prev[staffId] ?? {};
       const current = staff[day] ?? EMPTY_SLOT;
 
@@ -80,13 +77,12 @@ export default function StaffAvailability({
   };
 
   const copyToAll = (day: string) => {
-    setAvailability(prev => {
+    setAvailability((prev) => {
       const staff = prev[staffId] ?? {};
       const template = staff[day] ?? EMPTY_SLOT;
 
       const copied: Record<string, Slot> = {};
-
-      DAYS.forEach(d => {
+      DAYS.forEach((d) => {
         copied[d] = { ...template };
       });
 
@@ -106,23 +102,18 @@ export default function StaffAvailability({
         Availability
       </p>
 
-      {DAYS.map(day => {
-        const slot =
-          availability[staffId]?.[day] ?? EMPTY_SLOT;
+      {DAYS.map((day) => {
+        const slot = availability[staffId]?.[day] ?? EMPTY_SLOT;
 
         return (
           <div key={day} className="flex items-center gap-2">
-            <span className="capitalize w-20 text-sm">
-              {day}
-            </span>
+            <span className="capitalize w-20 text-sm">{day}</span>
 
             <input
               type="time"
               value={slot.start}
               disabled={slot.closed}
-              onChange={e =>
-                updateTime(day, "start", e.target.value)
-              }
+              onChange={(e) => updateTime(day, "start", e.target.value)}
               className="border p-1 w-20 rounded text-sm"
             />
 
@@ -132,9 +123,7 @@ export default function StaffAvailability({
               type="time"
               value={slot.end}
               disabled={slot.closed}
-              onChange={e =>
-                updateTime(day, "end", e.target.value)
-              }
+              onChange={(e) => updateTime(day, "end", e.target.value)}
               className="border p-1 w-20 rounded text-sm"
             />
 
@@ -147,13 +136,15 @@ export default function StaffAvailability({
               Closed
             </label>
 
-            <button
-              type="button"
-              onClick={() => copyToAll(day)}
-              className="px-2 py-1 bg-gray-200 rounded text-xs"
-            >
-              Copy → All
-            </button>
+            {day === monday ? (
+              <button
+                type="button"
+                onClick={() => copyToAll(day)}
+                className="px-2 py-1 bg-gray-200 rounded text-xs"
+              >
+                Copy Monday to all days (populates the rest)
+              </button>
+            ) : null}
           </div>
         );
       })}

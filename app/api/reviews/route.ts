@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { auth } from "@clerk/nextjs/server";
 import { connectDB } from "@/lib/mongoDB";
 import Review from "@/lib/models/Review";
 import Booking from "@/lib/models/Booking";
@@ -118,7 +117,6 @@ export async function POST(req: Request) {
   await connectDB();
 
   const body = await req.json();
-  const { userId } = await auth();
 
   const requestedType = toSafeString(body.reviewType, "platform");
   const reviewType: ReviewType = requestedType === "business" ? "business" : "platform";
@@ -153,13 +151,6 @@ export async function POST(req: Request) {
       .lean()) as BookingReviewDoc | null;
   }
 
-  let loggedBusiness: BusinessLite | null = null;
-  if (userId) {
-    loggedBusiness = (await Business.findOne({ clerkUserId: userId })
-      .select("_id name username logo")
-      .lean()) as BusinessLite | null;
-  }
-
   let resolvedBusiness: BusinessLite | null = null;
 
   if (booking?.businessId?._id) {
@@ -168,8 +159,6 @@ export async function POST(req: Request) {
     resolvedBusiness = (await Business.findById(businessIdInput).select("_id name username logo").lean()) as BusinessLite | null;
   } else if (businessUsernameInput) {
     resolvedBusiness = (await Business.findOne({ username: businessUsernameInput }).select("_id name username logo").lean()) as BusinessLite | null;
-  } else if (loggedBusiness) {
-    resolvedBusiness = loggedBusiness;
   }
 
   if (reviewType === "business" && !resolvedBusiness?._id) {
@@ -182,7 +171,6 @@ export async function POST(req: Request) {
   const resolvedReviewerName =
     reviewerNameInput ||
     (booking?.customerName ? String(booking.customerName) : "") ||
-    (loggedBusiness?.name ? String(loggedBusiness.name) : "") ||
     "Anonymous";
 
   const avatarKindRaw = toSafeString(body.avatarKind, "");

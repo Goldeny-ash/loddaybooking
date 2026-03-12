@@ -9,11 +9,45 @@ import Staff from "@/lib/models/Staff";
 import { generateSlots } from "@/lib/availability/engine";
 import { toMinutes } from "@/lib/availability/time";
 
+export const dynamic = "force-dynamic";
+
 type StaffDayOverride = {
   date?: string;
   closed?: boolean;
   blocks?: Array<{ start?: string; end?: string }>;
 };
+
+type TimeSlot = {
+  startTime: string;
+  endTime: string;
+};
+
+function getHourlySlots(slots: TimeSlot[], currentMinutes: number | null) {
+  const grouped = new Map<number, TimeSlot[]>();
+
+  for (const slot of slots) {
+    const hour = Math.floor(toMinutes(slot.startTime) / 60);
+    const bucket = grouped.get(hour) ?? [];
+    bucket.push(slot);
+    grouped.set(hour, bucket);
+  }
+
+  return Array.from(grouped.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([, bucket]) => {
+      if (currentMinutes === null) {
+        return bucket.sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime))[0];
+      }
+
+      return bucket.sort((a, b) => {
+        const diffA = Math.abs(toMinutes(a.startTime) - currentMinutes);
+        const diffB = Math.abs(toMinutes(b.startTime) - currentMinutes);
+        if (diffA !== diffB) return diffA - diffB;
+        return toMinutes(a.startTime) - toMinutes(b.startTime);
+      })[0];
+    })
+    .filter(Boolean);
+}
 
 export async function GET(req: Request) {
   try {
@@ -33,8 +67,8 @@ export async function GET(req: Request) {
 
     const serviceIds = servicesRaw
       .split(",")
-      .filter(id => Types.ObjectId.isValid(id))
-      .map(id => new Types.ObjectId(id));
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
 
     if (!serviceIds.length) {
       return NextResponse.json({ slots: [] });
@@ -44,7 +78,6 @@ export async function GET(req: Request) {
 
     const businessId = new Types.ObjectId(businessIdRaw);
 
-    // ---------- Load Services ----------
     const services = await Service.find({
       _id: { $in: serviceIds },
       businessId,
@@ -54,22 +87,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ slots: [] });
     }
 
-    const totalDuration = services.reduce(
-      (sum, s) => sum + (s.durationMinutes || 0),
-      0
-    );
+    const totalDuration = services.reduce((sum, service) => sum + (service.durationMinutes || 0), 0);
 
-    // ---------- Load Eligible Staff ----------
     const staff = await Staff.find({
       businessId,
-      services: { $in: serviceIds.map(id => id.toString()) },
+      services: { $in: serviceIds.map((id) => id.toString()) },
     }).lean();
 
     if (!staff.length) {
       return NextResponse.json({ slots: [] });
     }
 
-    // ---------- Load Bookings For That Day ----------
     const bookings = await Booking.find({
       businessId,
       date,
@@ -80,7 +108,6 @@ export async function GET(req: Request) {
       .toLocaleDateString("en-US", { weekday: "long" })
       .toLowerCase();
 
-    // ---------- Kenya Time Handling ----------
     const todayKenya = new Date().toLocaleDateString("en-CA", {
       timeZone: "Africa/Nairobi",
     });
@@ -91,84 +118,85 @@ export async function GET(req: Request) {
       })
     );
 
-    const currentMinutes =
-      nowKenya.getHours() * 60 + nowKenya.getMinutes();
+    const currentMinutes = nowKenya.getHours() * 60 + nowKenya.getMinutes();
+    const baseSlots = generateSlots("06:00", "22:00", totalDuration, 15);
 
-    // ---------- Generate Slots ----------
-    const baseSlots = generateSlots("06:00", "22:00", totalDuration);
-
-    const availableSlots: { startTime: string; endTime: string }[] = [];
+    const availableSlots: TimeSlot[] = [];
 
     for (const slot of baseSlots) {
       const slotStart = toMinutes(slot.startTime);
       const slotEnd = toMinutes(slot.endTime);
 
-      // Remove past time if today
       if (date === todayKenya && slotStart <= currentMinutes) {
         continue;
       }
 
-      // ----- Capacity Calculation -----
       let staffCapacity = 0;
 
       for (const member of staff) {
-        const avail = member.weeklyAvailability?.[weekday];
-        if (!avail) continue;
-        if (!avail.start || !avail.end) continue;
-        if (avail.closed) continue;
+        const availability = member.weeklyAvailability?.[weekday];
+        if (!availability?.start || !availability?.end || availability.closed) {
+          continue;
+        }
 
-        const availStart = toMinutes(avail.start);
-        const availEnd = toMinutes(avail.end);
+        const availabilityStart = toMinutes(availability.start);
+        const availabilityEnd = toMinutes(availability.end);
 
-        if (slotStart < availStart || slotEnd > availEnd) continue;
+        if (slotStart < availabilityStart || slotEnd > availabilityEnd) {
+          continue;
+        }
 
         const dayOverride = (member.availabilityOverrides || []).find(
-          (o: StaffDayOverride) => o?.date === date
+          (override: StaffDayOverride) => override?.date === date
         ) as StaffDayOverride | undefined;
 
-        if (dayOverride?.closed) continue;
+        if (dayOverride?.closed) {
+          continue;
+        }
 
-        const overlapsBlockedRange = (dayOverride?.blocks || []).some((b) => {
-          if (!b?.start || !b?.end) return false;
-          const blockedStart = toMinutes(b.start);
-          const blockedEnd = toMinutes(b.end);
+        const overlapsBlockedRange = (dayOverride?.blocks || []).some((block) => {
+          if (!block?.start || !block?.end) return false;
+          const blockedStart = toMinutes(block.start);
+          const blockedEnd = toMinutes(block.end);
           return slotStart < blockedEnd && blockedStart < slotEnd;
         });
 
-        if (overlapsBlockedRange) continue;
+        if (overlapsBlockedRange) {
+          continue;
+        }
 
-        staffCapacity++;
+        staffCapacity += 1;
       }
 
-      if (staffCapacity === 0) continue;
+      if (staffCapacity === 0) {
+        continue;
+      }
 
-      // ----- Count Overlapping Bookings -----
-      const overlappingBookings = bookings.filter(b => {
-        const bStart = toMinutes(b.startTime);
-        const bEnd = toMinutes(b.endTime);
-        return slotStart < bEnd && bStart < slotEnd;
+      const overlappingBookings = bookings.filter((booking) => {
+        const bookingStart = toMinutes(booking.startTime);
+        const bookingEnd = toMinutes(booking.endTime);
+        return slotStart < bookingEnd && bookingStart < slotEnd;
       }).length;
 
-      const remainingCapacity = staffCapacity - overlappingBookings;
+      if (staffCapacity - overlappingBookings <= 0) {
+        continue;
+      }
 
-if (remainingCapacity <= 0) continue;
-
-availableSlots.push({
-  startTime: slot.startTime,
-  endTime: slot.endTime,
-});
+      availableSlots.push({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      });
     }
+
+    const currentReferenceMinutes = date === todayKenya ? currentMinutes : null;
+    const slots = getHourlySlots(availableSlots, currentReferenceMinutes);
 
     return NextResponse.json({
       date,
-      slots: availableSlots,
+      slots,
     });
-
   } catch (err) {
     console.error("Availability error:", err);
-    return NextResponse.json(
-      { error: "Failed to compute availability" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to compute availability" }, { status: 500 });
   }
 }

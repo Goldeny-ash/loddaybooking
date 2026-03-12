@@ -12,6 +12,8 @@ function ReviewPageContent() {
   const source = params.get("source");
 
   const defaultReviewType = type === "business" ? "business" : "platform";
+  const fixedReviewType =
+    type === "business" || type === "platform" ? defaultReviewType : undefined;
   const resolvedSource =
     source === "home" || source === "manage" || source === "email" || source === "direct"
       ? source
@@ -29,6 +31,7 @@ function ReviewPageContent() {
           token={token}
           source={resolvedSource}
           defaultReviewType={defaultReviewType}
+          fixedReviewType={fixedReviewType}
         />
       </div>
     </main>

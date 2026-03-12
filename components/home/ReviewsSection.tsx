@@ -23,6 +23,18 @@ interface ReviewItem {
   } | null;
 }
 
+interface ReviewsSectionProps {
+  scope?: "all" | "platform" | "business";
+  businessId?: string;
+  title?: string;
+  subtitle?: string;
+  formReviewType?: "platform" | "business";
+  formBusinessId?: string;
+  formBusinessName?: string;
+  formBusinessUsername?: string;
+  formBusinessLogo?: string;
+}
+
 const CARD_BACKGROUNDS = [
   "linear-gradient(135deg, #FFF4E1 0%, #FFECD1 100%)",
   "linear-gradient(135deg, #C2E0E0 0%, #E0F0F0 100%)",
@@ -46,7 +58,21 @@ function FallbackAvatar({ name, label }: { name: string; label: string }) {
   );
 }
 
-export default function ReviewsSection() {
+export default function ReviewsSection({
+  scope = "all",
+  businessId,
+  title = "What Others Have To Say",
+  subtitle = scope === "business"
+    ? "Reviews from clients who booked with this business."
+    : scope === "platform"
+    ? "Platform reviews from businesses and customers using Lodday."
+    : "Platform and business reviews from your community.",
+  formReviewType,
+  formBusinessId = "",
+  formBusinessName = "",
+  formBusinessUsername = "",
+  formBusinessLogo = "",
+}: ReviewsSectionProps) {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -54,7 +80,14 @@ export default function ReviewsSection() {
   const loadReviews = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/reviews?scope=all&limit=30");
+      const params = new URLSearchParams({
+        scope,
+        limit: "30",
+      });
+      if (scope === "business" && businessId) {
+        params.set("businessId", businessId);
+      }
+      const res = await fetch(`/api/reviews?${params.toString()}`);
       const data = await res.json();
       setReviews(Array.isArray(data.reviews) ? data.reviews : []);
     } catch {
@@ -66,7 +99,7 @@ export default function ReviewsSection() {
 
   useEffect(() => {
     loadReviews();
-  }, []);
+  }, [scope, businessId]);
 
   const marqueeItems = useMemo(() => {
     if (!reviews.length) return [];
@@ -78,8 +111,8 @@ export default function ReviewsSection() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex flex-col items-center justify-between gap-4 md:flex-row">
           <div>
-            <h2 className="font-serif text-4xl text-[#1A1A1A]">What Others Have To Say</h2>
-            <p className="mt-2 text-sm text-[#3D3D3D]">Platform and business reviews from your community.</p>
+            <h2 className="font-serif text-4xl text-[#1A1A1A]">{title}</h2>
+            <p className="mt-2 text-sm text-[#3D3D3D]">{subtitle}</p>
           </div>
           <button
             type="button"
@@ -94,7 +127,12 @@ export default function ReviewsSection() {
           <div className="mb-12">
             <ReviewForm
               source="home"
-              defaultReviewType="platform"
+              defaultReviewType={formReviewType || (scope === "business" ? "business" : "platform")}
+              fixedReviewType={formReviewType}
+              initialBusinessId={formBusinessId}
+              initialBusinessName={formBusinessName}
+              initialBusinessUsername={formBusinessUsername}
+              initialBusinessLogo={formBusinessLogo}
               onSubmitted={() => {
                 setShowForm(false);
                 loadReviews();

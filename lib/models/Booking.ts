@@ -1,5 +1,6 @@
 // ---------------- Booking Mongoose Model ----------------
 import { Schema, model, models } from "mongoose";
+import "@/lib/models/Deposit";
 
 const BookingSchema = new Schema(
   {
@@ -68,7 +69,16 @@ const BookingSchema = new Schema(
     note: String,
 
     isMobile: { type: Boolean, default: false },
-    customerLocation: { address: String, lat: Number, lng: Number },
+    customerLocation: {
+      county: String,
+      subCounty: String,
+      ward: String,
+      address: String,
+      locationDescription: String,
+      mapsLink: String,
+      lat: Number,
+      lng: Number,
+    },
     distanceKm: Number,
     customerReferenceImages: [
   {

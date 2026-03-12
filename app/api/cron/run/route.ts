@@ -43,8 +43,10 @@ export async function GET(req: Request) {
     const force = url.searchParams.get("force") === "1";
 
     const now = new Date();
-    const utcDate = now.toISOString().slice(0, 10);
-    const runKey = `daily:${utcDate}`;
+    const isoNow = now.toISOString();
+    const utcDate = isoNow.slice(0, 10);
+    const utcMinute = isoNow.slice(0, 16);
+    const runKey = `minute:${utcMinute}`;
 
     if (!force) {
       const existing = await CronRun.findOne({ key: runKey }).lean();
@@ -52,7 +54,7 @@ export async function GET(req: Request) {
         return NextResponse.json({
           ok: true,
           skipped: true,
-          reason: "already-ran-today",
+          reason: "already-ran-this-minute",
           runKey,
         });
       }
@@ -94,8 +96,10 @@ export async function GET(req: Request) {
     console.error("CRON_ERROR:", error);
 
     const now = new Date();
-    const utcDate = now.toISOString().slice(0, 10);
-    const runKey = `daily:${utcDate}`;
+    const isoNow = now.toISOString();
+    const utcDate = isoNow.slice(0, 10);
+    const utcMinute = isoNow.slice(0, 16);
+    const runKey = `minute:${utcMinute}`;
     const errorMessage =
       error instanceof Error ? error.message : "Cron execution failed";
 

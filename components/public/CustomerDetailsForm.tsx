@@ -1,22 +1,44 @@
-import { useState, useEffect } from "react";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import ImageUpload from "@/components/ImageUpload";
+import PreciseLocationButton from "@/components/public/PreciseLocationButton";
+import { kenyaAdministrative } from "@/lib/constants/kenyaAdministrative";
+import type { CustomerLocation } from "@/lib/types/customerLocation";
+
+interface ServiceItem {
+  _id: string;
+  name: string;
+  selectedRefs?: string[];
+  isMobile?: boolean;
+}
 
 interface Props {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
   note?: string;
-  customerLocation?: { address: string; lat: number; lng: number };
-  services: any[];
-  promoCode?: string; // optional incoming promo code
-  onNameChange: (v: string) => void;
-  onPhoneChange: (v: string) => void;
-  onEmailChange?: (v: string) => void;
-  onNoteChange: (v: string) => void;
-  onLocationChange: (loc: { address: string; lat: number; lng: number }) => void;
+  customerLocation?: CustomerLocation;
+  services: ServiceItem[];
+  promoCode?: string;
+  showMobileLocation?: boolean;
+  onNameChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
+  onEmailChange?: (value: string) => void;
+  onNoteChange: (value: string) => void;
+  onLocationChange: (location: CustomerLocation) => void;
   onServiceRefsChange: (serviceId: string, urls: string[]) => void;
-  onPromoCodeChange?: (code: string) => void; // callback to parent
+  onPromoCodeChange?: (code: string) => void;
 }
+
+const EMPTY_LOCATION: CustomerLocation = {
+  county: "",
+  subCounty: "",
+  ward: "",
+  address: "",
+  locationDescription: "",
+  mapsLink: "",
+};
 
 export default function CustomerDetailsForm({
   customerName,
@@ -26,6 +48,7 @@ export default function CustomerDetailsForm({
   customerLocation,
   services,
   promoCode: initialPromoCode,
+  showMobileLocation = false,
   onNameChange,
   onPhoneChange,
   onEmailChange,
@@ -37,14 +60,23 @@ export default function CustomerDetailsForm({
   const [serviceRefs, setServiceRefs] = useState<Record<string, string[]>>({});
   const [promoCode, setPromoCode] = useState(initialPromoCode || "");
 
-  // Initialize local state from incoming services
   useEffect(() => {
     const initial: Record<string, string[]> = {};
-    services.forEach((s) => {
-      initial[s._id] = s.selectedRefs || [];
+    services.forEach((service) => {
+      initial[service._id] = service.selectedRefs || [];
     });
     setServiceRefs(initial);
   }, [services]);
+
+  const location = customerLocation || EMPTY_LOCATION;
+  const selectedCounty = useMemo(
+    () => kenyaAdministrative.find((item) => item.county === location.county),
+    [location.county]
+  );
+  const subCountyOptions = selectedCounty?.subCounties ?? [];
+  const selectedSubCounty = subCountyOptions.find((item) => item.name === location.subCounty);
+  const wardOptions = selectedSubCounty?.wards ?? [];
+  const requiresWard = wardOptions.length > 0;
 
   const handleRefsChange = (serviceId: string, urls: string[]) => {
     setServiceRefs((prev) => ({ ...prev, [serviceId]: urls }));
@@ -53,132 +85,204 @@ export default function CustomerDetailsForm({
 
   const handlePromoCodeChange = (code: string) => {
     setPromoCode(code);
-    if (onPromoCodeChange) onPromoCodeChange(code);
+    onPromoCodeChange?.(code);
+  };
+
+  const updateLocation = (next: Partial<CustomerLocation>) => {
+    const merged = {
+      ...EMPTY_LOCATION,
+      ...location,
+      ...next,
+    };
+
+    const addressParts = [merged.ward, merged.subCounty, merged.county].filter(Boolean);
+    merged.address = addressParts.join(", ");
+
+    onLocationChange(merged);
   };
 
   return (
-    <div className="space-y-6">
-      <h3 className="font-semibold text-lg">Your details</h3>
+    <div className="space-y-6 text-white">
+      <h3 className="text-lg font-semibold">Your details</h3>
 
-      {/* Name */}
       <div>
-        <label className="text-sm font-medium">Full name</label>
+        <label className="text-sm font-medium text-white">Full name *</label>
         <input
           value={customerName}
-          onChange={(e) => onNameChange(e.target.value)}
-          className="w-full border rounded-md px-3 py-2"
-          placeholder="e.g. Ashley Muchiri"
+          onChange={(event) => onNameChange(event.target.value)}
+          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/60"
+          placeholder="e.g. john doe"
         />
       </div>
 
-      {/* Phone */}
       <div>
-        <label className="text-sm font-medium">Phone number</label>
+        <label className="text-sm font-medium text-white">Phone number *</label>
         <input
           value={customerPhone}
-          onChange={(e) => onPhoneChange(e.target.value)}
-          className="w-full border rounded-md px-3 py-2"
+          onChange={(event) => onPhoneChange(event.target.value)}
+          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/60"
           placeholder="07XXXXXXXX"
           inputMode="numeric"
         />
       </div>
 
-      {/* Email */}
-      {onEmailChange && (
+      {onEmailChange ? (
         <div>
-          <label className="text-sm font-medium">
-            Email <span className="text-muted-foreground">(optional)</span>
-          </label>
+          <label className="text-sm font-medium text-white">Email *</label>
           <input
             value={customerEmail || ""}
-            onChange={(e) => onEmailChange(e.target.value)}
-            className="w-full border rounded-md px-3 py-2"
+            onChange={(event) => onEmailChange(event.target.value)}
+            className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/60"
             placeholder="you@example.com"
           />
         </div>
-      )}
+      ) : null}
 
-      {/* Promo Code */}
       <div>
-        <label className="text-sm font-medium">
-          Promo Code <span className="text-muted-foreground">(optional)</span>
+        <label className="text-sm font-medium text-white">
+          Promo code <span className="text-white/70">(optional)</span>
         </label>
         <input
           value={promoCode}
-          onChange={(e) => handlePromoCodeChange(e.target.value)}
-          className="w-full border rounded-md px-3 py-2"
+          onChange={(event) => handlePromoCodeChange(event.target.value)}
+          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/60"
           placeholder="Enter promo code"
         />
       </div>
 
-      {/* Notes */}
+      {showMobileLocation ? (
+        <div className="space-y-4 rounded-xl border border-white/15 bg-white/5 p-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-white">Your location for mobile services</p>
+            <p className="text-xs text-white/75">
+              Select your county, sub-county, and ward first, then describe where you are.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-white">County</label>
+            <select
+              value={location.county}
+              onChange={(event) =>
+                updateLocation({
+                  county: event.target.value,
+                  subCounty: "",
+                  ward: "",
+                })
+              }
+              className="mt-1 w-full rounded-md border border-white/20 bg-black/20 px-3 py-2 text-white"
+            >
+              <option value="" className="text-black">
+                Select county
+              </option>
+              {kenyaAdministrative.map((item) => (
+                <option key={item.county} value={item.county} className="text-black">
+                  {item.county}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-white">Sub-county</label>
+            <select
+              value={location.subCounty}
+              onChange={(event) =>
+                updateLocation({
+                  subCounty: event.target.value,
+                  ward: "",
+                })
+              }
+              disabled={!location.county}
+              className="mt-1 w-full rounded-md border border-white/20 bg-black/20 px-3 py-2 text-white disabled:opacity-60"
+            >
+              <option value="" className="text-black">
+                Select sub-county
+              </option>
+              {subCountyOptions.map((item) => (
+                <option key={item.name} value={item.name} className="text-black">
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {requiresWard ? (
+            <div>
+              <label className="text-sm font-medium text-white">Ward</label>
+              <select
+                value={location.ward || ""}
+                onChange={(event) => updateLocation({ ward: event.target.value })}
+                disabled={!location.subCounty}
+                className="mt-1 w-full rounded-md border border-white/20 bg-black/20 px-3 py-2 text-white disabled:opacity-60"
+              >
+                <option value="" className="text-black">
+                  Select ward
+                </option>
+                {wardOptions.map((ward) => (
+                  <option key={ward} value={ward} className="text-black">
+                    {ward}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div>
+            <label className="text-sm font-medium text-white">Location description</label>
+            <textarea
+              value={location.locationDescription || ""}
+              onChange={(event) => updateLocation({ locationDescription: event.target.value })}
+              className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/60"
+              rows={3}
+              placeholder="Describe your current location, nearby landmark, apartment, floor, or house number."
+            />
+          </div>
+
+          <PreciseLocationButton
+            onLocationResolved={({ lat, lng, mapsLink }) =>
+              updateLocation({
+                lat,
+                lng,
+                mapsLink,
+              })
+            }
+          />
+
+          {location.mapsLink ? (
+            <a
+              href={location.mapsLink}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block text-sm text-white underline underline-offset-4"
+            >
+              Open generated Google Maps location
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
       <div>
-        <label className="text-sm font-medium">
-          Notes <span className="text-muted-foreground">(optional)</span>
+        <label className="text-sm font-medium text-white">
+          Notes <span className="text-white/70">(optional)</span>
         </label>
         <textarea
           value={note || ""}
-          onChange={(e) => onNoteChange(e.target.value)}
-          className="w-full border rounded-md px-3 py-2"
+          onChange={(event) => onNoteChange(event.target.value)}
+          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/60"
           rows={3}
           placeholder="Anything we should know?"
         />
       </div>
 
-      {/* Customer Location */}
-      <div className="space-y-2">
-        <label className="flex flex-col gap-1 text-sm text-gray-600">
-          Your location (for mobile service)
-          <input
-            type="text"
-            placeholder="Address e.g., Imara Daima"
-            value={customerLocation?.address || ""}
-            onChange={(e) =>
-              onLocationChange({
-                ...(customerLocation || { lat: 0, lng: 0 }),
-                address: e.target.value,
-              })
-            }
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-          />
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Latitude e.g., -1.322"
-            value={customerLocation?.lat || ""}
-            onChange={(e) =>
-              onLocationChange({
-                ...(customerLocation || { address: "", lng: 0 }),
-                lat: parseFloat(e.target.value),
-              })
-            }
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-          />
-          <input
-            type="text"
-            placeholder="Longitude e.g., 36.874"
-            value={customerLocation?.lng || ""}
-            onChange={(e) =>
-              onLocationChange({
-                ...(customerLocation || { address: "", lat: 0 }),
-                lng: parseFloat(e.target.value),
-              })
-            }
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-          />
-        </div>
-      </div>
-
-      {/* Customer Reference Images per Service */}
-      {services.map((s) => (
-        <div key={s._id} className="space-y-2">
-          <p className="text-sm font-medium">
-            {s.name} - Upload reference images (optional)
+      {services.map((service) => (
+        <div key={service._id} className="space-y-2">
+          <p className="text-sm font-medium text-white">
+            {service.name} - Upload reference images (optional)
           </p>
           <ImageUpload
-            value={serviceRefs[s._id] || []}
-            onChange={(urls) => handleRefsChange(s._id, urls)}
+            value={serviceRefs[service._id] || []}
+            onChange={(urls) => handleRefsChange(service._id, urls)}
             maxFiles={5}
           />
         </div>

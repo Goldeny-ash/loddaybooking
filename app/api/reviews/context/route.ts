@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { auth } from "@clerk/nextjs/server";
 import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
-import Business from "@/lib/models/Business";
 
 interface BusinessLite {
   _id: mongoose.Types.ObjectId;
@@ -26,15 +24,6 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const bookingId = searchParams.get("bookingId")?.trim();
   const token = searchParams.get("token")?.trim();
-
-  const { userId } = await auth();
-
-  let loggedBusiness: BusinessLite | null = null;
-  if (userId) {
-    loggedBusiness = await Business.findOne({ clerkUserId: userId })
-      .select("_id name username logo")
-      .lean();
-  }
 
   let bookingContext: {
     bookingId: string;
@@ -72,13 +61,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     booking: bookingContext,
-    loggedBusiness: loggedBusiness
-      ? {
-          id: String(loggedBusiness._id),
-          name: loggedBusiness.name || "",
-          username: loggedBusiness.username || "",
-          logo: loggedBusiness.logo || "",
-        }
-      : null,
+    loggedBusiness: null,
   });
 }

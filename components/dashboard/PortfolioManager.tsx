@@ -324,7 +324,7 @@ export default function PortfolioManager({
         <h2 className="font-semibold text-[var(--brand-primary)]">Your Portfolio</h2>
         <p className="text-sm text-gray-600">
           Link each portfolio reference to one or more services so customers can view relevant previous work.
-          Service cards include base prices for quick context.
+          
         </p>
 
         {sortedPortfolio.map((ref) => (
@@ -449,7 +449,7 @@ export default function PortfolioManager({
                       : "bg-gray-500"
                   } disabled:opacity-60`}
                 >
-                  {service.name} {typeof service.basePrice === "number" ? `(KES ${service.basePrice.toLocaleString()})` : ""}
+                  {service.name} 
                 </button>
               ))}
             </div>

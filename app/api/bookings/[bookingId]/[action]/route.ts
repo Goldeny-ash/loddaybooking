@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
-import Deposit from "@/lib/models/Deposit";
 import Business from "@/lib/models/Business";
 import mongoose from "mongoose";
 import { dispatchEmailEvent } from "@/lib/email/dispatcher";
-import crypto from "crypto";
+import { buildManageBookingUrl, computeDepositAmountForService } from "@/lib/booking/utils";
 
 export async function PATCH(
   req: Request,
@@ -39,16 +38,30 @@ export async function PATCH(
       status?: string;
       depositId?: string;
       rejectionReason?: string;
+      depositAmount?: number;
     } = {};
 
     if (action === "approve") {
-      update.status = "pendingDeposit";
+      await booking.populate("services.serviceId");
 
-      const depositAmount = booking.depositAmount || 0;
-      const depositRequired =
-        Boolean(business.depositPolicy?.enabled) && depositAmount > 0;
+      const depositAmount = Array.isArray(booking.services)
+        ? booking.services.reduce((sum: number, service: any) => {
+            const explicit = Number(service.depositAmount || 0);
+            if (explicit > 0) return sum + explicit;
 
-      
+            return (
+              sum +
+              computeDepositAmountForService({
+                servicePrice: Number(service.price || 0),
+                service: service.serviceId,
+                businessPolicy: business.depositPolicy,
+              })
+            );
+          }, 0)
+        : 0;
+
+      update.depositAmount = depositAmount;
+      update.status = depositAmount > 0 ? "pendingDeposit" : "confirmed";
 
       const updatedBooking = await Booking.findByIdAndUpdate(bookingId, update, {
         new: true,
@@ -59,12 +72,15 @@ export async function PATCH(
       }
 
       if (updatedBooking.customerEmail) {
-        const manageLink = `https://booking.lodday.com/manage/${updatedBooking._id}?token=${updatedBooking.manageToken}`;
+        const manageLink = buildManageBookingUrl({
+          username: business.username,
+          bookingId: updatedBooking._id.toString(),
+          token: updatedBooking.manageToken,
+        });
         await dispatchEmailEvent("BOOKING_APPROVED", {
           business,
           booking: updatedBooking,
-          paymentUrl: manageLink,
-          calendarUrl: manageLink,
+          manageUrl: manageLink,
         });
       }
 
@@ -84,7 +100,11 @@ export async function PATCH(
       }
 
       if (updatedBooking.customerEmail) {
-        const manageLink = `https://booking.lodday.com/manage/${updatedBooking._id}?token=${updatedBooking.manageToken}`;
+        const manageLink = buildManageBookingUrl({
+          username: business.username,
+          bookingId: updatedBooking._id.toString(),
+          token: updatedBooking.manageToken,
+        });
         await dispatchEmailEvent("BOOKING_REJECTED", {
           business,
           booking: updatedBooking,

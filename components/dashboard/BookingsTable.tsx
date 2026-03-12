@@ -5,6 +5,11 @@ import { format, isToday, isThisWeek, parseISO } from "date-fns";
 import BookingsFilter from "./BookingsFilter";
 import BookingStatusBadge from "@/components/dashboard/bookings/BookingStatusBadge";
 import BookingActions from "@/components/dashboard/bookings/BookingActions";
+import BookingDetailsModal from "@/components/dashboard/bookings/BookingDetailsModal";
+import {
+  type DashboardBooking,
+  resolvePrimaryServiceName,
+} from "@/components/dashboard/bookings/bookingDisplay";
 
 interface BookingsTableProps {
   businessId: string;
@@ -21,6 +26,7 @@ export default function BookingsTable({
   const [loading, setLoading] = useState(false);
 
   const [activeFilters, setActiveFilters] = useState<any>({});
+  const [activeBooking, setActiveBooking] = useState<DashboardBooking | null>(null);
 
   // ---------------- FETCHER ----------------
 
@@ -135,15 +141,24 @@ export default function BookingsTable({
                 <tr key={b._id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">{relativeDate(b.date)}</td>
                   <td className="px-4 py-2">{b.customerName}</td>
-                  <td className="px-4 py-2">{b.serviceId?.name}</td>
-                  <td className="px-4 py-2">{b.staffId?.name}</td>
+                   <td className="px-4 py-2">{resolvePrimaryServiceName(b)}</td>
+                   <td className="px-4 py-2">{b.staffId?.name}</td>
                   <td className="px-4 py-2">
                     <BookingStatusBadge status={b.status} />
                   </td>
-                  <td className="px-4 py-2">
-                    <BookingActions booking={b} onUpdate={updateBooking} />
-                  </td>
-                </tr>
+                   <td className="px-4 py-2">
+                     <div className="flex flex-wrap items-center gap-2">
+                       <button
+                         type="button"
+                         onClick={() => setActiveBooking(b)}
+                         className="rounded border px-3 py-1 text-xs font-medium hover:bg-gray-50"
+                       >
+                         View Details
+                       </button>
+                       <BookingActions booking={b} onUpdate={updateBooking} />
+                     </div>
+                   </td>
+                 </tr>
               ))
             ) : (
               <tr>
@@ -175,6 +190,12 @@ export default function BookingsTable({
           Next
         </button>
       </div>
+
+      <BookingDetailsModal
+        booking={activeBooking}
+        business={{}}
+        onClose={() => setActiveBooking(null)}
+      />
     </div>
   );
 }

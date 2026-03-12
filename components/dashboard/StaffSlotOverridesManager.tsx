@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ban, CalendarDays, Clock3, Save } from "lucide-react";
+import ThemedPopup from "@/components/ThemedPopup";
 import { getTheme } from "@/lib/theme";
 
 type StaffBlock = {
@@ -25,8 +26,19 @@ type StaffItem = {
 
 type DraftInput = {
   start: string;
-  duration: number;
+  durationHours: number;
+  durationMinutes: number;
   reason: string;
+};
+
+type PopupState = {
+  message: string;
+  variant?: "success" | "error";
+  mode?: "toast" | "confirm";
+  title?: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm?: () => void | Promise<void>;
 };
 
 function dayKey(date: string) {
@@ -59,6 +71,13 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   return toMinutes(aStart) < toMinutes(bEnd) && toMinutes(bStart) < toMinutes(aEnd);
 }
 
+const DEFAULT_DRAFT: DraftInput = {
+  start: "",
+  durationHours: 1,
+  durationMinutes: 0,
+  reason: "",
+};
+
 export default function StaffSlotOverridesManager({
   business,
   staffList,
@@ -73,9 +92,10 @@ export default function StaffSlotOverridesManager({
       d.getDate()
     ).padStart(2, "0")}`;
   });
-
   const [savingByStaff, setSavingByStaff] = useState<Record<string, boolean>>({});
   const [draftByStaff, setDraftByStaff] = useState<Record<string, DraftInput>>({});
+  const [unsavedStaffIds, setUnsavedStaffIds] = useState<string[]>([]);
+  const [popup, setPopup] = useState<PopupState | null>(null);
   const [overridesByStaff, setOverridesByStaff] = useState<Record<string, StaffOverride>>(() => {
     const init: Record<string, StaffOverride> = {};
     for (const s of staffList) {
@@ -90,6 +110,16 @@ export default function StaffSlotOverridesManager({
     () => Object.fromEntries(staffList.map((s) => [s._id, s])),
     [staffList]
   );
+  const hasUnsavedChanges = unsavedStaffIds.length > 0;
+  const isSaving = unsavedStaffIds.some((staffId) => savingByStaff[staffId]);
+
+  useEffect(() => {
+    setUnsavedStaffIds([]);
+  }, [selectedDate]);
+
+  const showPopup = (next: PopupState) => {
+    setPopup(next);
+  };
 
   const ensureOverride = (staffId: string) => {
     const current = overridesByStaff[staffId];
@@ -108,25 +138,40 @@ export default function StaffSlotOverridesManager({
     );
   };
 
+  const markUnsaved = (staffId: string) => {
+    setUnsavedStaffIds((prev) => (prev.includes(staffId) ? prev : [...prev, staffId]));
+  };
+
+  const notifyUnsavedChanges = () => {
+    showPopup({
+      message: "You have unsaved changes. Save all changes to apply them.",
+      variant: "success",
+    });
+  };
+
   const setOverride = (staffId: string, next: StaffOverride) => {
     setOverridesByStaff((prev) => ({ ...prev, [staffId]: next }));
+    markUnsaved(staffId);
+  };
+
+  const setDraft = (staffId: string, next: DraftInput) => {
+    setDraftByStaff((prev) => ({ ...prev, [staffId]: next }));
   };
 
   const addBlock = (staff: StaffItem) => {
-    const draft = draftByStaff[staff._id] || { start: "", duration: 60, reason: "" };
-    if (!draft.start || draft.duration <= 0) return;
+    const draft = draftByStaff[staff._id] || DEFAULT_DRAFT;
+    const totalDuration = draft.durationHours * 60 + draft.durationMinutes;
+    if (!draft.start || totalDuration <= 0) return;
 
     const base = ensureOverride(staff._id);
-    const end = toTime(toMinutes(draft.start) + draft.duration);
+    const end = toTime(toMinutes(draft.start) + totalDuration);
     const nextBlocks = [...base.blocks, { start: draft.start, end, reason: draft.reason }]
       .filter((b) => toMinutes(b.end) > toMinutes(b.start))
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
 
     setOverride(staff._id, { ...base, date: selectedDate, blocks: nextBlocks });
-    setDraftByStaff((prev) => ({
-      ...prev,
-      [staff._id]: { ...draft, start: "", reason: "" },
-    }));
+    setDraft(staff._id, { ...draft, start: "", reason: "" });
+    notifyUnsavedChanges();
   };
 
   const removeBlock = (staffId: string, index: number) => {
@@ -136,32 +181,65 @@ export default function StaffSlotOverridesManager({
       date: selectedDate,
       blocks: base.blocks.filter((_, i) => i !== index),
     });
+    notifyUnsavedChanges();
   };
 
-  const saveStaffOverride = async (staffId: string) => {
-    const payload = ensureOverride(staffId);
-    setSavingByStaff((prev) => ({ ...prev, [staffId]: true }));
-    try {
-      const res = await fetch("/api/staff/overrides", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          staffId,
-          date: selectedDate,
-          closed: payload.closed,
-          blocks: payload.blocks,
-        }),
+  const saveAllOverrides = async () => {
+    if (!unsavedStaffIds.length) {
+      showPopup({
+        message: "There are no unsaved changes.",
+        variant: "error",
       });
+      return;
+    }
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || "Failed to save override");
-      }
+    const idsToSave = [...unsavedStaffIds];
+
+    setSavingByStaff((prev) => {
+      const next = { ...prev };
+      for (const staffId of idsToSave) next[staffId] = true;
+      return next;
+    });
+
+    try {
+      await Promise.all(
+        idsToSave.map(async (staffId) => {
+          const payload = ensureOverride(staffId);
+          const res = await fetch("/api/staff/overrides", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              staffId,
+              date: selectedDate,
+              closed: payload.closed,
+              blocks: payload.blocks,
+            }),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => null);
+            throw new Error(err?.error || "Failed to save override");
+          }
+        })
+      );
+
+      setUnsavedStaffIds([]);
+      showPopup({
+        message: "All staff slot changes have been saved.",
+        variant: "success",
+      });
     } catch (error) {
       console.error(error);
-      alert("Could not save staff override. Try again.");
+      showPopup({
+        message: "Could not save staff overrides. Try again.",
+        variant: "error",
+      });
     } finally {
-      setSavingByStaff((prev) => ({ ...prev, [staffId]: false }));
+      setSavingByStaff((prev) => {
+        const next = { ...prev };
+        for (const staffId of idsToSave) next[staffId] = false;
+        return next;
+      });
     }
   };
 
@@ -180,16 +258,49 @@ export default function StaffSlotOverridesManager({
               Disable specific time slots or mark a staff member unavailable for the day.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <CalendarDays size={16} style={{ color: theme.primary }} />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="rounded-lg border px-3 py-2 bg-white"
-              style={{ borderColor: theme.primaryLight }}
-            />
-          </label>
+
+          <div className="flex flex-col gap-3 md:items-end">
+            <label className="flex items-center gap-2 text-sm">
+              <CalendarDays size={16} style={{ color: theme.primary }} />
+              <span className="font-medium" style={{ color: theme.primaryDark }}>
+                Date to manage
+              </span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="rounded-lg border px-3 py-2 bg-white"
+                style={{ borderColor: theme.primaryLight }}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() =>
+                showPopup({
+                  mode: "confirm",
+                  title: "Save All Changes",
+                  message: "Are you sure you want to save all staff slot changes?",
+                  confirmText: "Save All",
+                  cancelText: "Cancel",
+                  onConfirm: async () => {
+                    setPopup(null);
+                    await saveAllOverrides();
+                  },
+                })
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-lg disabled:opacity-60"
+              style={{ background: theme.primary }}
+              disabled={!hasUnsavedChanges || isSaving}
+            >
+              <Save size={16} />
+              {isSaving
+                ? "Saving Changes..."
+                : hasUnsavedChanges
+                  ? `Save All Changes (${unsavedStaffIds.length})`
+                  : "No Unsaved Changes"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -199,7 +310,10 @@ export default function StaffSlotOverridesManager({
           const canWork = Boolean(weekly?.start && weekly?.end && !weekly?.closed);
           const override = ensureOverride(staff._id);
           const previewSlots =
-            canWork && !override.closed ? generateSlots(weekly?.start || "", weekly?.end || "", 30) : [];
+            canWork && !override.closed
+              ? generateSlots(weekly?.start || "", weekly?.end || "", 30)
+              : [];
+          const draft = draftByStaff[staff._id] || DEFAULT_DRAFT;
 
           return (
             <div
@@ -221,73 +335,103 @@ export default function StaffSlotOverridesManager({
                   <input
                     type="checkbox"
                     checked={override.closed}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setOverride(staff._id, {
                         ...override,
                         date: selectedDate,
                         closed: e.target.checked,
                         blocks: e.target.checked ? [] : override.blocks,
-                      })
-                    }
+                      });
+                      notifyUnsavedChanges();
+                    }}
                   />
                   Mark Day Off
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                <input
-                  type="time"
-                  value={draftByStaff[staff._id]?.start || ""}
-                  onChange={(e) =>
-                    setDraftByStaff((prev) => ({
-                      ...prev,
-                      [staff._id]: {
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium" style={{ color: theme.primaryDark }}>
+                    Time to start disabling the slot
+                  </span>
+                  <input
+                    type="time"
+                    value={draft.start}
+                    onChange={(e) =>
+                      setDraft(staff._id, {
+                        ...draft,
                         start: e.target.value,
-                        duration: prev[staff._id]?.duration || 60,
-                        reason: prev[staff._id]?.reason || "",
-                      },
-                    }))
-                  }
-                  className="rounded-lg border px-2 py-2 text-sm"
-                  style={{ borderColor: theme.primaryLight }}
-                  disabled={override.closed || !canWork}
-                />
-                <input
-                  type="number"
-                  min={15}
-                  step={15}
-                  value={draftByStaff[staff._id]?.duration || 60}
-                  onChange={(e) =>
-                    setDraftByStaff((prev) => ({
-                      ...prev,
-                      [staff._id]: {
-                        start: prev[staff._id]?.start || "",
-                        duration: Number(e.target.value || 0),
-                        reason: prev[staff._id]?.reason || "",
-                      },
-                    }))
-                  }
-                  className="rounded-lg border px-2 py-2 text-sm"
-                  style={{ borderColor: theme.primaryLight }}
-                  disabled={override.closed || !canWork}
-                />
-                <input
-                  placeholder="Reason (optional)"
-                  value={draftByStaff[staff._id]?.reason || ""}
-                  onChange={(e) =>
-                    setDraftByStaff((prev) => ({
-                      ...prev,
-                      [staff._id]: {
-                        start: prev[staff._id]?.start || "",
-                        duration: prev[staff._id]?.duration || 60,
+                      })
+                    }
+                    className="w-full rounded-lg border px-2 py-2 text-sm"
+                    style={{ borderColor: theme.primaryLight }}
+                    disabled={override.closed || !canWork}
+                  />
+                </label>
+
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium" style={{ color: theme.primaryDark }}>
+                    Duration hours
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={draft.durationHours}
+                    onChange={(e) =>
+                      setDraft(staff._id, {
+                        ...draft,
+                        durationHours: Number(e.target.value || 0),
+                      })
+                    }
+                    className="w-full rounded-lg border px-2 py-2 text-sm"
+                    style={{ borderColor: theme.primaryLight }}
+                    disabled={override.closed || !canWork}
+                  />
+                </label>
+
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium" style={{ color: theme.primaryDark }}>
+                    Duration minutes staff will be away
+                  </span>
+                  <select
+                    value={draft.durationMinutes}
+                    onChange={(e) =>
+                      setDraft(staff._id, {
+                        ...draft,
+                        durationMinutes: Number(e.target.value || 0),
+                      })
+                    }
+                    className="w-full rounded-lg border px-2 py-2 text-sm"
+                    style={{ borderColor: theme.primaryLight }}
+                    disabled={override.closed || !canWork}
+                  >
+                    {[0, 15, 30, 45].map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes} minutes
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium" style={{ color: theme.primaryDark }}>
+                    Reason
+                  </span>
+                  <input
+                    placeholder="Optional reason"
+                    value={draft.reason}
+                    onChange={(e) =>
+                      setDraft(staff._id, {
+                        ...draft,
                         reason: e.target.value,
-                      },
-                    }))
-                  }
-                  className="rounded-lg border px-2 py-2 text-sm md:col-span-2"
-                  style={{ borderColor: theme.primaryLight }}
-                  disabled={override.closed || !canWork}
-                />
+                      })
+                    }
+                    className="w-full rounded-lg border px-2 py-2 text-sm"
+                    style={{ borderColor: theme.primaryLight }}
+                    disabled={override.closed || !canWork}
+                  />
+                </label>
               </div>
 
               <div className="flex items-center justify-between">
@@ -301,16 +445,10 @@ export default function StaffSlotOverridesManager({
                   <Ban size={14} />
                   Disable Slot
                 </button>
-                <button
-                  type="button"
-                  onClick={() => saveStaffOverride(staff._id)}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm border"
-                  style={{ borderColor: theme.primaryLight, color: theme.primaryDark }}
-                  disabled={Boolean(savingByStaff[staff._id])}
-                >
-                  <Save size={14} />
-                  {savingByStaff[staff._id] ? "Saving..." : "Save"}
-                </button>
+
+                <span className="text-xs font-medium" style={{ color: theme.accentDark }}>
+                  {unsavedStaffIds.includes(staff._id) ? "Unsaved changes" : "All changes saved"}
+                </span>
               </div>
 
               <div className="space-y-2">
@@ -384,6 +522,17 @@ export default function StaffSlotOverridesManager({
           );
         })}
       </div>
+
+      <ThemedPopup
+        message={popup?.message ?? null}
+        onClose={() => setPopup(null)}
+        variant={popup?.variant || "success"}
+        mode={popup?.mode || "toast"}
+        title={popup?.title}
+        confirmText={popup?.confirmText}
+        cancelText={popup?.cancelText}
+        onConfirm={popup?.onConfirm}
+      />
     </div>
   );
 }

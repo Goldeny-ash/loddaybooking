@@ -29,6 +29,12 @@ function getBookingServiceIds(booking: DashboardBooking): string[] {
   return [];
 }
 
+function toBookingDateTime(date?: string, time?: string) {
+  if (!date || !time) return null;
+  const value = new Date(`${date}T${time}:00`);
+  return Number.isNaN(value.getTime()) ? null : value;
+}
+
 export default function BookingStaffAssignmentPanel({
   business,
   bookings,
@@ -51,7 +57,16 @@ export default function BookingStaffAssignmentPanel({
   );
 
   const confirmed = useMemo(
-    () => localBookings.filter((b) => b.status === "confirmed"),
+    () =>
+      localBookings.filter((b) => {
+        if (b.status !== "confirmed") return false;
+
+        const now = new Date();
+        const bookingEnd = toBookingDateTime(b.date, b.endTime || b.startTime);
+        if (!bookingEnd) return true;
+
+        return bookingEnd.getTime() > now.getTime();
+      }),
     [localBookings]
   );
 
@@ -114,7 +129,7 @@ export default function BookingStaffAssignmentPanel({
               Staff Assignment
             </h3>
             <p className="text-sm" style={{ color: theme.accentDark }}>
-              Assign staff to confirmed bookings. Staff email notifications are sent automatically.
+              Assign staff to upcoming confirmed bookings. Staff email notifications are sent automatically.
             </p>
           </div>
           <span
@@ -128,7 +143,7 @@ export default function BookingStaffAssignmentPanel({
 
         {confirmed.length === 0 ? (
           <p className="text-sm" style={{ color: theme.accentDark }}>
-            No confirmed bookings available.
+            No upcoming confirmed bookings available.
           </p>
         ) : (
           <div className="space-y-3">

@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { getTheme } from "@/lib/theme";
+import { buildManageBookingUrl } from "@/lib/booking/utils";
 
 export async function POST(req: Request) {
   try {
@@ -35,10 +36,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const appUrl = process.env.APP_URL || "https://booking.lodday.com";
-    const manageUrl = `${appUrl}/manage/${booking._id}?token=${booking.manageToken}`;
     const business = booking.businessId as Record<string, unknown>;
     const theme = getTheme(business);
+    const manageUrl = buildManageBookingUrl({
+      username: String((business as { username?: string }).username || ""),
+      bookingId: booking._id.toString(),
+      token: booking.manageToken,
+    });
 
     await sendEmail(
       "BOOKING_RECEIVED_CUSTOMER",

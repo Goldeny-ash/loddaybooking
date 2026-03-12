@@ -14,7 +14,9 @@ export default async function SubscriptionDetailsPage(
 
   await connectDB();
 
-  const business = await Business.findById(params.businessId).lean();
+  const { businessId } = await params;
+
+  const business = await Business.findById(businessId).lean();
 
   if (!business) {
     throw new Error("NOT FOUND");

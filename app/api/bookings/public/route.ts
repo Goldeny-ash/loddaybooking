@@ -1,17 +1,29 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
+import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
+
 import { connectDB } from "@/lib/mongoDB";
 import Booking from "@/lib/models/Booking";
 import Business from "@/lib/models/Business";
 import Service from "@/lib/models/Service";
 import Promotion from "@/lib/models/Promotion";
-import mongoose from "mongoose";
-import crypto from "crypto";
-import { v4 as uuidv4 } from "uuid";
+import Staff from "@/lib/models/Staff";
 import { dispatchEmailEvent } from "@/lib/email/dispatcher";
+import { toMinutes } from "@/lib/availability/time";
+import type { CustomerLocation } from "@/lib/types/customerLocation";
+import {
+  buildDashboardUrl,
+  buildManageBookingUrl,
+  computeDepositAmountForService,
+} from "@/lib/booking/utils";
+
+export const dynamic = "force-dynamic";
 
 interface CartService {
   _id?: string;
   serviceId?: string;
+  price?: number;
   durationMinutes: number;
   isBundle?: boolean;
   bundleItems?: CartService[];
@@ -22,6 +34,123 @@ interface CartService {
   selectedTier?: { label: string; min: number; max: number; price: number };
   depositAmount?: number;
   isMobile?: boolean;
+}
+
+type StaffDayOverride = {
+  date?: string;
+  closed?: boolean;
+  blocks?: Array<{ start?: string; end?: string }>;
+};
+
+function normalizeCustomerLocation(location?: Partial<CustomerLocation> | null) {
+  if (!location) return undefined;
+
+  const county = String(location.county || "").trim();
+  const subCounty = String(location.subCounty || "").trim();
+  const ward = String(location.ward || "").trim();
+  const locationDescription = String(location.locationDescription || "").trim();
+  const address =
+    String(location.address || "").trim() ||
+    [ward, subCounty, county].filter(Boolean).join(", ");
+  const lat = typeof location.lat === "number" ? location.lat : undefined;
+  const lng = typeof location.lng === "number" ? location.lng : undefined;
+  const mapsLink =
+    String(location.mapsLink || "").trim() ||
+    (typeof lat === "number" && typeof lng === "number"
+      ? `https://www.google.com/maps?q=${lat},${lng}`
+      : "");
+
+  return {
+    county,
+    subCounty,
+    ward,
+    address,
+    locationDescription,
+    lat,
+    lng,
+    mapsLink,
+  };
+}
+
+async function hasCapacityForSlot(params: {
+  businessId: string;
+  serviceIds: string[];
+  date: string;
+  startTime: string;
+  endTime: string;
+}) {
+  const { businessId, serviceIds, date, startTime, endTime } = params;
+  const businessObjectId = new mongoose.Types.ObjectId(businessId);
+  const slotStart = toMinutes(startTime);
+  const slotEnd = toMinutes(endTime);
+
+  const staff = await Staff.find({
+    businessId: businessObjectId,
+    services: { $in: serviceIds },
+  }).lean();
+
+  if (!staff.length) {
+    return false;
+  }
+
+  const weekday = new Date(date)
+    .toLocaleDateString("en-US", { weekday: "long" })
+    .toLowerCase();
+
+  let staffCapacity = 0;
+
+  for (const member of staff) {
+    const availability = member.weeklyAvailability?.[weekday];
+    if (!availability?.start || !availability?.end || availability.closed) {
+      continue;
+    }
+
+    const availabilityStart = toMinutes(availability.start);
+    const availabilityEnd = toMinutes(availability.end);
+
+    if (slotStart < availabilityStart || slotEnd > availabilityEnd) {
+      continue;
+    }
+
+    const dayOverride = (member.availabilityOverrides || []).find(
+      (override: StaffDayOverride) => override?.date === date
+    ) as StaffDayOverride | undefined;
+
+    if (dayOverride?.closed) {
+      continue;
+    }
+
+    const overlapsBlockedRange = (dayOverride?.blocks || []).some((block) => {
+      if (!block?.start || !block?.end) return false;
+      const blockedStart = toMinutes(block.start);
+      const blockedEnd = toMinutes(block.end);
+      return slotStart < blockedEnd && blockedStart < slotEnd;
+    });
+
+    if (overlapsBlockedRange) {
+      continue;
+    }
+
+    staffCapacity += 1;
+  }
+
+  if (staffCapacity === 0) {
+    return false;
+  }
+
+  const bookings = await Booking.find({
+    businessId: businessObjectId,
+    date,
+    status: { $in: ["confirmed", "pendingDeposit", "pending"] },
+  }).lean();
+
+  const overlappingBookings = bookings.filter((booking) => {
+    const bookingStart = toMinutes(booking.startTime);
+    const bookingEnd = toMinutes(booking.endTime);
+    return slotStart < bookingEnd && bookingStart < slotEnd;
+  }).length;
+
+  return overlappingBookings < staffCapacity;
 }
 
 export async function POST(req: Request) {
@@ -50,258 +179,199 @@ export async function POST(req: Request) {
       !startTime ||
       !endTime ||
       !customerName ||
-      !customerPhone
+      !customerPhone ||
+      !customerEmail
     ) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const business = await Business.findById(businessId);
-    if (!business)
-      return NextResponse.json(
-        { error: "Business not found" },
-        { status: 404 }
-      );
-
-    /* ===================================================== */
-    /* SUBSCRIPTION VALIDATION */
-    /* ===================================================== */
+    if (!business) {
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    }
 
     const now = new Date();
     const { status, trialEndsAt } = business.access || {};
-
     const subscriptionValid =
       status === "ACTIVE" ||
       status === "GRACE" ||
-      (status === "TRIAL" &&
-        trialEndsAt &&
-        new Date(trialEndsAt) >= now);
+      (status === "TRIAL" && trialEndsAt && new Date(trialEndsAt) >= now);
 
     if (!subscriptionValid) {
-      return NextResponse.json(
-        { error: "Business not accepting bookings" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Business not accepting bookings" }, { status: 403 });
     }
-
-    /* ===================================================== */
-    /* FLATTEN SERVICES */
-    /* ===================================================== */
 
     const services: CartService[] = [];
 
-    for (const s of rawServices) {
-      if (s.isBundle && s.bundleItems?.length) {
-        for (const item of s.bundleItems) {
-          const svc = await Service.findById(item.serviceId);
-          if (!svc) continue;
+    for (const service of rawServices) {
+      if (service.isBundle && service.bundleItems?.length) {
+        for (const item of service.bundleItems) {
+          const nestedService = await Service.findById(item.serviceId);
+          if (!nestedService) continue;
           services.push({
             ...item,
-            serviceId: svc._id.toString(),
+            serviceId: nestedService._id.toString(),
           });
         }
       } else {
-        const id = s._id?.toString() || s.serviceId;
+        const id = service._id?.toString() || service.serviceId;
         if (!id) continue;
-        services.push({ ...s, serviceId: id });
+        services.push({ ...service, serviceId: id });
       }
     }
 
     if (!services.length) {
+      return NextResponse.json({ error: "No valid services selected" }, { status: 400 });
+    }
+
+    const serviceIds = services
+      .map((service) => service.serviceId)
+      .filter((serviceId): serviceId is string => Boolean(serviceId));
+
+    const slotStillAvailable = await hasCapacityForSlot({
+      businessId,
+      serviceIds,
+      date,
+      startTime,
+      endTime,
+    });
+
+    if (!slotStillAvailable) {
       return NextResponse.json(
-        { error: "No valid services selected" },
-        { status: 400 }
+        { error: "That time slot is no longer available. Please choose another one." },
+        { status: 409 }
       );
     }
 
-    /* ===================================================== */
-    /* PRICE CALCULATION */
-    /* ===================================================== */
-
     let subtotal = 0;
-    const processedServices: any[] = [];
-    const isMobileBooking = services.some((s) => s.isMobile);
+    const processedServices: Array<Record<string, unknown>> = [];
+    const isMobileBooking = services.some((service) => service.isMobile);
 
-    for (const s of services) {
-      const svc = await Service.findById(s.serviceId);
-      if (!svc) continue;
+    for (const service of services) {
+      const dbService = await Service.findById(service.serviceId);
+      if (!dbService) continue;
 
-      let primaryPrice = s.selectedTier?.price ?? 0;
+      let primaryPrice =
+        typeof service.price === "number" && Number.isFinite(service.price)
+          ? service.price
+          : service.selectedTier?.price ?? 0;
 
       if (!primaryPrice) {
-        if (s.selectedSessions?.length) {
-          primaryPrice = s.selectedSessions.reduce(
-            (sum, sess) => sum + (Number(sess.price) || 0),
+        if (service.selectedSessions?.length) {
+          primaryPrice = service.selectedSessions.reduce(
+            (sum, session) => sum + (Number(session.price) || 0),
             0
           );
-        } else if (s.selectedAreas?.length) {
-          primaryPrice = s.selectedAreas.reduce(
+        } else if (service.selectedAreas?.length) {
+          primaryPrice = service.selectedAreas.reduce(
             (sum, area) => sum + (Number(area.price) || 0),
             0
           );
         } else {
-          primaryPrice = Number(svc.basePrice || 0);
+          primaryPrice = Number(dbService.basePrice || 0);
         }
       }
 
       const addOnsTotal =
-        s.selectedAddOns?.reduce(
-          (sum, add) => sum + (Number(add.price) || 0),
-          0
-        ) || 0;
+        service.selectedAddOns?.reduce((sum, addOn) => sum + (Number(addOn.price) || 0), 0) || 0;
 
-      const finalServicePrice = primaryPrice + addOnsTotal;
+      const finalServicePrice =
+        typeof service.price === "number" && Number.isFinite(service.price)
+          ? service.price
+          : primaryPrice + addOnsTotal;
       subtotal += finalServicePrice;
-      const serviceOverrideEnabled = Boolean(svc.depositOverride?.enabled);
-      const businessPolicyEnabled = Boolean(business.depositPolicy?.enabled);
-      let computedServiceDeposit = 0;
 
-      if (serviceOverrideEnabled) {
-        const value = Number(svc.depositOverride?.value || 0);
-        computedServiceDeposit =
-          svc.depositOverride?.type === "percent"
-            ? (value / 100) * finalServicePrice
-            : value;
-      } else if (businessPolicyEnabled) {
-        const value = Number(business.depositPolicy?.value || 0);
-        computedServiceDeposit =
-          business.depositPolicy?.type === "percent"
-            ? (value / 100) * finalServicePrice
-            : value;
-      }
+      const computedServiceDeposit = computeDepositAmountForService({
+        servicePrice: finalServicePrice,
+        service: dbService,
+        businessPolicy: business.depositPolicy,
+      });
 
-      if (computedServiceDeposit < 0) computedServiceDeposit = 0;
-      if (computedServiceDeposit > finalServicePrice) {
-        computedServiceDeposit = finalServicePrice;
-      }
-
-     processedServices.push({
-  serviceId: svc._id,
-
-  serviceName: svc.name,
-  serviceDescription: svc.description || "",
-
-  serviceImage:
-    Array.isArray(svc.gallery) && svc.gallery.length > 0
-      ? svc.gallery[0]
-      : null,
-
-  durationMinutes:
-    Number(s.durationMinutes || svc.durationMinutes),
-
-  price: finalServicePrice,
-
-  depositAmount: Math.round(computedServiceDeposit),
-
-  selectedTier: s.selectedTier || null,
-
-  selectedAddOns: s.selectedAddOns || [],
-
-  selectedSessions: s.selectedSessions || [],
-
-  selectedAreas: s.selectedAreas || [],
-});
+      processedServices.push({
+        serviceId: dbService._id,
+        serviceName: dbService.name,
+        serviceDescription: dbService.description || "",
+        serviceImage:
+          Array.isArray(dbService.gallery) && dbService.gallery.length > 0 ? dbService.gallery[0] : null,
+        durationMinutes: Number(service.durationMinutes || dbService.durationMinutes),
+        price: finalServicePrice,
+        depositAmount: computedServiceDeposit,
+        selectedTier: service.selectedTier || null,
+        selectedAddOns: service.selectedAddOns || [],
+        selectedSessions: service.selectedSessions || [],
+        selectedAreas: service.selectedAreas || [],
+      });
     }
-
-    /* ===================================================== */
-    /* PROMO */
-    /* ===================================================== */
 
     let discountAmount = 0;
     let appliedPromoCode: string | null = null;
 
     if (promoCode) {
+      const normalizedPromoCode = String(promoCode).trim().toUpperCase();
       const promo = await Promotion.findOne({
-        promoCode,
+        businessId: business._id,
+        promoCode: normalizedPromoCode,
         active: true,
       }).populate("services");
 
       if (promo) {
-        const promoServiceIds = (promo.services || []).map(
-          (p: any) => p._id.toString()
+        const promoServiceIds = (promo.services || []).map((service: any) => service._id.toString());
+        const applicableServices = processedServices.filter((service) =>
+          promoServiceIds.includes(String(service.serviceId))
         );
 
-        const applicable = processedServices.filter((s) =>
-          promoServiceIds.includes(s.serviceId.toString())
-        );
-
-        if (applicable.length) {
+        if (applicableServices.length) {
           appliedPromoCode = promo.promoCode;
-
           discountAmount =
             promo.type === "percent"
-              ? (applicable.reduce((sum, s) => sum + s.price, 0) *
+              ? (applicableServices.reduce((sum, service) => sum + Number(service.price || 0), 0) *
                   promo.value) /
                 100
               : promo.type === "fixed"
-              ? promo.value
-              : 0;
+                ? promo.value
+                : 0;
 
-          if (discountAmount > subtotal)
+          if (discountAmount > subtotal) {
             discountAmount = subtotal;
+          }
         }
       }
     }
 
     const discountedSubtotal = subtotal - discountAmount;
     const totalDurationMinutes = processedServices.reduce(
-      (sum, s) => sum + s.durationMinutes,
+      (sum, service) => sum + Number(service.durationMinutes || 0),
       0
     );
-
     const grandTotal = discountedSubtotal;
 
-    /* ===================================================== */
-    /* DEPOSIT */
-    /* ===================================================== */
-
     let depositAmount = processedServices.reduce(
-      (sum, s) => sum + (s.depositAmount || 0),
+      (sum, service) => sum + Number(service.depositAmount || 0),
       0
     );
 
-    if (depositAmount > grandTotal)
+    if (depositAmount > grandTotal) {
       depositAmount = grandTotal;
+    }
 
-    /* ===================================================== */
-    /* CREATE BOOKING */
-    /* ===================================================== */
+    const autoApprove = business.bookingRules?.autoApprove === true;
+    let bookingStatus: "pending" | "pendingDeposit" | "confirmed";
+
+    if (!autoApprove) {
+      bookingStatus = "pending";
+    } else if (depositAmount > 0) {
+      bookingStatus = "pendingDeposit";
+    } else {
+      bookingStatus = "confirmed";
+    }
+
+    const normalizedCustomerLocation = normalizeCustomerLocation(customerLocation);
 
     let booking: any = null;
     let attempts = 0;
 
-    /* ===================================================== */
-/* DETERMINE BOOKING STATUS */
-/* ===================================================== */
-
-const autoApprove = business.bookingRules?.autoApprove === true;
-const depositEnabled = business.depositPolicy?.enabled === true;
-const hasDeposit = depositEnabled && depositAmount > 0;
-
-let bookingStatus: "pending" | "pendingDeposit" | "confirmed";
-
-
-
-if (!autoApprove) {
-
-  // business must approve first
-  bookingStatus = "pending";
-
-} else {
-
-  // booking auto approved
-  if (depositAmount > 0) {
-    bookingStatus = "pendingDeposit";
-  } else {
-    bookingStatus = "confirmed";
-  }
-
-}
-
     while (!booking && attempts < 5) {
-      attempts++;
+      attempts += 1;
       const bookingKey = uuidv4();
       const manageToken = crypto.randomBytes(32).toString("hex");
 
@@ -317,6 +387,7 @@ if (!autoApprove) {
           customerEmail,
           note,
           isMobile: isMobileBooking,
+          customerLocation: normalizedCustomerLocation,
           totalDurationMinutes,
           subtotal,
           discountAmount,
@@ -334,34 +405,23 @@ if (!autoApprove) {
     }
 
     if (!booking) {
-      return NextResponse.json(
-        { error: "Failed to create booking" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
     }
 
-    /* ===================================================== */
-    /* CENTRALIZED EMAIL DISPATCH */
-    /* ===================================================== */
-
-    const manageUrl = `https://booking.lodday.com/${business.username}/manage/${booking._id}?token=${booking.manageToken}`;
-    const dashboardUrl = `https://booking.lodday.com/dashboard/bookings/${booking._id}`;
-    const customerRecipient =
-      typeof customerEmail === "string" ? customerEmail.trim() : "";
-    const businessRecipient =
-      typeof business.email === "string" ? business.email.trim() : "";
+    const manageUrl = buildManageBookingUrl({
+      username: business.username,
+      bookingId: booking._id.toString(),
+      token: booking.manageToken,
+    });
+    const dashboardUrl = buildDashboardUrl();
+    const customerRecipient = typeof customerEmail === "string" ? customerEmail.trim() : "";
+    const businessRecipient = typeof business.email === "string" ? business.email.trim() : "";
     const bookingForEmail = {
       ...booking.toObject(),
       services: processedServices,
     };
 
     try {
-      console.log("[BOOKING] Dispatching email", {
-  bookingId: booking._id.toString(),
-  status: booking.status,
-  customerEmail,
-  businessEmail: business.email,
-});
       await dispatchEmailEvent("BOOKING_CREATED", {
         business,
         booking: bookingForEmail,
@@ -373,10 +433,6 @@ if (!autoApprove) {
     } catch (err) {
       console.error("Email dispatch failed:", err);
     }
-
-    /* ===================================================== */
-    /* RESPONSE */
-    /* ===================================================== */
 
     return NextResponse.json(
       {
@@ -394,12 +450,8 @@ if (!autoApprove) {
       },
       { status: 201 }
     );
-
   } catch (error) {
     console.error("Booking creation error:", error);
-    return NextResponse.json(
-      { error: "Failed to create booking" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
   }
 }

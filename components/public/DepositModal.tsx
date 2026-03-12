@@ -30,8 +30,10 @@ export default function DepositModal({
   const [error, setError] = useState("");
   const [retryAllowed, setRetryAllowed] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [providerTariff, setProviderTariff] = useState(0);
 
-  const total = amount + (calloutFee || 0);
+  const mobileTariff = (calloutFee || 0) + providerTariff;
+  const total = amount + mobileTariff;
   const formatPhone = (v: string) =>
     v.startsWith("0") ? `254${v.slice(1)}` : v.replace("+", "");
 
@@ -54,6 +56,7 @@ export default function DepositModal({
         amount: total,
       });
 
+      setProviderTariff(Number(res.data?.mobileTariff || 0));
       setExternalReference(res.data.externalReference);
       setStatus("PENDING");
       setPolling(true);
@@ -126,7 +129,7 @@ export default function DepositModal({
         <div className="mt-4 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
           <p className="font-medium">{serviceName}</p>
           <p>Deposit: KES {amount}</p>
-          {calloutFee > 0 && <p>Call-out fee: KES {calloutFee}</p>}
+          {mobileTariff > 0 && <p>Mobile tariff: KES {mobileTariff}</p>}
           <p className="mt-1 font-semibold" style={{ color: "var(--brand-primary-dark)" }}>
             Total: KES {total}
           </p>

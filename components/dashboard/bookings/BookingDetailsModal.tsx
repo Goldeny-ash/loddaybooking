@@ -4,6 +4,8 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { X, CalendarDays, Clock3, StickyNote, User } from "lucide-react";
 import { getTheme } from "@/lib/theme";
+import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatBookingPriceMin } from "@/lib/utils/bookingPresentation";
 import {
   type DashboardBooking,
   getBookingImages,
@@ -25,7 +27,10 @@ export default function BookingDetailsModal({
   const theme = getTheme(business);
   const serviceNames = resolveServiceNames(booking);
   const images = getBookingImages(booking);
-  const total = getBookingTotal(booking);
+  const total =
+    typeof booking.grandTotal === "number"
+      ? booking.grandTotal
+      : getBookingTotal(booking);
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm p-4 md:p-8">
@@ -105,7 +110,7 @@ export default function BookingDetailsModal({
                       </p>
                     )}
                     <p className="text-xs mt-2" style={{ color: theme.accentDark }}>
-                      Duration: {service.durationMinutes || 0} min | Price: KES {(service.price || 0).toLocaleString()}
+                      Duration: {formatDuration(service.durationMinutes) || "Not set"} | Price: {formatBookingPriceMin(service)}
                     </p>
                     {service.selectedTier?.label && (
                       <p className="text-xs mt-1" style={{ color: theme.accentDark }}>

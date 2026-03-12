@@ -18,9 +18,9 @@ export default function BookingReviewPage({ params, searchParams }: BookingRevie
           token={searchParams?.token}
           source="email"
           defaultReviewType="business"
+          fixedReviewType="business"
         />
       </div>
     </main>
   );
 }
-

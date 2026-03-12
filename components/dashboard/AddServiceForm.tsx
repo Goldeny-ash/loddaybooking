@@ -103,6 +103,11 @@ export default function AddServiceForm({
     closeForm?: boolean;
     deletedId?: string;
     variant?: "success" | "error";
+    mode?: "toast" | "confirm";
+    title?: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void | Promise<void>;
   } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -113,6 +118,11 @@ export default function AddServiceForm({
       closeForm?: boolean;
       deletedId?: string;
       variant?: "success" | "error";
+      mode?: "toast" | "confirm";
+      title?: string;
+      confirmText?: string;
+      cancelText?: string;
+      onConfirm?: () => void | Promise<void>;
     }
   ) => {
     setPopup({ message, ...options });
@@ -342,7 +352,7 @@ showPopup(
         className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 rounded-xl space-y-6"
       >
         <h2 className="text-xl font-bold flex justify-between">
-          Add Service
+          {initialData?._id ? "Edit Service" : "Add Service"}
           <button type="button" onClick={() => setShowHelp(true)}>
             ?
           </button>
@@ -418,41 +428,47 @@ showPopup(
             How long will this service take?
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              placeholder="Hours"
-              className="border p-2 rounded"
-              value={
-                Math.floor((currentCategory.durationMinutes || 0) / 60) ||
-                ""
-              }
-              onChange={(e) => {
-                const hours = normalizeNumber(e.target.value);
-                const mins =
+            <label className="text-sm font-medium block">
+              Hours
+              <input
+                type="number"
+                placeholder="0"
+                className="border p-2 rounded mt-1 w-full"
+                value={
+                  Math.floor((currentCategory.durationMinutes || 0) / 60) ||
+                  ""
+                }
+                onChange={(e) => {
+                  const hours = normalizeNumber(e.target.value);
+                  const mins =
+                    currentCategory.durationMinutes
+                      ? currentCategory.durationMinutes % 60
+                      : 0;
+                  updateField("durationMinutes", hours * 60 + mins);
+                }}
+              />
+            </label>
+            <label className="text-sm font-medium block">
+              Minutes
+              <input
+                type="number"
+                placeholder="0"
+                className="border p-2 rounded mt-1 w-full"
+                value={
                   currentCategory.durationMinutes
                     ? currentCategory.durationMinutes % 60
-                    : 0;
-                updateField("durationMinutes", hours * 60 + mins);
-              }}
-            />
-            <input
-              type="number"
-              placeholder="Minutes"
-              className="border p-2 rounded"
-              value={
-                currentCategory.durationMinutes
-                  ? currentCategory.durationMinutes % 60
-                  : ""
-              }
-              onChange={(e) => {
-                const mins = normalizeNumber(e.target.value);
-                const hours =
-                  currentCategory.durationMinutes
-                    ? Math.floor(currentCategory.durationMinutes / 60)
-                    : 0;
-                updateField("durationMinutes", hours * 60 + mins);
-              }}
-            />
+                    : ""
+                }
+                onChange={(e) => {
+                  const mins = normalizeNumber(e.target.value);
+                  const hours =
+                    currentCategory.durationMinutes
+                      ? Math.floor(currentCategory.durationMinutes / 60)
+                      : 0;
+                  updateField("durationMinutes", hours * 60 + mins);
+                }}
+              />
+            </label>
           </div>
         </div>
 
@@ -934,12 +950,21 @@ showPopup(
         </div>
 
         {/* GALLERY */}
-        <ImageUpload
-          value={currentCategory.gallery || []}
-          onChange={(files: string[]) =>
-            updateField("gallery", files)
-          }
-        />
+        
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">
+            Add Images
+          </label>
+          <p className="text-xs text-gray-500">
+            Upload one or more images for this service.
+          </p>
+          <ImageUpload
+            value={currentCategory.gallery || []}
+            onChange={(files: string[]) =>
+              updateField("gallery", files)
+            }
+          />
+        </div>
 
         {/* SAVE */}
         <div className="flex gap-2">
@@ -947,33 +972,44 @@ showPopup(
             <button
               type="button"
               disabled={loading}
-              onClick={async () => {
+              onClick={() => {
                 if (!initialData?._id) return;
-                setLoading(true);
-                try {
-                  const res = await fetch(
-                    `/api/services/${initialData._id}`,
-                    { method: "DELETE" }
-                  );
-                  const data = await res.json();
-                  if (!res.ok || !data?.success) {
-                    throw new Error(data?.error || "Delete failed");
-                  }
-                  showPopup("Service deleted successfully", {
-                    closeForm: true,
-                    deletedId: initialData._id,
-                    variant: "success",
-                  });
-                } catch (err) {
-                  showPopup(
-                    err instanceof Error
-                      ? err.message
-                      : "Failed to delete service",
-                    { variant: "error" }
-                  );
-                } finally {
-                  setLoading(false);
-                }
+                showPopup("Are you sure you want to delete this service.", {
+                  mode: "confirm",
+                  title: "Delete Service",
+                  variant: "error",
+                  confirmText: "Delete",
+                  cancelText: "Cancel",
+                  onConfirm: async () => {
+                    if (!initialData?._id) return;
+                    setLoading(true);
+                    setPopup(null);
+                    try {
+                      const res = await fetch(
+                        `/api/services/${initialData._id}`,
+                        { method: "DELETE" }
+                      );
+                      const data = await res.json();
+                      if (!res.ok || !data?.success) {
+                        throw new Error(data?.error || "Delete failed");
+                      }
+                      showPopup("Service deleted successfully", {
+                        closeForm: true,
+                        deletedId: initialData._id,
+                        variant: "success",
+                      });
+                    } catch (err) {
+                      showPopup(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to delete service",
+                        { variant: "error" }
+                      );
+                    } finally {
+                      setLoading(false);
+                    }
+                  },
+                });
               }}
               className="bg-red-600 text-white px-4 py-2 rounded"
             >
@@ -985,7 +1021,7 @@ showPopup(
             disabled={loading}
             className="bg-[var(--brand-primary)] text-white px-4 py-2 rounded flex-1"
           >
-            {loading ? "Saving..." : "Save Service"}
+            {loading ? "Saving..." : initialData?._id ? "Update Service" : "Add Service"}
           </button>
           <button
             type="button"
@@ -999,6 +1035,11 @@ showPopup(
       <ThemedPopup
         message={popup?.message || null}
         variant={popup?.variant || "success"}
+        mode={popup?.mode || "toast"}
+        title={popup?.title}
+        confirmText={popup?.confirmText}
+        cancelText={popup?.cancelText}
+        onConfirm={popup?.onConfirm}
         onClose={async () => {
           const shouldCloseForm = popup?.closeForm;
           const deletedId = popup?.deletedId;

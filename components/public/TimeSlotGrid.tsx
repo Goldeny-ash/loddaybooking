@@ -18,49 +18,39 @@ export default function TimeSlotGrid({
   onSelect,
   loading = false,
 }: Props) {
-  const skeletonSlots = Array.from({ length: 6 }, (_, i) => i);
+  const skeletonSlots = Array.from({ length: 6 }, (_, index) => index);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {skeletonSlots.map(i => (
-          <div
-            key={i}
-            className="h-12 rounded-md bg-gray-200 animate-pulse"
-          />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        {skeletonSlots.map((index) => (
+          <div key={index} className="h-12 animate-pulse rounded-md bg-gray-200" />
         ))}
       </div>
     );
   }
 
   if (!slots.length) {
-    return (
-      <p className="text-sm text-gray-500">
-        No available slots for this date
-      </p>
-    );
+    return <p className="text-sm text-gray-500">No available slots for this date</p>;
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-      {slots.map(slot => {
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      {slots.map((slot) => {
         const selected =
-          selectedSlot?.startTime === slot.startTime &&
-          selectedSlot?.endTime === slot.endTime;
+          selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
 
         return (
           <button
             key={`${slot.startTime}-${slot.endTime}`}
+            type="button"
             onClick={() => onSelect(slot)}
-            className={`border rounded-md px-3 py-2 text-sm transition
-              ${
-                selected
-                  ? "bg-black text-white"
-                  : "hover:bg-gray-100"
-              }`}
+            className={`rounded-md border px-3 py-2 text-sm transition ${
+              selected ? "bg-black text-white" : "hover:bg-gray-100"
+            }`}
           >
             <div className="font-medium">
-              {slot.startTime} – {slot.endTime}
+              {slot.startTime} - {slot.endTime}
             </div>
           </button>
         );

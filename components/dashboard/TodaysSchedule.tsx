@@ -7,6 +7,7 @@ import {
   type DashboardBooking,
   resolvePrimaryServiceName,
 } from "@/components/dashboard/bookings/bookingDisplay";
+import { hasBookingStarted } from "@/lib/booking/utils";
 
 export default function TodaysSchedule({
   bookings,
@@ -25,7 +26,12 @@ export default function TodaysSchedule({
   const todays = useMemo(
     () =>
       bookings
-        .filter((b) => b.date === todayLocal && b.status === "confirmed")
+        .filter(
+          (b) =>
+            b.date === todayLocal &&
+            b.status === "confirmed" &&
+            !hasBookingStarted(b.date, b.startTime)
+        )
         .sort((a, b) =>
           String(a.startTime || "").localeCompare(String(b.startTime || ""))
         ),

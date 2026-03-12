@@ -1,6 +1,7 @@
 "use client";
 
 import { Banknote } from "lucide-react";
+import { getBookingRevenueValue } from "@/lib/utils/bookingPresentation";
 
 interface RevenuePanelProps {
   bookings: any[];
@@ -13,28 +14,42 @@ export default function RevenuePanel({
   business,
   className = "",
 }: RevenuePanelProps) {
-  const today = new Date().toDateString();
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+  const kes = new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 0,
+  });
 
-  // Today's bookings
-  const todayBookings = bookings.filter(
-    (b) => new Date(b.startTime).toDateString() === today
+  const confirmedTodayBookings = bookings.filter(
+    (b) =>
+      (b.status === "confirmed" || b.status === "completed") &&
+      b.date === todayLocal
   );
 
-  // Sum of service price + callout fee
-  const revenue = todayBookings
-    .filter((b) => b.status === "confirmed")
-    .reduce(
-      (sum, b) => sum + (b.serviceId?.price || 0) + (b.calloutFee || 0),
-      0
-    );
+  const serviceRevenueToday = confirmedTodayBookings.reduce((sum, booking) => {
+    return sum + getBookingRevenueValue(booking);
+  }, 0);
 
-  // Sum of deposits
-  const deposits = todayBookings
-    .filter((b) => b.status === "confirmed" && b.depositAmount)
-    .reduce((sum, b) => sum + b.depositAmount, 0);
+  const depositsCollectedToday = bookings.reduce((sum, booking) => {
+    if (booking.status !== "confirmed") return sum;
+    const deposit = booking.depositId;
+    if (!deposit || deposit.status !== "PAID") return sum;
+    const paidAt = deposit.paidAt ? new Date(deposit.paidAt) : null;
+    if (!paidAt || Number.isNaN(paidAt.getTime())) return sum;
+    if (paidAt < startOfDay || paidAt >= endOfDay) return sum;
 
-  // Total revenue (optional: revenue + deposits)
-  const totalRevenue = revenue + deposits;
+    if (typeof deposit.grossAmount === "number" && deposit.grossAmount > 0) {
+      return sum + deposit.grossAmount;
+    }
+
+    return sum + (booking.depositAmount || 0);
+  }, 0);
 
   return (
     <div
@@ -55,12 +70,25 @@ export default function RevenuePanel({
         className="text-3xl font-bold"
         style={{ color: "var(--brand-primary-dark)" }}
       >
-        KES {totalRevenue.toLocaleString()}
+        {kes.format(serviceRevenueToday)}
       </p>
 
-      <p className="text-xs" style={{ color: "var(--brand-accent-dark)" }}>
-        Based on scheduled services + deposits
+      <p className="text-xs mt-1" style={{ color: "var(--brand-accent-dark)" }}>
+       
       </p>
+
+      <div className="mt-4 space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <span style={{ color: "var(--brand-accent-dark)" }}>Deposits collected today</span>
+          <span className="font-semibold" style={{ color: "var(--brand-primary-dark)" }}>
+            {kes.format(depositsCollectedToday)}
+          </span>
+        </div>
+
+        
+      </div>
+
+      
     </div>
   );
 }

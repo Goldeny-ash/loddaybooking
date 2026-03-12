@@ -27,6 +27,7 @@ export default async function DashboardPage() {
       .populate({ path: "serviceId", strictPopulate: false })
       .populate({ path: "staffId", strictPopulate: false })
       .populate({ path: "assignedTo", strictPopulate: false })
+      .populate({ path: "depositId", strictPopulate: false })
       .lean(),
     Staff.find({ businessId: business._id }).lean(),
     Service.find({ businessId: business._id }).lean(),

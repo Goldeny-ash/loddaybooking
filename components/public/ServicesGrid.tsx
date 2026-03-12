@@ -12,7 +12,6 @@ interface AddToSummaryPayload {
   selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
   selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
   selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
-  promotions?: { _id: string; title: string; type: "percent" | "fixed" | string; value: number }[];
   price?: number;
   durationMinutes?: number;
   depositAmount?: number;

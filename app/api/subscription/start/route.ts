@@ -112,6 +112,7 @@ const user = await currentUser();
         amount: finalAmount,
         phone_number: phoneNumber,
         api_ref: externalReference,
+        mobile_tarrif: "CUSTOMER-PAYS",
       }),
     });
 

@@ -2,6 +2,12 @@ import { Schema, model, models } from "mongoose";
 
 const PromotionSchema = new Schema(
   {
+    businessId: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      required: true,
+      index: true,
+    },
     title: { type: String, required: true },
     type: {
       type: String,
@@ -32,5 +38,8 @@ const PromotionSchema = new Schema(
   },
   { timestamps: true }
 );
+
+PromotionSchema.index({ businessId: 1, active: 1 });
+PromotionSchema.index({ businessId: 1, promoCode: 1 }, { unique: false });
 
 export default models.Promotion || model("Promotion", PromotionSchema);

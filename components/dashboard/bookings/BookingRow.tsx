@@ -44,16 +44,8 @@ export default function BookingRow({
           <p className="font-medium" style={{ color: theme.primaryDark }}>
             {booking.customerName}
           </p>
-          {booking.customerPhone && (
-            <p className="text-sm" style={{ color: theme.accentDark }}>
-              {booking.customerPhone}
-            </p>
-          )}
-          {booking.customerEmail && (
-            <p className="text-sm" style={{ color: theme.accentDark }}>
-              {booking.customerEmail}
-            </p>
-          )}
+          
+        
         </div>
 
         <div className="min-w-[220px]">

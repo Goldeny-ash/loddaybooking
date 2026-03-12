@@ -4,12 +4,18 @@ import mongoose from "mongoose";
 import Booking from "@/lib/models/Booking";
 import "@/lib/models/Business";
 import "@/lib/models/Service";
+import { computeDepositAmountForService } from "@/lib/booking/utils";
 
 type BookingServiceRow = {
   serviceId?: {
     _id?: string;
     name?: string;
+    description?: string;
     callOutFee?: number;
+    priceRange?: {
+      min?: number;
+      max?: number;
+    };
     depositOverride?: {
       enabled?: boolean;
       type?: "percent" | "fixed";
@@ -21,9 +27,18 @@ type BookingServiceRow = {
   selectedReferenceImages?: unknown[];
   depositAmount?: number;
   calloutFee?: number;
+  selectedAddOns?: Array<{ title?: string; price?: number; durationMinutes?: number }>;
+  selectedSessions?: Array<{ sessions?: number; price?: number; durationMinutes?: number }>;
+  selectedAreas?: Array<{ area?: string; min?: number; max?: number; price?: number }>;
+  selectedTier?: {
+    label?: string;
+    min?: number;
+    max?: number;
+    price?: number;
+  } | null;
 };
 
-type BusinessDepositPolicy = {
+type DepositPolicyLike = {
   enabled?: boolean;
   type?: "percent" | "fixed";
   value?: number;
@@ -55,7 +70,7 @@ export async function GET(req: Request) {
     .populate({
       path: "services.serviceId",
       select:
-        "name price durationMinutes bufferMinutes staffIds depositOverride callOutFee",
+        "name description priceRange durationMinutes bufferMinutes staffIds depositOverride callOutFee",
     })
   
     .lean();
@@ -76,52 +91,40 @@ export async function GET(req: Request) {
   const services = (bookingServices as BookingServiceRow[]).map((s) => ({
     serviceId: s.serviceId?._id,
     serviceName: s.serviceId?.name,
+    serviceDescription: s.serviceId?.description,
     price: s.price,
+    priceRange: s.serviceId?.priceRange,
     durationMinutes: s.durationMinutes,
     staffId: null, // no staff assigned
     staffName: null,
     selectedReferenceImages: s.selectedReferenceImages || [],
     depositAmount: s.depositAmount || 0,
     callOutFee: s.calloutFee || s.serviceId?.callOutFee || 0,
+    selectedAddOns: s.selectedAddOns || [],
+    selectedSessions: s.selectedSessions || [],
+    selectedAreas: s.selectedAreas || [],
+    selectedTier: s.selectedTier || null,
   }));
 
-  const policyDerivedDepositAmount = bookingServices.reduce(
-    (sum: number, s: BookingServiceRow) => {
-      const servicePrice = Number(s.price || 0);
-      const explicit = Number(s.depositAmount || 0);
-      if (explicit > 0) return sum + explicit;
+  const businessPolicy = (booking.businessId as {
+    depositPolicy?: DepositPolicyLike;
+  })?.depositPolicy;
 
-      const serviceOverride = s.serviceId?.depositOverride;
-      if (serviceOverride?.enabled) {
-        if (serviceOverride.type === "percent") {
-          return sum + Math.round((servicePrice * Number(serviceOverride.value || 0)) / 100);
-        }
-        return sum + Number(serviceOverride.value || 0);
-      }
+  const bookingDepositAmount = bookingServices.reduce((sum: number, service: BookingServiceRow) => {
+    const explicitDeposit = Number(service.depositAmount || 0);
+    if (explicitDeposit > 0) {
+      return sum + explicitDeposit;
+    }
 
-      const businessPolicy = (booking.businessId as { depositPolicy?: BusinessDepositPolicy })?.depositPolicy;
-      if (businessPolicy?.enabled) {
-        if (businessPolicy.type === "percent") {
-          return sum + Math.round((servicePrice * Number(businessPolicy.value || 0)) / 100);
-        }
-        return sum + Number(businessPolicy.value || 0);
-      }
-
-      return sum;
-    },
-    0
-  );
-
-  const derivedDepositAmount = services.reduce(
-    (sum: number, s: { depositAmount?: number }) => sum + Number(s.depositAmount || 0),
-    0
-  );
-
-  const bookingDepositAmount = Math.max(
-    Number(booking.depositAmount || 0),
-    derivedDepositAmount,
-    policyDerivedDepositAmount
-  );
+    return (
+      sum +
+      computeDepositAmountForService({
+        servicePrice: Number(service.price || 0),
+        service: service.serviceId,
+        businessPolicy,
+      })
+    );
+  }, 0);
 
   const businessRecord = booking.businessId as {
     bookingRules?: { autoApprove?: boolean };
