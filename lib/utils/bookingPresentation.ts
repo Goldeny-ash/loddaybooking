@@ -13,7 +13,14 @@ type BookingPriceSource = {
   grandTotal?: number | null;
   subtotal?: number | null;
   calloutFee?: number | null;
-  serviceId?: { price?: number | null } | null;
+  serviceId?:
+    | string
+    | {
+        _id?: string | null;
+        name?: string | null;
+        price?: number | null;
+      }
+    | null;
   services?: Array<{ price?: number | null }> | null;
   priceRange?: {
     min?: number | null;
@@ -154,5 +161,9 @@ export function getBookingRevenueValue(booking: BookingPriceSource) {
     return booking.services.reduce((sum, service) => sum + toNumber(service?.price), 0);
   }
 
-  return toNumber(booking.serviceId?.price);
+  if (booking.serviceId && typeof booking.serviceId === "object") {
+    return toNumber(booking.serviceId.price);
+  }
+
+  return 0;
 }

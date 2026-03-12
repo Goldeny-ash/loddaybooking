@@ -8,7 +8,13 @@ import { type DashboardBooking } from "./bookingDisplay";
 import { hasBookingStarted } from "@/lib/booking/utils";
 
 function shouldShowPendingBooking(booking: DashboardBooking) {
-  return booking.status === "pending" && !hasBookingStarted(booking.date, booking.startTime && booking.status === "pendingDeposit");
+  const isPendingActionStatus =
+    booking.status === "pending" || booking.status === "pendingDeposit";
+
+  return (
+    isPendingActionStatus &&
+    !hasBookingStarted(booking.date, booking.startTime)
+  );
 }
 
 export default function UpcomingBookings({

@@ -11,6 +11,15 @@ const INTASEND_BASE_URL =
 
 const SETTLEMENT_WALLET_ID = process.env.INTASEND_SETTLEMENT_WALLET_ID || "";
 
+type WalletTransaction = {
+  value?: number | string | null;
+};
+
+type WalletTotals = {
+  inflow: number;
+  outflow: number;
+};
+
 async function ensureAdmin() {
   const user = await currentUser();
   return Boolean(user?.id && user.id === process.env.PLATFORM_OWNER_CLERK_ID);
@@ -61,7 +70,7 @@ async function fetchSettlementWalletSummary() {
         : [];
 
     const totals = transactions.reduce(
-      (acc, txn) => {
+      (acc: WalletTotals, txn: WalletTransaction) => {
         const value = Number(txn?.value ?? 0);
         if (value >= 0) acc.inflow += value;
         else acc.outflow += Math.abs(value);
