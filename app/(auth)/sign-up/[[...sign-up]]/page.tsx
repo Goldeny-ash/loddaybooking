@@ -41,38 +41,9 @@ export default function SignUpPage() {
           />
         </div>
 
-        <label className="flex items-start gap-2 text-sm mt-2">
-          <input
-            type="checkbox"
-            checked={accepted}
-            onChange={(e) => setAccepted(e.target.checked)}
-            required
-            className="mt-1"
-          />
-          <span>
-            I agree to the{" "}
-            <Link href="/privacy" className="text-[#15616D] underline">
-              Privacy Policy
-            </Link>{" "}
-            and{" "}
-            <Link href="/terms" className="text-[#15616D] underline">
-              Terms of Service
-            </Link>
-            .
-          </span>
-        </label>
+        
 
-        <button
-          type="submit"
-          disabled={!accepted}
-          className={`mt-4 px-4 py-3 rounded-full text-white font-medium transition-transform ${
-            accepted
-              ? "bg-[#15616D] hover:scale-105"
-              : "bg-gray-300 cursor-not-allowed"
-          }`}
-        >
-          Sign Up
-        </button>
+       
       </div>
     </div>
   );
