@@ -34,7 +34,7 @@ const HomePage = () => {
   const features: Feature[] = [
     {
       title: "Marketplace Discovery",
-      subtitle: "Appear in Lodday’s booking marketplace instantly.",
+      subtitle: "Appear in Lodday's booking marketplace instantly.",
       benefits: ["New clients without ads", "Local visibility", "Public profile page", "Ratings & photos", "Direct booking links"],
       Icon: Zap,
       bgColor: colors.primary,
@@ -102,7 +102,6 @@ const HomePage = () => {
 
   return (
     <main className="relative pt-28">
-      {/* Hero Section */}
       <CurvedSection
         bg="linear-gradient(120deg, #FFECD1 0%, #FFF4E1 100%)"
         style={{ paddingBottom: "96px", paddingLeft: "1rem", paddingRight: "1rem" }}
@@ -113,38 +112,37 @@ const HomePage = () => {
           <FloatingShape size={80} x={75} y={20} color={colors.primary} opacity={0.05} />
           <FloatingShape size={60} x={50} y={70} color={colors.secondary} opacity={0.06} />
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-12 w-full max-w-[1600px] mx-auto">
-            {/* Left Text */}
-            <div className="w-full md:w-1/2 flex flex-col justify-center text-center md:text-left">
-              <h1 className="font-serif text-4xl md:text-6xl leading-tight mb-6 text-[#001524]">
+          <div className="flex w-full max-w-[1600px] mx-auto flex-col gap-12 md:flex-row md:items-center md:justify-between">
+            <div className="flex w-full flex-col justify-center text-center md:w-1/2 md:text-left">
+              <h1 className="mb-6 font-serif text-4xl leading-tight text-[#001524] md:text-6xl">
                 Stop No-Shows. Fill Every Slot.
               </h1>
-              <p className="text-lg md:text-xl max-w-lg mb-8 text-[#15616D] mx-auto md:mx-0">
-                Enforce grace periods, mandatory check-ins, late rules, and walk-in fairness — automatically.
+              <p className="mx-auto mb-6 max-w-lg text-lg text-[#15616D] md:mx-0 md:text-xl">
+                Enforce grace periods, mandatory check-ins, late rules, and walk-in fairness automatically.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+              
+              <div className="flex flex-col gap-4 sm:flex-row md:justify-start">
                 <Link
                   href="/dashboard"
-                  className="px-10 py-4 rounded-full drop-shadow-lg inline-block hover:scale-105 transition-transform"
+                  className="inline-block rounded-full px-10 py-4 drop-shadow-lg transition-transform hover:scale-105"
                   style={{ backgroundColor: colors.accent, color: colors.lightPeach }}
                 >
                   Start Free
                 </Link>
                 <Link
                   href="/dashboard"
-                  className="px-10 py-4 rounded-full border border-[#15616D]/20 bg-white/70 text-[#15616D] shadow-sm transition-transform hover:scale-105"
+                  className="rounded-full border border-[#15616D]/20 bg-white/70 px-10 py-4 text-[#15616D] shadow-sm transition-transform hover:scale-105"
                 >
                   Dashboard
                 </Link>
-                <p className="mt-2 md:mt-0 text-sm opacity-70 text-[#15616D]">
+                <p className="mt-2 text-sm text-[#15616D] opacity-70 md:mt-0">
                   No credit card required • Cancel anytime
                 </p>
               </div>
             </div>
 
-            {/* Right Video */}
             <motion.div
-              className="w-full md:w-1/2 mt-8 md:mt-0 flex justify-center"
+              className="mt-8 flex w-full justify-center md:mt-0 md:w-1/2"
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             >
@@ -154,25 +152,24 @@ const HomePage = () => {
                 loop
                 muted
                 playsInline
-                className="rounded-[32px] shadow-2xl w-full max-w-[560px] object-cover"
+                className="w-full max-w-[560px] rounded-[32px] object-cover shadow-2xl"
               />
             </motion.div>
           </div>
         </>
       </CurvedSection>
 
-      {/* Business Types */}
       <CurvedSection bg={colors.softPeach}>
         <>
-          <h2 className="font-serif text-4xl text-center mb-14 text-[#001524]">
+          <h2 className="mb-14 text-center font-serif text-4xl text-[#001524]">
             Perfect for Service Businesses
           </h2>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-7xl mx-auto px-6">
+          <div className="mx-auto grid max-w-7xl gap-6 px-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {businessTypes.map((type) => (
               <motion.div
                 key={type}
                 whileHover={{ y: -6 }}
-                className="rounded-3xl p-6 text-center shadow-xl hover:shadow-2xl transition-all"
+                className="rounded-3xl p-6 text-center shadow-xl transition-all hover:shadow-2xl"
                 style={{ backgroundColor: colors.secondary, color: colors.lightPeach }}
               >
                 <h3 className="font-serif text-lg">{type}</h3>
@@ -182,58 +179,55 @@ const HomePage = () => {
         </>
       </CurvedSection>
 
-      {/* Features Section */}
       <FeaturesSection features={features} id="features" />
 
       <ReviewsSection scope="platform" />
 
-      {/* Pricing */}
       <div id="pricing">
         <CurvedSection bg={colors.primary} centerContent>
-          <h2 className="font-serif text-4xl mb-4 text-lightPeach">Pricing</h2>
-          <p className="text-lightPeach mb-8">Simple flat monthly pricing. Includes email reminders.</p>
-          <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-            {/* Free Trial */}
+          <h2 className="mb-4 font-serif text-4xl text-lightPeach">Pricing</h2>
+          <p className="mb-8 text-lightPeach">Simple flat monthly pricing. Includes email reminders.</p>
+          <div className="flex flex-col items-center justify-center gap-6 md:flex-row">
             <motion.div
-              className="rounded-3xl p-8 shadow-2xl bg-secondary hover:-translate-y-1 transition transform w-64"
+              className="w-64 rounded-3xl bg-secondary p-8 shadow-2xl transition transform hover:-translate-y-1"
               style={{ color: colors.white }}
               whileHover={{ y: -4 }}
             >
-              <h3 className="text-3xl font-serif mb-4">Free Trial</h3>
+              <h3 className="mb-4 text-3xl font-serif">Free Trial</h3>
               <p className="mb-6">Test all features without credit card.</p>
               <Link
                 href="/setup?mode=trial"
                 onClick={() => localStorage.setItem("onboardingMode", "trial")}
-                className="px-6 py-3 rounded-full drop-shadow-md inline-block w-full text-center hover:scale-105 transition-transform"
+                className="inline-block w-full rounded-full px-6 py-3 text-center drop-shadow-md transition-transform hover:scale-105"
                 style={{ backgroundColor: colors.accent, color: colors.white }}
               >
                 Start Free Trial
               </Link>
             </motion.div>
 
-            {/* Imm ediate Subscription */}
             <motion.div
-              className="rounded-3xl p-8 shadow-2xl bg-secondary hover:-translate-y-1 transition transform w-64"
+              className="w-64 rounded-3xl bg-secondary p-8 shadow-2xl transition transform hover:-translate-y-1"
               style={{ color: colors.white }}
               whileHover={{ y: -4 }}
             >
-              <h3 className="text-3xl font-serif mb-4">Go Live Now</h3>
+              <h3 className="mb-4 text-3xl font-serif">Go Live Now</h3>
               <p className="mb-6">600 KSh / month</p>
               <Link
                 href="/setup?mode=subscribe"
                 onClick={() => localStorage.setItem("onboardingMode", "subscribe")}
-                className="px-6 py-3 rounded-full drop-shadow-md inline-block w-full text-center hover:scale-105 transition-transform"
+                className="inline-block w-full rounded-full px-6 py-3 text-center drop-shadow-md transition-transform hover:scale-105"
                 style={{ backgroundColor: colors.lightPeach, color: colors.primary }}
               >
-                Go Live Now – KSh 600
+                Go Live Now - KSh 600
               </Link>
             </motion.div>
           </div>
-          <p className="mt-4 text-sm opacity-70 text-lightPeach">Appear in customer marketplace immediately.</p>
+          <p className="mt-4 text-sm text-lightPeach opacity-70">
+            Appear in customer marketplace immediately.
+          </p>
         </CurvedSection>
       </div>
 
-      {/* Footer */}
       <Footer />
     </main>
   );

@@ -156,7 +156,11 @@ interface Props {
   referenceImages: ReferenceImage[];
   theme: Theme;
   seo: {
+    businessName: string;
+    location: string;
+    serviceNames: string[];
     summarySentence: string;
+    searchDescription: string;
     searchIntentPhrases: string[];
   };
 }
@@ -227,6 +231,13 @@ export default function PublicBookingPageClient({
   const cardBorder = borderFor(base);
   const cardShadow = shadowFor(base);
   const cardText = getReadableText(base);
+  const servicePreview = seo.serviceNames.slice(0, 6);
+  const servicePreviewText =
+    servicePreview.length === 0
+      ? ""
+      : servicePreview.length === 1
+        ? servicePreview[0]
+        : `${servicePreview.slice(0, -1).join(", ")} and ${servicePreview[servicePreview.length - 1]}`;
 
   const handleAddToSummary = (data: AddToSummaryPayload) => {
     setSelectedServices(prev => [
@@ -288,6 +299,40 @@ export default function PublicBookingPageClient({
         />
       </div>
 
+      <section
+        className="rounded-2xl p-4 md:p-5"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">
+          Book online
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold md:text-3xl">
+          {seo.location
+            ? `${seo.businessName} - ${seo.location}`
+            : `${seo.businessName} appointments`}
+        </h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 md:text-base md:leading-7">
+          {seo.summarySentence}
+        </p>
+        <p className="mt-3 max-w-3xl text-sm leading-6 md:text-base md:leading-7">
+          {business.description?.trim()
+            ? business.description
+            : "Browse services, compare availability, and confirm your appointment in a few steps."}
+        </p>
+        {servicePreviewText ? (
+          <p className="mt-3 max-w-3xl text-sm leading-6 md:text-base md:leading-7">
+            Popular bookings include {servicePreviewText}. Choose a time slot and secure your
+            appointment instantly.
+          </p>
+        ) : null}
+      </section>
+
       <StickyBookingCTA
         selectedServices={selectedServices}
         status={status}
@@ -342,8 +387,7 @@ export default function PublicBookingPageClient({
       />
 
       <section
-        className="hidden rounded-2xl p-4 md:p-5"
-        aria-hidden="true"
+        className="rounded-2xl p-4 md:p-5"
         style={{
           background: cardBg,
           color: cardText,
@@ -352,8 +396,8 @@ export default function PublicBookingPageClient({
           backdropFilter: "blur(14px)",
         }}
       >
-        <h2 className="text-lg font-semibold mb-2">Book services online</h2>
-        <p className="text-sm leading-6">{seo.summarySentence}</p>
+        <h2 className="mb-2 text-lg font-semibold">Find and book the right service</h2>
+        <p className="text-sm leading-6">{seo.searchDescription}</p>
         {seo.searchIntentPhrases.length > 0 ? (
           <p className="text-sm leading-6 mt-2">
             Popular searches: {seo.searchIntentPhrases.join(", ")}.

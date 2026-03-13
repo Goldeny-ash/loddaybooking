@@ -133,7 +133,14 @@ export default async function PublicBookingPage(props: PageProps) {
         services={services}
         referenceImages={referenceImages}
         theme={theme}
-        seo={seo}
+        seo={{
+          businessName: seo.businessName,
+          location: seo.location,
+          serviceNames: seo.serviceNames,
+          summarySentence: seo.summarySentence,
+          searchDescription: seo.searchDescription,
+          searchIntentPhrases: seo.searchIntentPhrases,
+        }}
       />
     </>
   );

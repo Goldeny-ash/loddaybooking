@@ -8,12 +8,25 @@ export default function Footer() {
         <div>
           <h3 className="mb-4 font-serif text-3xl">Lodday</h3>
           <p className="opacity-80">Booking systems built for serious service businesses.</p>
+          <div className="max-w-2xl space-y-3 text-left text-sm md:mx-0 md:text-base">
+                <h2 className="font-serif text-2xl leading-tight text-[#001524] md:text-3xl">
+                  Lodday - Online Booking for Beauty Businesses
+                </h2>
+                <p>
+                  Lodday helps salons, barbershops, nail technicians and beauty professionals
+                  manage appointments and accept bookings online through branded business pages.
+                </p>
+                <p>
+                  Service businesses can publish services, collect deposits, send reminders, and
+                  keep schedules organized across staff, clients, and repeat appointments.
+                </p>
+              </div>
         </div>
 
         <div>
           <h4 className="mb-4 font-semibold">Contact</h4>
-          <p>Email: hello@lodday.com</p>
-          <p>WhatsApp: +254 700 000 000</p>
+          <p>Email: support@lodday.com</p>
+          <p>WhatsApp: +254 723711925</p>
           <div className="mt-4 space-y-1 text-sm">
             <p>
               <Link href="/privacy" className="underline">
