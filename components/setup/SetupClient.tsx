@@ -24,6 +24,17 @@ const DAYS = [
   "Sunday",
 ];
 
+function normalizeWard(ward: string | { name: string; areas: string[] }) {
+  if (typeof ward === "string") {
+    return { name: ward, areas: [] as string[] };
+  }
+
+  return {
+    name: ward.name,
+    areas: Array.isArray(ward.areas) ? ward.areas : [],
+  };
+}
+
 function FieldLabel({
   htmlFor,
   label,
@@ -98,7 +109,7 @@ export default function SetupPage() {
   const selectedCounty = kenyaAdministrative.find((c) => c.county === business.county);
   const subCountyOptions = selectedCounty?.subCounties ?? [];
   const selectedSubCounty = subCountyOptions.find((s) => s.name === business.subCounty);
-  const wardOptions = selectedSubCounty?.wards ?? [];
+  const wardOptions = (selectedSubCounty?.wards ?? []).map(normalizeWard);
   const selectedWard = wardOptions.find((w) => w.name === business.ward);
   const areaOptions = selectedWard?.areas ?? [];
   const requiresWard = wardOptions.length > 0;

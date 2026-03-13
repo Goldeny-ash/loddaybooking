@@ -220,8 +220,8 @@ export default function CustomerDetailsForm({
                   Select ward
                 </option>
                 {wardOptions.map((ward) => (
-                  <option key={ward} value={ward} className="text-black">
-                    {ward}
+                  <option key={typeof ward === "string" ? ward : ward.name} value={typeof ward === "string" ? ward : ward.name} className="text-black">
+                    {typeof ward === "string" ? ward : ward.name}
                   </option>
                 ))}
               </select>
@@ -289,4 +289,14 @@ export default function CustomerDetailsForm({
       ))}
     </div>
   );
+}
+function normalizeWard(ward: string | { name: string; areas: string[] }) {
+  if (typeof ward === "string") {
+    return { name: ward, areas: [] as string[] };
+  }
+
+  return {
+    name: ward.name,
+    areas: Array.isArray(ward.areas) ? ward.areas : [],
+  };
 }

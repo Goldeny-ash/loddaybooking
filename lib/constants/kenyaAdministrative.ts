@@ -2,7 +2,12 @@ export interface AdministrativeUnit {
   county: string;
   subCounties: {
     name: string;
-    wards: string[];
+    wards:
+      | string[]
+      | {
+          name: string;
+          areas: string[];
+        }[];
   }[];
 }
 

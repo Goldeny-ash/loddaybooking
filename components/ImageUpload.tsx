@@ -10,6 +10,7 @@ interface ImageUploadProps {
   onChange: (urls: string[]) => void;
   uploadPreset?: string; // Allows custom preset
   maxFiles?: number;     // Allows max file override
+  maxFileSize?: number;
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
@@ -17,6 +18,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   onChange,
   uploadPreset = "business_logos",
   maxFiles = 5,
+  maxFileSize = 2_000_000,
 }) => {
   const handleUpload = (result: any) => {
     if (result.event === "success") {
@@ -48,7 +50,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         <CldUploadWidget
           uploadPreset={uploadPreset}
           onSuccess={handleUpload}
-          options={{ maxFiles }}
+          options={{ maxFiles, maxFileSize }}
         >
           {({ open }) => (
             <Button
