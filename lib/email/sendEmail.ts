@@ -62,6 +62,7 @@ const templateAliasMap: Partial<Record<TemplateKey, string>> = {
   POST_APPOINTMENT_THANK_YOU: "bookings@lodday.com",
 
   /* ================= SUBSCRIPTION ================= */
+  TRIAL_STARTED: "subscriptions@lodday.com",
   TRIAL_EXPIRING: "subscriptions@lodday.com",
   TRIAL_EXPIRED: "subscriptions@lodday.com",
   SUBSCRIPTION_SUCCESS: "subscriptions@lodday.com",
@@ -69,6 +70,9 @@ const templateAliasMap: Partial<Record<TemplateKey, string>> = {
   SUBSCRIPTION_FAILED: "subscriptions@lodday.com",
   SUBSCRIPTION_GRACE_WARNING: "subscriptions@lodday.com",
   SUBSCRIPTION_EXPIRED: "subscriptions@lodday.com",
+
+  /* ================= ONBOARDING ================= */
+  BUSINESS_WELCOME: "welcome@lodday.com",
 
   /* ================= MARKETING ================= */
   PROMO_ANNOUNCEMENT: "promo@lodday.com",
@@ -115,6 +119,7 @@ const displayNameMap: Partial<Record<TemplateKey, string>> = {
   POST_APPOINTMENT_THANK_YOU: "Lodday",
 
   /* Subscription */
+  TRIAL_STARTED: "Lodday Billing",
   TRIAL_EXPIRING: "Lodday Billing",
   TRIAL_EXPIRED: "Lodday Billing",
   SUBSCRIPTION_SUCCESS: "Lodday Billing",
@@ -122,6 +127,9 @@ const displayNameMap: Partial<Record<TemplateKey, string>> = {
   SUBSCRIPTION_FAILED: "Lodday Billing",
   SUBSCRIPTION_GRACE_WARNING: "Lodday Billing",
   SUBSCRIPTION_EXPIRED: "Lodday Billing",
+
+  /* Onboarding */
+  BUSINESS_WELCOME: "Lodday",
 
   /* Marketing */
   PROMO_ANNOUNCEMENT: "Lodday Promotions",

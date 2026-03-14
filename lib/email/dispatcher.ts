@@ -258,6 +258,13 @@ const send = async (
        SUBSCRIPTIONS
     ===================================================== */
 
+    case "TRIAL_STARTED":
+      await send("TRIAL_STARTED",
+        { to: businessObj.email },
+        { dashboardUrl: payload.dashboardUrl || buildDashboardUrl() }
+      );
+      break;
+
     case "TRIAL_EXPIRING":
       await send("TRIAL_EXPIRING",
         { to: businessObj.email },
@@ -304,6 +311,13 @@ const send = async (
       await send("SUBSCRIPTION_EXPIRED",
         { to: businessObj.email },
         { retryUrl: payload.retryUrl }
+      );
+      break;
+
+    case "BUSINESS_WELCOME":
+      await send("BUSINESS_WELCOME",
+        { to: businessObj.email },
+        { dashboardUrl: payload.dashboardUrl || buildDashboardUrl() }
       );
       break;
 

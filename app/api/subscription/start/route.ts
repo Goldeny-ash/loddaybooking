@@ -125,6 +125,7 @@ const user = await currentUser();
     }
 
     const invoiceId = data?.invoice?.invoice_id || null;
+    const mobileTariff = Number(data?.invoice?.charges || 0);
     await Subscription.create({
       businessId: business._id.toString(),
       externalReference,
@@ -148,6 +149,7 @@ const user = await currentUser();
     return NextResponse.json({
       success: true,
       amount: finalAmount,
+      mobileTariff,
       reference: externalReference,
       invoiceId,
       affiliateDiscountApplied: discountApplied,

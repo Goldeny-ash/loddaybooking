@@ -14,6 +14,7 @@ import { AnimatePresence, motion } from "framer-motion";
 type Mode = "trial" | "subscribe";
 
 const SETUP_STORAGE_KEY = "lodday_setup_draft";
+const SUBSCRIPTION_CHECKOUT_STORAGE_KEY = "lodday_subscription_checkout";
 const DAYS = [
   "Monday",
   "Tuesday",
@@ -58,6 +59,7 @@ function FieldLabel({
 export default function SetupPage() {
   const router = useRouter();
   const { user } = useUser();
+  const pageTopRef = useRef<HTMLDivElement | null>(null);
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -167,13 +169,22 @@ export default function SetupPage() {
       JSON.stringify({
         step,
         onboardingMode,
-        personal,
+        personal: personalWithDefaults,
         business,
         openingHours,
         usernameEdited,
       })
     );
   }, [step, onboardingMode, personal, business, openingHours, usernameEdited]);
+
+  useEffect(() => {
+    pageTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [step]);
+
+  useEffect(() => {
+    if (!popup && !success) return;
+    pageTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [popup, success]);
 
   useEffect(() => {
     if (!business.username) {
@@ -329,15 +340,17 @@ export default function SetupPage() {
 
         setTimeout(async () => {
           if (onboardingMode === "subscribe") {
-            try {
-              const sub = await axios.post("/api/subscription/start", {
-                phoneNumber: business.phone,
-              });
-              if (!sub.data?.success) throw new Error("Subscription start failed");
-              window.location.href = "/subscription/success";
-            } catch {
-              router.push("/dashboard");
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(
+                SUBSCRIPTION_CHECKOUT_STORAGE_KEY,
+                JSON.stringify({
+                  phoneNumber: business.phone,
+                  businessName: business.name,
+                  source: "setup",
+                })
+              );
             }
+            window.location.href = "/subscription/success?source=setup";
           } else {
             router.push("/dashboard");
           }
@@ -403,6 +416,7 @@ export default function SetupPage() {
 
   return (
     <div className="relative min-h-screen bg-[#F5EBDD] px-6 py-20">
+      <div ref={pageTopRef} />
       <div className="relative mx-auto max-w-5xl space-y-10 rounded-[40px] bg-white/90 p-10 shadow-2xl backdrop-blur-md">
         <AnimatePresence>
           {success && (
@@ -411,16 +425,22 @@ export default function SetupPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-[#001524]/80 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#001524]/80 px-4 py-6 backdrop-blur-sm sm:items-center sm:px-6"
             >
               <motion.div
                 initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4 }}
-                className="rounded-3xl bg-white px-12 py-10 text-center shadow-2xl"
+                className="my-auto w-full max-w-lg rounded-3xl bg-white px-6 py-8 text-center shadow-2xl sm:px-12 sm:py-10"
               >
-                <div className="mb-2 text-3xl font-semibold text-[#15616D]">Setup Complete</div>
-                <div className="text-gray-500">Redirecting to your dashboard...</div>
+                <div className="mb-2 text-2xl font-semibold text-[#15616D] sm:text-3xl">
+                  Setup Complete
+                </div>
+                <div className="text-sm text-gray-500 sm:text-base">
+                  {onboardingMode === "subscribe"
+                    ? "Preparing your subscription checkout..."
+                    : "Redirecting to your dashboard..."}
+                </div>
               </motion.div>
             </motion.div>
           )}
@@ -433,9 +453,9 @@ export default function SetupPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: -30 }}
               transition={{ duration: 0.25 }}
-              className="fixed inset-0 z-50 flex items-center justify-center"
+              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-6 sm:items-center sm:px-6"
             >
-              <div className="rounded-3xl bg-[#001524] px-10 py-6 text-center text-lg text-white shadow-2xl">
+              <div className="my-auto w-full max-w-lg rounded-3xl bg-[#001524] px-5 py-5 text-center text-base text-white shadow-2xl sm:px-10 sm:py-6 sm:text-lg">
                 {popup}
               </div>
             </motion.div>

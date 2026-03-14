@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
 import { pingGoogleSitemap } from "@/lib/seo/googlePing";
+import { dispatchEmailEvent } from "@/lib/email/dispatcher";
+import { buildDashboardUrl } from "@/lib/booking/utils";
 
 const escapeRegex = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
 
   const slugUsername = username.toLowerCase().replace(/\s+/g, "-").trim();
   const normalizedEmail = String(email || "").trim().toLowerCase();
+  const existingBusiness = await Business.findOne({ clerkUserId: userId });
   const normalizedLocation = {
     county: String(location?.county || body.county || "").trim(),
     subCounty: String(location?.subCounty || body.subCounty || "").trim(),
@@ -122,6 +125,17 @@ export async function POST(req: Request) {
     },
     { new: true, upsert: true }
   );
+
+  const shouldSendOnboardingEmails =
+    Boolean(normalizedEmail) && (!existingBusiness || Number(existingBusiness.setupStep || 0) < 2);
+
+  if (shouldSendOnboardingEmails) {
+    const dashboardUrl = buildDashboardUrl();
+    await Promise.allSettled([
+      dispatchEmailEvent("TRIAL_STARTED", { business, dashboardUrl }),
+      dispatchEmailEvent("BUSINESS_WELCOME", { business, dashboardUrl }),
+    ]);
+  }
 
   void pingGoogleSitemap();
 

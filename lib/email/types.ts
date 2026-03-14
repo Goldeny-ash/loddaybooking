@@ -25,8 +25,12 @@ export type EmailEvent =
   | "REFUND_REJECTED"
 
   // Trials
+  | "TRIAL_STARTED"
   | "TRIAL_EXPIRING"
   | "TRIAL_EXPIRED"
+
+  // Onboarding
+  | "BUSINESS_WELCOME"
 
   // Subscriptions
   | "SUBSCRIPTION_SUCCESS"

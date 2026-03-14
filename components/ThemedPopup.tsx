@@ -33,6 +33,11 @@ export default function ThemedPopup({
     return () => clearTimeout(timer);
   }, [message, duration, mode, onClose]);
 
+  useEffect(() => {
+    if (!message || typeof window === "undefined") return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [message]);
+
   return (
     <AnimatePresence>
       {message && (
@@ -41,10 +46,10 @@ export default function ThemedPopup({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: -30 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 flex items-center justify-center z-[100]"
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-4 py-6 sm:items-center sm:px-6"
         >
           <div
-            className="w-full max-w-md rounded-3xl px-8 py-6 text-center shadow-2xl"
+            className="my-auto w-full max-w-md rounded-3xl px-5 py-5 text-center shadow-2xl sm:px-8 sm:py-6"
             style={{
               background:
                 mode === "confirm"

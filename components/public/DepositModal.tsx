@@ -111,8 +111,8 @@ export default function DepositModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm px-4 py-8 grid place-items-center">
-      <div className="relative w-full max-w-md rounded-2xl border border-[var(--brand-primary-light)] bg-white p-6 text-gray-900 shadow-xl">
+    <div className="fixed inset-0 z-50 grid place-items-start overflow-y-auto bg-black/60 px-4 py-6 backdrop-blur-sm sm:place-items-center sm:py-8">
+      <div className="relative my-auto w-full max-w-md rounded-2xl border border-[var(--brand-primary-light)] bg-white p-5 text-gray-900 shadow-xl sm:p-6">
         {loading && (
           <div className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80">
             <Loader2 className="animate-spin w-6 h-6" />

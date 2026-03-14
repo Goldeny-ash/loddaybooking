@@ -635,6 +635,65 @@ POST_APPOINTMENT_THANK_YOU: {
   },
 
   
+TRIAL_STARTED: {
+  subject: () => `Your Free Trial Has Started`,
+
+  html: (data) => {
+    const { business, theme, dashboardUrl } = data;
+
+    return emailLayout(
+      business,
+      theme,
+      `
+        <p>Hello ${business.name},</p>
+
+        <p>
+          Your 14-day free trial is now active and your business workspace is ready.
+        </p>
+
+        <p>
+          Trial end date:
+          <strong>${business.access.trialEndsAt?.toDateString()}</strong>
+        </p>
+
+        <p>
+          You can start setting up services, managing availability, and accepting bookings right away.
+        </p>
+
+        ${renderEmailButton(dashboardUrl, "Open Dashboard", theme.primary)}
+      `
+    );
+  },
+},
+BUSINESS_WELCOME: {
+  subject: () => `Welcome to Lodday`,
+
+  html: (data) => {
+    const { business, theme, dashboardUrl } = data;
+
+    return emailLayout(
+      business,
+      theme,
+      `
+        <p>Hello ${business.name},</p>
+
+        <p>
+          Welcome to Lodday. We are excited to help you run bookings, manage clients, and grow your business with less admin work.
+        </p>
+
+        <p>
+          Your account is ready, and you can continue customizing your profile, services, and booking experience from your dashboard.
+        </p>
+
+        <p>
+          When you are ready, publish your booking page and start accepting appointments online.
+        </p>
+
+        ${renderEmailButton(dashboardUrl, "Go to Dashboard", theme.primary)}
+      `
+    );
+  },
+},
 TRIAL_EXPIRING: {
   subject: (data) =>
     `Your Trial Ends on ${data.business.access.trialEndsAt?.toDateString()}`,
