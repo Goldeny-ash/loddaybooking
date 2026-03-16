@@ -26,7 +26,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveTab((prev) => (prev + 1) % features.length);
-    }, 4000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [features.length]);
 

@@ -43,7 +43,7 @@ const HomePage = () => {
     {
       title: "Customer Retention",
       subtitle: "Turn walk-ins into repeat clients with personalized booking links.",
-      benefits: ["Personal booking URL", "QR code at reception", "SMS/WhatsApp follow-ups", "Auto reminders", "Loyalty memory"],
+      benefits: ["Personal booking URL", "QR code displayed at reception", "Email Follow-ups", "Auto reminders", "Loyalty memory"],
       Icon: Users,
       bgColor: colors.secondary,
       textColor: colors.white,
@@ -80,25 +80,18 @@ const HomePage = () => {
       bgColor: colors.secondary,
       textColor: colors.white,
     },
-    {
-      title: "Business Analytics",
-      subtitle: "See what makes you money.",
-      benefits: ["Popular services", "No-show rate", "Peak hours", "Returning customers", "Revenue trends"],
-      Icon: BarChart2,
-      bgColor: colors.primary,
-      textColor: colors.white,
-    },
+   
     {
       title: "Automated Messaging",
       subtitle: "Customers show up because you remind them.",
-      benefits: ["WhatsApp", "SMS", "Email", "Custom templates", "Check-in links"],
+      benefits: ["Email", "Custom templates", "Check-in links"],
       Icon: MessageSquare,
       bgColor: colors.seamountLight,
       textColor: colors.darkText,
     },
   ];
 
-  const businessTypes = ["Salons & Barbershops", "Spas & Beauty Clinics", "Nail Studios", "Physios / Dentists", "Auto Detailers"];
+  const businessTypes = ["Salons & Barbershops", "Spas & Beauty Clinics", "Nail Studios", "Physios / Dentists", "Tattoo Artists"];
 
   return (
     <main className="relative pt-28">
