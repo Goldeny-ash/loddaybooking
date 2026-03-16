@@ -129,12 +129,20 @@ const HomePage = () => {
                 >
                   Start Free
                 </Link>
-                <Link
-                  href="/dashboard"
-                  className="rounded-full border border-[#15616D]/20 bg-white/70 px-10 py-4 text-[#15616D] shadow-sm transition-transform hover:scale-105"
-                >
-                  Dashboard
-                </Link>
+                <div className="flex flex-col gap-3">
+                  <Link
+                    href="/dashboard"
+                    className="rounded-full border border-[#15616D]/20 bg-white/70 px-10 py-4 text-center text-[#15616D] shadow-sm transition-transform hover:scale-105"
+                  >
+                    View Dashboard
+                  </Link>
+                  <Link
+                    href="/help"
+                    className="rounded-full border border-[#FE7F2D]/20 bg-[#FFF4E1] px-10 py-4 text-center text-[#78290F] shadow-sm transition-transform hover:scale-105"
+                  >
+                    Help / Tutorials
+                  </Link>
+                </div>
                 <p className="mt-2 text-sm text-[#15616D] opacity-70 md:mt-0">
                   No credit card required • Cancel anytime
                 </p>
