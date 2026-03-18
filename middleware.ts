@@ -16,20 +16,27 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  // ✅ PUBLIC API ROUTES FOR PAYMENTS
-  const publicApiRoutes = [
-    "/api/bookings/deposit/callback",
-    "/api/bookings/deposit/status",
-    "/api/bookings/reschedule",
-    "/api/bookings/cancel",
-    "/api/reviews",
-    "/api/reviews/context",
-    "/api/webhooks/intasend",
-    "/api/intasend/send-money-webhook",
-    "/api/cron/run",
+  // Public booking and review APIs must stay accessible without sign-in.
+  const publicApiRouteMatchers = [
+    (path: string) => path === "/api/availability",
+    (path: string) => path === "/api/portfolio/link",
+    (path: string) => path === "/api/bookings/public",
+    (path: string) => path === "/api/bookings/manage",
+    (path: string) => path === "/api/bookings/reschedule",
+    (path: string) => path === "/api/bookings/cancel",
+    (path: string) => path === "/api/bookings/resend-email",
+    (path: string) => path === "/api/bookings/deposit/initiate",
+    (path: string) => path === "/api/bookings/deposit/callback",
+    (path: string) => path === "/api/bookings/deposit/status",
+    (path: string) => /^\/api\/bookings\/[^/]+\/complete$/.test(path),
+    (path: string) => path.startsWith("/api/reviews"),
+    (path: string) => path === "/api/reviews/context",
+    (path: string) => path === "/api/webhooks/intasend",
+    (path: string) => path === "/api/intasend/send-money-webhook",
+    (path: string) => path === "/api/cron/run",
   ];
 
-  if (publicApiRoutes.some((p) => pathname.startsWith(p))) {
+  if (publicApiRouteMatchers.some((matches) => matches(pathname))) {
     return NextResponse.next();
   }
 

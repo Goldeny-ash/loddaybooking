@@ -37,6 +37,11 @@ interface BookingBusiness {
   _id: string;
   name: string;
   logo?: string;
+  description?: string;
+  openingHours?: Record<string, { open: string; close: string; closed?: boolean }>;
+  locationLink?: string | null;
+  locationLabel?: string | null;
+  depositRequired?: boolean;
   bookingRules?: { autoApprove?: boolean };
   [key: string]: unknown;
 }
@@ -295,13 +300,28 @@ export default function BookingClient({ username, business }: BookingClientProps
         className="mx-auto max-w-xl space-y-6 rounded-2xl p-4 md:p-6"
         style={{ background: gradientBackground }}
       >
-        <PublicBusinessHeader
-          name={business.name}
-          logo={business.logo}
-          autoApprove={business.bookingRules?.autoApprove}
-          depositRequired={depositInfo.required}
-          theme={theme}
-        />
+        <div
+          className="rounded-2xl p-3 md:p-4"
+          style={{
+            background: cardBackground,
+            color: cardText,
+            border: `1px solid ${cardBorder}`,
+            boxShadow: cardShadow,
+            backdropFilter: "blur(14px)",
+          }}
+        >
+          <PublicBusinessHeader
+            name={business.name}
+            logo={business.logo}
+            autoApprove={business.bookingRules?.autoApprove}
+            description={business.description}
+            openingHours={business.openingHours}
+            locationLink={business.locationLink}
+            locationLabel={business.locationLabel}
+            depositRequired={business.depositRequired ?? depositInfo.required}
+            theme={theme}
+          />
+        </div>
 
         {services.length > 0 ? (
           <SelectedServicesSummary

@@ -5,6 +5,7 @@ import Image from "next/image";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { Service, AddOn, Theme } from "@/components/public/PublicBookingPageClient";
 import { createPortal } from "react-dom";
 import { formatDuration } from "@/lib/utils/formatDuration";
@@ -100,6 +101,7 @@ export default function ServiceModal({
   onClose,
   onAddToSummary,
 }: ServiceModalProps) {
+  const router = useRouter();
   const [selectedRefs, setSelectedRefs] = useState<string[]>([]);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [isMobile, setIsMobile] = useState(false);
@@ -219,10 +221,11 @@ export default function ServiceModal({
     });
   };
 
-  const handleBookNow = () => {
-    const payload = [
+  const bookingPayload = useMemo(
+    () => [
       {
         ...service,
+        selectedReferenceImages: selectedRefs,
         selectedRefs,
         isMobile,
         selectedAddOns: selectedAddOnObjects,
@@ -233,12 +236,29 @@ export default function ServiceModal({
         durationMinutes: totalDuration || service.durationMinutes,
         depositAmount: computedDeposit,
       },
-    ];
+    ],
+    [
+      computedDeposit,
+      finalPrice,
+      isMobile,
+      priceOnRequest,
+      selectedAddOnObjects,
+      selectedAreaObjects,
+      selectedRefs,
+      selectedSessionObjects,
+      selectedTierObject,
+      service,
+      totalDuration,
+    ]
+  );
+
+  const handleBookNow = () => {
     const key = `booking_services_${crypto.randomUUID()}`;
-    sessionStorage.setItem(key, JSON.stringify(payload));
+    sessionStorage.setItem(key, JSON.stringify(bookingPayload));
     const bookingUsername = service.username || username;
     if (!bookingUsername) return;
-    window.location.href = `/b/${bookingUsername}/select?key=${key}`;
+    onClose();
+    router.push(`/b/${bookingUsername}/select?key=${key}`);
   };
 
   if (typeof document === "undefined") return null;

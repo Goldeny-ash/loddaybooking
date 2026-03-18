@@ -44,12 +44,43 @@ export default async function BookingPage(props: PageProps) {
   const { username } = await props.params;
   if (!username) return notFound();
 
-  // ---------------- DB: Fetch business only ----------------
   await connectDB();
-  const business = await Business.findOne({ username }).lean();
-  if (!business) return notFound();
+  const businessDoc = await Business.findOne({ username });
+  if (!businessDoc) return notFound();
 
-  // ---------------- THEME ----------------
+  const businessRaw = businessDoc.toObject({ flattenMaps: true });
+  const openingHours: Record<
+    string,
+    { open: string; close: string; closed?: boolean }
+  > =
+    businessRaw.openingHours && typeof businessRaw.openingHours === "object"
+      ? businessRaw.openingHours
+      : {};
+
+  const location = businessRaw.location || {};
+  const locationLabel =
+    location.addressLine ||
+    [location.ward, location.subCounty, location.county].filter(Boolean).join(", ") ||
+    location.locationDescription ||
+    [businessRaw.ward, businessRaw.subCounty, businessRaw.county].filter(Boolean).join(", ") ||
+    businessRaw.locationDescription ||
+    null;
+
+  const hasCoordinates =
+    typeof location.lat === "number" && typeof location.lng === "number";
+
+  const locationLink = hasCoordinates
+    ? `https://www.google.com/maps?q=${location.lat},${location.lng}`
+    : null;
+
+  const business = {
+    ...businessRaw,
+    openingHours,
+    locationLabel,
+    locationLink,
+    depositRequired: Boolean(businessRaw.depositPolicy?.enabled),
+  };
+
   const theme = getTheme(business);
 
   return (
