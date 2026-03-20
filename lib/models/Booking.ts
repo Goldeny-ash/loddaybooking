@@ -94,6 +94,7 @@ status: {
     "pending",
     "pendingDeposit",
     "confirmed",
+    "unconfirmed",
     "completed",
     "cancelled",
     "rescheduled",
@@ -106,6 +107,15 @@ status: {
 },
 
 completedAt: Date,
+confirmationStatus: {
+  type: String,
+  enum: ["pending", "confirmed", "not_confirmed"],
+  default: "pending",
+  index: true,
+},
+confirmationRequestedAt: Date,
+confirmedAt: Date,
+cancelledAt: Date,
 
 completionReminderSent: { type: Boolean, default: false },
 thankYouSent: { type: Boolean, default: false },
@@ -132,6 +142,8 @@ staffInternalNote: {
 reminder1hSent: { type: Boolean, default: false },
 reminder30mSent: { type: Boolean, default: false },
 reminder10mSent: { type: Boolean, default: false },
+confirmation45mBusinessSent: { type: Boolean, default: false },
+confirmation30mBusinessSent: { type: Boolean, default: false },
 slotReleasedAt: Date, 
 checkedIn: { type: Boolean, default: false },
  

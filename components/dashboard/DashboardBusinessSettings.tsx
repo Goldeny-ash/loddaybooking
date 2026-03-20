@@ -1,151 +1,150 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import ThemeSettings from "@/components/dashboard/ThemeSettings";
-import StaffOverview from "@/components/dashboard/StaffOverview";
-import ServicesManager from "@/components/dashboard/ServicesManager";
+import { useEffect, useMemo, useState } from "react";
+import ImageUpload from "@/components/ImageUpload";
 import AccessStatusCard from "@/components/dashboard/AccessStatusCard";
-import { getTheme, applyThemeToRoot } from "@/lib/theme";
-import Business from "@/lib/models/Business";
-
-
-interface BusinessType {
-  _id: string;
-  name: string;
-  username: string;
-  phone?: string;
-  email?: string;
-  theme?: any;
-  notificationPrefs?: {
-    email?: boolean;
-  };
-  depositPolicy?: {
-    enabled?: boolean;
-    type?: "fixed" | "percent";
-    value?: number;
-    applyToCallout?: boolean;
-  };
-  bookingRules?: {
-    autoApprove?: boolean;
-    bufferMinutes?: number;
-  };
-  mobileSettings?: {
-    enabled?: boolean;
-    baseLocation?: {
-      address?: string;
-      lat?: number;
-      lng?: number;
-    };
-    calloutPolicy?: {
-      type?: "fixed" | "per_km" | "zone";
-      baseFee?: number;
-      perKmFee?: number;
-      zones?: { name: string; radiusKm: number; fee: number }[];
-    };
-    maxDistanceKm?: number;
-  };
-  location?: {
-    addressLine?: string;
-    lat?: number;
-    lng?: number;
-  };
-}
-
-interface DashboardBusinessSettingsProps {
-  initialBusiness: BusinessType;
-  staffList: any[];
-  services: any[];
-}
+import PreciseLocationButton from "@/components/public/PreciseLocationButton";
+import { kenyaAdministrative } from "@/lib/constants/kenyaAdministrative";
+import { applyThemeToRoot, getTheme } from "@/lib/theme";
 
 const TABS = [
-  "General",
-  "Notifications & Payments", // merged tab
-  "Access & Subscription",
-  "Booking Rules & Mobile",   // merged booking rules + mobile/callout
-  "Location",
-  "Staff Management",
-  "Services Management",
+  "General Settings",
   "Theme Settings",
+  "Booking Rules & Mobile",
+  "Access & Subscription",
 ] as const;
 
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
-const LOCATION_SUGGESTIONS = [
-  "Uhuru Gardens Kenya",
-  "Uhuru Park Nairobi",
-  "Nyayo Stadium Nairobi",
-  "Kasarani Stadium",
-  "University of Nairobi Grounds",
-  "KICC Grounds",
-  "Ngong Racecourse",
-  "Karura Forest",
-  "Westlands Nairobi",
-  "CBD Nairobi",
-];
+const slugifyUsername = (value: string) => value.toLowerCase().replace(/\s+/g, "-").trim();
+
+function getAreaOptions(county: string, subCounty: string, wardName: string) {
+  const countyData = kenyaAdministrative.find((item) => item.county === county);
+  const subCountyData = countyData?.subCounties.find((item) => item.name === subCounty);
+  const ward = (subCountyData?.wards || []).find((item) =>
+    typeof item === "string" ? item === wardName : item.name === wardName
+  );
+  if (!ward || typeof ward === "string") return [];
+  return ward.areas || [];
+}
+
+function Card({
+  title,
+  description,
+  children,
+  theme,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  theme: ReturnType<typeof getTheme>;
+}) {
+  return (
+    <section
+      className="rounded-[1.5rem] border p-5 shadow-sm"
+      style={{ background: theme.backgroundSoft || "#fff", borderColor: `${theme.primary}22` }}
+    >
+      <h3 className="text-xl font-semibold" style={{ color: theme.primaryDark }}>
+        {title}
+      </h3>
+      {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
+      <div className="mt-4 space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function LabeledField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="block text-sm font-medium text-slate-800">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 export default function DashboardBusinessSettings({
   initialBusiness,
-  staffList,
-  services,
-}: DashboardBusinessSettingsProps) {
-  const [activeTab, setActiveTab] = useState<typeof TABS[number]>("General");
-  const [business, setBusiness] = useState({ ...initialBusiness });
-  const [mapZoom, setMapZoom] = useState(17);
-  const [depositSaving, setDepositSaving] = useState(false);
-
- // Track unsaved changes
-  const [unsavedChanges, setUnsavedChanges] = useState(false);
+}: {
+  initialBusiness: any;
+  staffList: any[];
+  services: any[];
+}) {
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("General Settings");
+  const [business, setBusiness] = useState({
+    ...initialBusiness,
+    theme: initialBusiness.theme || {},
+    location: initialBusiness.location || {},
+    socialLinks: initialBusiness.socialLinks || {},
+    openingHours: initialBusiness.openingHours || {},
+    bookingRules: initialBusiness.bookingRules || {},
+    depositPolicy: initialBusiness.depositPolicy || {},
+    mobileSettings: {
+      enabled: initialBusiness.mobileSettings?.enabled || false,
+      baseLocation: initialBusiness.mobileSettings?.baseLocation || {},
+      calloutPolicy: {
+        type: initialBusiness.mobileSettings?.calloutPolicy?.type === "per_km" ? "per_km" : "fixed",
+        baseFee: initialBusiness.mobileSettings?.calloutPolicy?.baseFee || 0,
+        perKmFee: initialBusiness.mobileSettings?.calloutPolicy?.perKmFee || 0,
+      },
+    },
+  });
   const [saving, setSaving] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [usernameState, setUsernameState] = useState<"idle" | "checking" | "available" | "taken">("idle");
+
+  const theme = useMemo(() => getTheme(business), [business]);
+  const selectedCounty = kenyaAdministrative.find((item) => item.county === (business.location?.county || ""));
+  const subCounties = selectedCounty?.subCounties || [];
+  const selectedSubCounty = subCounties.find((item) => item.name === business.location?.subCounty);
+  const wards = selectedSubCounty?.wards || [];
+  const areaOptions = getAreaOptions(
+    business.location?.county || "",
+    business.location?.subCounty || "",
+    business.location?.ward || ""
+  );
 
   useEffect(() => {
-    const theme = getTheme(business);
-    setMounted(true);
     applyThemeToRoot(theme);
-  }, [business.theme]);
+  }, [theme]);
 
-  // Mark as unsaved when business changes
-  const handleChange = (field: string, value: any) => {
-    setBusiness((prev) => {
-      setUnsavedChanges(true);
-      return { ...prev, [field]: value };
-    });
-  };
-
-  const handleDepositToggle = async (enabled: boolean) => {
-    try {
-      setDepositSaving(true);
-      const res = await fetch(`/api/business/${business._id}/deposit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || "Failed to update deposit settings");
-      }
-
-     setBusiness((prev) => ({
-  ...prev,
-  depositPolicy: {
-    ...(prev.depositPolicy || {}),
-    enabled,
-  },
-}));
-    } catch (err) {
-      console.error(err);
-      alert(
-        err instanceof Error
-          ? err.message
-          : "Unable to update deposit settings"
-      );
-    } finally {
-      setDepositSaving(false);
+  useEffect(() => {
+    const next = slugifyUsername(business.username || "");
+    const current = slugifyUsername(initialBusiness.username || "");
+    if (!next || next === current) {
+      setUsernameState("idle");
+      return;
     }
+    const controller = new AbortController();
+    setUsernameState("checking");
+    fetch(`/api/business/check-username?username=${encodeURIComponent(next)}`, {
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((data) => setUsernameState(data.available ? "available" : "taken"))
+      .catch(() => setUsernameState("idle"));
+    return () => controller.abort();
+  }, [business.username, initialBusiness.username]);
+
+  const update = (field: string, value: any) => {
+    setBusiness((prev: any) => ({ ...prev, [field]: value }));
+    setUnsavedChanges(true);
   };
 
-  const handleSave = async () => {
+  const patch = (field: string, value: Record<string, unknown>) => {
+    update(field, { ...(business[field] || {}), ...value });
+  };
+
+  const save = async () => {
+    if (usernameState === "taken") {
+      alert("Please choose a unique username before saving.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/business/${business._id}`, {
@@ -153,701 +152,276 @@ export default function DashboardBusinessSettings({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(business),
       });
-
-      if (!res.ok) throw new Error("Failed to save business settings");
-
-      const updated = await res.json();
-      setBusiness(updated);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || "Failed to save business settings");
+      setBusiness(payload);
       setUnsavedChanges(false);
-      alert("Business settings saved successfully!");
-    } catch (err) {
-      console.error(err);
-      alert("Error saving business settings");
+      alert("Business settings saved successfully.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to save business settings");
     } finally {
       setSaving(false);
     }
   };
 
-  // Coordinate parsing remains the same
-  const parseCoordinate = (input: string): number | undefined => {
-    input = input.trim();
-    if (!input) return undefined;
-    if (input.includes("°")) {
-      const regex = /(\d+)°(\d+)'([\d.]+)"?([NSEW])?/i;
-      const match = input.match(regex);
-      if (match) {
-        const [, deg, min, sec, dir] = match;
-        let decimal = Number(deg) + Number(min) / 60 + Number(sec) / 3600;
-        if (dir?.toUpperCase() === "S" || dir?.toUpperCase() === "W") decimal *= -1;
-        return decimal;
-      }
-      return undefined;
-    }
-    const num = parseFloat(input);
-    if (isNaN(num)) return undefined;
-    return num;
-  };
-const TabSaveButton = () => (
-  <div className="flex justify-end pt-6 border-t border-gray-200">
-    <button
-      onClick={handleSave}
-      disabled={!unsavedChanges || saving}
-      className={`px-6 py-3 rounded-lg font-semibold transition shadow-sm ${
-        saving
-          ? "bg-gray-500 text-white cursor-not-allowed"
-          : unsavedChanges
-          ? "bg-slate-900 text-white hover:bg-slate-800"
-          : "bg-gray-200 text-gray-500 cursor-not-allowed"
-      }`}
-    >
-      {saving ? "Saving..." : "Save Changes"}
-    </button>
-  </div>
-);
+  const useBusinessLocationAsBase = () => {
+    const mapsLink =
+      business.location?.mapsLink ||
+      (business.location?.lat && business.location?.lng
+        ? `https://www.google.com/maps?q=${business.location.lat},${business.location.lng}`
+        : "");
 
+    patch("mobileSettings", {
+      baseLocation: {
+        ...(business.mobileSettings?.baseLocation || {}),
+        lat: business.location?.lat,
+        lng: business.location?.lng,
+        address: mapsLink,
+      },
+    });
+  };
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto border-b border-gray-200">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            className={`py-2 px-4 font-medium whitespace-nowrap ${
-              activeTab === tab
-                ? "border-b-2 border-primary text-primary"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 space-y-6">
-        {/* GENERAL */}
-        {activeTab === "General" && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">General Info</h3>
-            <input
-              type="text"
-              placeholder="Business Name"
-              value={business.name || ""}
-              onChange={(e) => handleChange("name", e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <input
-              type="text"
-              placeholder="Username"
-              value={business.username || ""}
-              onChange={(e) => handleChange("username", e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <input
-              type="text"
-              placeholder="Phone"
-              value={business.phone || ""}
-              onChange={(e) => handleChange("phone", e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={business.email || ""}
-              onChange={(e) => handleChange("email", e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-
-            <ThemeSettings
-              business={business}
-            />
-             <TabSaveButton />
-          </div>
-        )}
-
-       {activeTab === "Notifications & Payments" && (
-  <div className="space-y-4">
-
-    {/* NOTIFICATIONS */}
-    <h3 className="text-lg font-semibold">Notifications</h3>
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={business.notificationPrefs?.email || false}
-        onChange={(e) =>
-          handleChange("notificationPrefs", {
-            ...business.notificationPrefs,
-            email: e.target.checked,
-          })
-        }
-      />
-      Email Notifications
-    </label>
-
-    {/* DEPOSITS & PAYMENTS */}
-    <h3 className="text-lg font-semibold mt-6">Deposits & Payments</h3>
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={business.depositPolicy?.enabled || false}
-        onChange={(e) => handleDepositToggle(e.target.checked)}
-        disabled={depositSaving}
-      />
-      Enable Deposits
-    </label>
-
-    <select
-      value={business.depositPolicy?.type || "fixed"}
-      onChange={(e) =>
-        handleChange("depositPolicy", {
-          ...business.depositPolicy,
-          type: e.target.value,
-        })
-      }
-      className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-    >
-      <option value="fixed">Fixed</option>
-      <option value="percent">Percent</option>
-    </select>
-
-    <input
-      type="number"
-      placeholder="Deposit Value"
-      value={business.depositPolicy?.value || 0}
-      onChange={(e) =>
-        handleChange("depositPolicy", {
-          ...business.depositPolicy,
-          value: Number(e.target.value),
-        })
-      }
-      className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-    />
-
-    <label className="flex items-center gap-2">
-      Apply to callouts:
-      <input
-        type="checkbox"
-        checked={business.depositPolicy?.applyToCallout || false}
-        onChange={(e) =>
-          handleChange("depositPolicy", {
-            ...business.depositPolicy,
-            applyToCallout: e.target.checked,
-          })
-        }
-        className="ml-2"
-      />
-    </label>
-
-    <TabSaveButton />
-  </div>
-)}
-
-
-        {/* ACCESS & SUBSCRIPTION */}
-        {activeTab === "Access & Subscription" && (
-          <div className="space-y-4">
-            <AccessStatusCard business={business} />
-            
-          </div>
-        )}
-
-       
-
-       {activeTab === "Booking Rules & Mobile" && (
-  <div className="space-y-6">
-
-   {activeTab === "Booking Rules & Mobile" && (
-  <div className="space-y-6">
-
-    {/* ---------------- BOOKING RULES ---------------- */}
-    <h3 className="text-lg font-semibold">Booking Rules</h3>
-
-    <label className="flex flex-col gap-1">
-      <span className="text-sm text-gray-600">
-        Automatically approve bookings without manual confirmation.
-      </span>
-      <input
-        type="checkbox"
-        checked={business.bookingRules?.autoApprove || false}
-        onChange={(e) =>
-          handleChange("bookingRules", {
-            ...business.bookingRules,
-            autoApprove: e.target.checked,
-          })
-        }
-        className="mt-1"
-      />
-    </label>
-
-    <label className="flex flex-col gap-1">
-      <span className="text-sm text-gray-600">
-        Buffer time (in minutes) between bookings to prevent overlapping appointments.
-      </span>
-      <input
-        type="number"
-        placeholder="e.g., 15"
-        value={business.bookingRules?.bufferMinutes || 0}
-        onChange={(e) =>
-          handleChange("bookingRules", {
-            ...business.bookingRules,
-            bufferMinutes: Number(e.target.value),
-          })
-        }
-        className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-    </label>
-
-    {/* ---------------- MOBILE / CALLOUT SETTINGS ---------------- */}
-    <h3 className="text-lg font-semibold mt-6">Mobile / Callout Settings</h3>
-    <p className="text-sm text-gray-500">
-      Enable this if you provide services at your customer's location. 
-      You can set fees based on distance or specific zones. 
-      Example: A barber who travels from Imara Daima to Embakasi/Umoja but cannot leave Embakasi area.
-    </p>
-
-    {/* Enable Mobile */}
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={business.mobileSettings?.enabled || false}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            enabled: e.target.checked,
-          })
-        }
-      />
-      Enable Mobile / Callout Services
-    </label>
-
-    {/* Base Location */}
-    <label className="flex flex-col gap-1">
-      <span className="text-sm text-gray-600">
-        Base location: where your mobile worker starts from. Used to calculate travel distance.
-      </span>
-      <input
-        type="text"
-        placeholder="Enter base address e.g., Imara Daima"
-        value={business.mobileSettings?.baseLocation?.address || ""}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            baseLocation: {
-              ...business.mobileSettings?.baseLocation,
-              address: e.target.value,
-            },
-          })
-        }
-        className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-    </label>
-
-    <div className="flex gap-2">
-      <input
-        type="text"
-        placeholder="Latitude e.g., -1.322"
-        value={business.mobileSettings?.baseLocation?.lat || ""}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            baseLocation: {
-              ...business.mobileSettings?.baseLocation,
-              lat: parseFloat(e.target.value),
-            },
-          })
-        }
-        className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-      <input
-        type="text"
-        placeholder="Longitude e.g., 36.874"
-        value={business.mobileSettings?.baseLocation?.lng || ""}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            baseLocation: {
-              ...business.mobileSettings?.baseLocation,
-              lng: parseFloat(e.target.value),
-            },
-          })
-        }
-        className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-    </div>
-
-    {/* Callout Policy Type */}
-    <label className="flex flex-col gap-1">
-      <span className="text-sm text-gray-600">
-        How to charge for callouts. <br/>
-        - Fixed: same fee for any distance. <br/>
-        - Per KM: base fee + fee per kilometer. <br/>
-        - Zone: different fees for defined areas.
-      </span>
-      <select
-        value={business.mobileSettings?.calloutPolicy?.type || "fixed"}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            calloutPolicy: {
-              ...business.mobileSettings?.calloutPolicy,
-              type: e.target.value,
-            },
-          })
-        }
-        className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
+      <div
+        className="rounded-[1.5rem] border p-3 shadow-sm"
+        style={{ background: theme.backgroundSoft || "#fff", borderColor: `${theme.primary}22` }}
       >
-        <option value="fixed">Fixed Fee</option>
-        <option value="per_km">Per KM</option>
-        <option value="zone">Zones</option>
-      </select>
-    </label>
-
-    {/* Fees */}
-    {business.mobileSettings?.calloutPolicy?.type === "fixed" && (
-      <input
-        type="number"
-        placeholder="Fixed fee e.g., 300 KES"
-        value={business.mobileSettings?.calloutPolicy?.baseFee || 0}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            calloutPolicy: {
-              ...business.mobileSettings?.calloutPolicy,
-              baseFee: Number(e.target.value),
-            },
-          })
-        }
-        className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-    )}
-
-    {business.mobileSettings?.calloutPolicy?.type === "per_km" && (
-      <div className="space-y-2">
-        <input
-          type="number"
-          placeholder="Base fee e.g., 300 KES"
-          value={business.mobileSettings?.calloutPolicy?.baseFee || 0}
-          onChange={(e) =>
-            handleChange("mobileSettings", {
-              ...business.mobileSettings,
-              calloutPolicy: {
-                ...business.mobileSettings?.calloutPolicy,
-                baseFee: Number(e.target.value),
-              },
-            })
-          }
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-        />
-        <input
-          type="number"
-          placeholder="Per KM fee e.g., 50 KES/km"
-          value={business.mobileSettings?.calloutPolicy?.perKmFee || 0}
-          onChange={(e) =>
-            handleChange("mobileSettings", {
-              ...business.mobileSettings,
-              calloutPolicy: {
-                ...business.mobileSettings?.calloutPolicy,
-                perKmFee: Number(e.target.value),
-              },
-            })
-          }
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-        />
-      </div>
-    )}
-
-    {/* Zone Management */}
-    {business.mobileSettings?.calloutPolicy?.type === "zone" && (
-      <div className="space-y-2">
-        <span className="text-sm text-gray-600">
-          Add zones: Name, radius from base (KM), and fee.
-          Example: Embakasi 5 km → 300 KES, Umoja 10 km → 500 KES.
-        </span>
-        {business.mobileSettings.calloutPolicy?.zones?.map((zone, index) => (
-          <div key={index} className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Zone Name e.g., Embakasi"
-              value={zone.name || ""}
-              onChange={(e) => {
-                const zones = [...(business.mobileSettings?.calloutPolicy?.zones || [])];
-                zones[index].name = e.target.value;
-                handleChange("mobileSettings", {
-                  ...business.mobileSettings,
-                  calloutPolicy: {
-                    ...business.mobileSettings?.calloutPolicy,
-                    zones,
-                  },
-                });
-              }}
-              className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <input
-              type="number"
-              placeholder="Radius KM"
-              value={zone.radiusKm || 0}
-              onChange={(e) => {
-                const zones = [...(business.mobileSettings?.calloutPolicy?.zones || [])];
-                zones[index].radiusKm = Number(e.target.value);
-                handleChange("mobileSettings", {
-                  ...business.mobileSettings,
-                  calloutPolicy: {
-                    ...business.mobileSettings?.calloutPolicy,
-                    zones,
-                  },
-                });
-              }}
-              className="w-20 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <input
-              type="number"
-              placeholder="Fee KES"
-              value={zone.fee || 0}
-              onChange={(e) => {
-                const zones = [...(business.mobileSettings?.calloutPolicy?.zones || [])];
-                zones[index].fee = Number(e.target.value);
-                handleChange("mobileSettings", {
-                  ...business.mobileSettings,
-                  calloutPolicy: {
-                    ...business.mobileSettings?.calloutPolicy,
-                    zones,
-                  },
-                });
-              }}
-              className="w-24 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-            />
+        <div className="flex gap-2 overflow-x-auto">
+          {TABS.map((tab) => (
             <button
-              onClick={() => {
-                const zones = [...(business.mobileSettings?.calloutPolicy?.zones || [])];
-                zones.splice(index, 1);
-                handleChange("mobileSettings", {
-                  ...business.mobileSettings,
-                  calloutPolicy: {
-                    ...business.mobileSettings?.calloutPolicy,
-                    zones,
-                  },
-                });
-              }}
-              className="px-2 py-1 bg-red-500 text-white rounded-lg"
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold"
+              style={{ background: activeTab === tab ? theme.primary : "#fff", color: activeTab === tab ? "#fff" : theme.primaryDark }}
             >
-              Remove
+              {tab}
             </button>
-          </div>
-        ))}
-        <button
-          onClick={() => {
-            const zones = [
-              ...(business.mobileSettings?.calloutPolicy?.zones || []),
-              { name: "", radiusKm: 0, fee: 0 },
-            ];
-            handleChange("mobileSettings", {
-              ...business.mobileSettings,
-              calloutPolicy: {
-                ...business.mobileSettings?.calloutPolicy,
-                zones,
-              },
-            });
-          }}
-          className="px-4 py-2 bg-primary text-white rounded-lg"
-        >
-          Add Zone
-        </button>
-      </div>
-    )}
-
-    {/* Max Distance */}
-    <label className="flex flex-col gap-1">
-      <span className="text-sm text-gray-600">
-        Maximum distance (KM) the mobile worker can travel. 
-        Example: If set to 10 KM, customers outside 10 KM from base location cannot book.
-      </span>
-      <input
-        type="number"
-        placeholder="e.g., 10 KM"
-        value={business.mobileSettings?.maxDistanceKm || 0}
-        onChange={(e) =>
-          handleChange("mobileSettings", {
-            ...business.mobileSettings,
-            maxDistanceKm: Number(e.target.value),
-          })
-        }
-        className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-    </label>
-
-    <TabSaveButton />
-  </div>
-)}
-  </div>
-)}
-
-       {/* LOCATION */}
-{activeTab === "Location" && (
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold">Location</h3>
-
-    <p className="text-sm text-gray-500">
-      For accurate customer visibility, go to{" "}
-      <a
-        href="https://gps-coordinates.org/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="underline text-primary"
-      >
-        gps-coordinates.org
-      </a>{" "}
-      to get your exact latitude and longitude in decimal degrees.
-    </p>
-
-    {/* Address Input */}
-    <input
-      list="location-suggestions"
-      value={business.location?.addressLine || ""}
-      onChange={(e) =>
-        handleChange("location", {
-          ...business.location,
-          addressLine: e.target.value,
-        })
-      }
-      placeholder="Type your address here"
-      className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-    />
-    <datalist id="location-suggestions">
-      {LOCATION_SUGGESTIONS.map((place) => (
-        <option key={place} value={place} />
-      ))}
-    </datalist>
-
-    {/* Latitude / Longitude Inputs */}
-    <div className="flex gap-2">
-      <input
-        type="text"
-        placeholder="Latitude"
-        value={business.location?.lat || ""}
-        onChange={(e) =>
-          handleChange("location", {
-            ...business.location,
-            lat: parseCoordinate(e.target.value),
-          })
-        }
-        className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-      <input
-        type="text"
-        placeholder="Longitude"
-        value={business.location?.lng || ""}
-        onChange={(e) =>
-          handleChange("location", {
-            ...business.location,
-            lng: parseCoordinate(e.target.value),
-          })
-        }
-        className="flex-1 px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 focus:ring-2 focus:ring-primary focus:outline-none"
-      />
-    </div>
-
-    {/* Use Current Location */}
-    <button
-      type="button"
-      onClick={() => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              handleChange("location", {
-                ...business.location,
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-              });
-              alert("Location updated based on your current position!");
-            },
-            (err) => alert("Unable to get your location: " + err.message)
-          );
-        } else {
-          alert("Geolocation is not supported by your browser.");
-        }
-      }}
-      className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90"
-    >
-      Use My Current Location
-    </button>
-
-    {/* Map Container */}
-    <div
-      className="relative h-64 rounded-lg overflow-hidden border border-gray-200 cursor-pointer"
-      onClick={(e) => {
-        // calculate click position to convert to lat/lng approx
-        const rect = e.currentTarget.getBoundingClientRect();
-        const xPercent = (e.clientX - rect.left) / rect.width;
-        const yPercent = (e.clientY - rect.top) / rect.height;
-
-        // simple approximation: update lat/lng roughly (better: use Maps API for accuracy)
-        if (business.location?.lat && business.location?.lng) {
-          handleChange("location", {
-            ...business.location,
-            lat: business.location.lat - (yPercent - 0.5) * 0.01,
-            lng: business.location.lng + (xPercent - 0.5) * 0.01,
-          });
-        }
-      }}
-    >
-      <iframe
-        className="absolute inset-0 w-full h-full"
-        src={`https://www.google.com/maps?q=${
-          business.location?.lat && business.location?.lng
-            ? `${business.location.lat},${business.location.lng}`
-            : encodeURIComponent(business.location?.addressLine || "")
-        }&z=${mapZoom}&output=embed`}
-      />
-      {/* Zoom Slider */}
-      <input
-        type="range"
-        min={10}
-        max={21}
-        value={mapZoom}
-        onChange={(e) => setMapZoom(Number(e.target.value))}
-        className="absolute right-4 top-1/2 -translate-y-1/2 h-44 w-2 bg-gray-300 rounded-full appearance-none cursor-pointer"
-      />
-    </div>
-
-    {/* Display Coordinates */}
-    {business.location?.lat && business.location?.lng && (
-      <div className="text-sm text-gray-600 mt-1">
-        Latitude: {business.location.lat.toFixed(6)}, Longitude:{" "}
-        {business.location.lng.toFixed(6)}
-      </div>
-    )}
-
-    {/* Refresh Map */}
-    <button
-      onClick={() => setBusiness({ ...business })}
-      className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-    >
-      Refresh Map
-    </button>
-    <TabSaveButton />
-  </div>
-)}
-
-
-        {/* STAFF MANAGEMENT */}
-        {activeTab === "Staff Management" && (
-          <StaffOverview
-            staffList={staffList}
-            services={services}
-          />
-        )}
-
-        {/* SERVICES MANAGEMENT */}
-        {activeTab === "Services Management" && (
-          <ServicesManager business={business} />
-        )}
-
-      
-
-       
+          ))}
         </div>
       </div>
-    
+
+      {activeTab === "General Settings" ? (
+        <div className="space-y-6">
+          <Card title="Business profile" description="Update the public details people see on your booking page." theme={theme}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <LabeledField label="Business name">
+                <input value={business.name || ""} onChange={(e) => update("name", e.target.value)} placeholder="Business name" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+              </LabeledField>
+              <div className="space-y-2">
+                <LabeledField label="Username">
+                  <input value={business.username || ""} onChange={(e) => update("username", slugifyUsername(e.target.value))} placeholder="Username" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+                <p className="text-xs text-slate-500">
+                  {usernameState === "checking" ? "Checking username..." : usernameState === "taken" ? "This username is already taken." : usernameState === "available" ? "This username is available." : "This becomes part of your booking link."}
+                </p>
+              </div>
+              <LabeledField label="Phone number">
+                <input value={business.phone || ""} onChange={(e) => update("phone", e.target.value)} placeholder="Phone number" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+              </LabeledField>
+              <LabeledField label="Business email">
+                <input value={business.email || ""} onChange={(e) => update("email", e.target.value)} placeholder="Business email" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+              </LabeledField>
+              <div className="md:col-span-2">
+                <p className="mb-2 text-sm font-medium text-slate-800">Business logo</p>
+                <ImageUpload value={business.logo ? [business.logo] : []} onChange={(urls) => update("logo", urls[0] || "")} maxFiles={1} />
+              </div>
+              <div className="md:col-span-2">
+                <LabeledField label="Business description">
+                  <textarea value={business.description || ""} onChange={(e) => update("description", e.target.value)} rows={4} placeholder="Business description" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+              </div>
+              {(["facebook", "instagram", "twitter", "tiktok"] as const).map((key) => (
+                <LabeledField key={key} label={`${key[0].toUpperCase() + key.slice(1)} link`}>
+                  <input value={business.socialLinks?.[key] || ""} onChange={(e) => patch("socialLinks", { [key]: e.target.value })} placeholder={`${key[0].toUpperCase() + key.slice(1)} link`} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Business location" description="Choose county, sub-county, ward, and area, then capture the exact location with the precise-location button." theme={theme}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <LabeledField label="County">
+                <select value={business.location?.county || ""} onChange={(e) => patch("location", { county: e.target.value, subCounty: "", ward: "", area: "" })} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none">
+                  <option value="">Select county</option>
+                  {kenyaAdministrative.map((item) => <option key={item.county} value={item.county}>{item.county}</option>)}
+                </select>
+              </LabeledField>
+              <LabeledField label="Sub-county">
+                <select value={business.location?.subCounty || ""} onChange={(e) => patch("location", { subCounty: e.target.value, ward: "", area: "" })} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none">
+                  <option value="">Select sub-county</option>
+                  {subCounties.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+                </select>
+              </LabeledField>
+              <LabeledField label="Ward">
+                <select value={business.location?.ward || ""} onChange={(e) => patch("location", { ward: e.target.value, area: "" })} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none">
+                  <option value="">Select ward</option>
+                  {wards.map((ward) => {
+                    const value = typeof ward === "string" ? ward : ward.name;
+                    return <option key={value} value={value}>{value}</option>;
+                  })}
+                </select>
+              </LabeledField>
+              <LabeledField label="Area">
+                <select value={business.location?.area || ""} onChange={(e) => patch("location", { area: e.target.value })} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none">
+                  <option value="">Select area</option>
+                  {areaOptions.map((area) => <option key={area} value={area}>{area}</option>)}
+                </select>
+              </LabeledField>
+              <div className="md:col-span-2">
+                <LabeledField label="Location description">
+                  <textarea value={business.location?.locationDescription || ""} onChange={(e) => patch("location", { locationDescription: e.target.value })} rows={3} placeholder="Location description" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-black/10 bg-white p-4">
+              <p className="text-sm font-medium text-slate-800">Precise business location</p>
+              <div className="mt-3">
+                <PreciseLocationButton onLocationResolved={({ lat, lng, mapsLink }) => patch("location", { lat, lng, mapsLink })} />
+              </div>
+              {business.location?.mapsLink ? (
+                <a href={business.location.mapsLink} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-sky-700 underline underline-offset-4">
+                  Open saved business Google Maps link
+                </a>
+              ) : null}
+            </div>
+          </Card>
+
+          <Card title="Opening hours" description="A compact layout like staff availability, so each day is easy to scan." theme={theme}>
+            <div className="space-y-2">
+              {DAYS.map((day, index) => {
+                const slot = business.openingHours?.[day] || {};
+                return (
+                  <div key={day} className="flex flex-wrap items-center gap-2">
+                    <span className="w-24 text-sm font-medium">{day}</span>
+                    <input type="time" value={slot.open || ""} disabled={slot.closed} onChange={(e) => update("openingHours", { ...(business.openingHours || {}), [day]: { ...slot, open: e.target.value } })} className="w-28 rounded-lg border border-black/10 px-3 py-2 text-sm outline-none disabled:bg-slate-100" />
+                    <span className="text-sm text-slate-500">to</span>
+                    <input type="time" value={slot.close || ""} disabled={slot.closed} onChange={(e) => update("openingHours", { ...(business.openingHours || {}), [day]: { ...slot, close: e.target.value } })} className="w-28 rounded-lg border border-black/10 px-3 py-2 text-sm outline-none disabled:bg-slate-100" />
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={slot.closed || false} onChange={(e) => update("openingHours", { ...(business.openingHours || {}), [day]: { ...slot, closed: e.target.checked, open: e.target.checked ? "" : slot.open || "", close: e.target.checked ? "" : slot.close || "" } })} />
+                      Closed
+                    </label>
+                    {index === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const monday = business.openingHours?.Monday || {};
+                          update(
+                            "openingHours",
+                            DAYS.reduce((acc: Record<string, any>, currentDay) => {
+                              acc[currentDay] = { ...monday };
+                              return acc;
+                            }, {})
+                          );
+                        }}
+                        className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700"
+                      >
+                        Copy Monday to all
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {activeTab === "Theme Settings" ? (
+        <Card title="Theme settings" description="These colors shape the same branded look across mobile and desktop." theme={theme}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <LabeledField label="Primary color">
+              <input type="color" value={business.theme?.primary || "#FF7D00"} onChange={(e) => patch("theme", { primary: e.target.value })} className="h-12 w-20 rounded-lg border border-black/10 bg-transparent" />
+            </LabeledField>
+            <LabeledField label="Accent color">
+              <input type="color" value={business.theme?.accent || "#78290F"} onChange={(e) => patch("theme", { accent: e.target.value })} className="h-12 w-20 rounded-lg border border-black/10 bg-transparent" />
+            </LabeledField>
+          </div>
+        </Card>
+      ) : null}
+
+      {activeTab === "Booking Rules & Mobile" ? (
+        <div className="space-y-6">
+          <Card title="Booking rules" description="Auto-approve means you do not manually confirm each booking. Deposits help reduce no-shows. Example: fixed KES 500, or 20 percent of the service total." theme={theme}>
+            <div className="space-y-4 rounded-2xl border border-black/10 bg-white p-4">
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Automatically approve bookings</span>
+                <input type="checkbox" checked={business.bookingRules?.autoApprove || false} onChange={(e) => patch("bookingRules", { autoApprove: e.target.checked })} />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Enable deposits</span>
+                <input type="checkbox" checked={business.depositPolicy?.enabled || false} onChange={(e) => patch("depositPolicy", { enabled: e.target.checked })} />
+              </label>
+              <LabeledField label="Deposit type">
+                <select value={business.depositPolicy?.type || "fixed"} onChange={(e) => patch("depositPolicy", { type: e.target.value })} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none">
+                  <option value="fixed">Fixed amount</option>
+                  <option value="percent">Percentage</option>
+                </select>
+              </LabeledField>
+              <LabeledField label="Deposit value">
+                <input type="number" value={business.depositPolicy?.value || 0} onChange={(e) => patch("depositPolicy", { value: Number(e.target.value) })} placeholder="Deposit value" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+              </LabeledField>
+            </div>
+          </Card>
+
+          <Card title="Mobile settings" description="Set the base location using the precise-location button or reuse the saved business location. Base location saves latitude, longitude, and the Google Maps link. Mobile pricing only uses fixed fee or per KM fee." theme={theme}>
+            <div className="space-y-4 rounded-2xl border border-black/10 bg-white p-4">
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Enable mobile services</span>
+                <input type="checkbox" checked={business.mobileSettings?.enabled || false} onChange={(e) => patch("mobileSettings", { enabled: e.target.checked })} />
+              </label>
+              <LabeledField label="Base location Google Maps link">
+                <input value={business.mobileSettings?.baseLocation?.address || ""} onChange={(e) => patch("mobileSettings", { baseLocation: { ...(business.mobileSettings?.baseLocation || {}), address: e.target.value } })} placeholder="Base location Google Maps link" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+              </LabeledField>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={useBusinessLocationAsBase} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
+                  Use business location as base
+                </button>
+                <PreciseLocationButton onLocationResolved={({ lat, lng, mapsLink }) => patch("mobileSettings", { baseLocation: { ...(business.mobileSettings?.baseLocation || {}), lat, lng, address: mapsLink } })} />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <LabeledField label="Base latitude">
+                  <input type="number" value={business.mobileSettings?.baseLocation?.lat || 0} onChange={(e) => patch("mobileSettings", { baseLocation: { ...(business.mobileSettings?.baseLocation || {}), lat: Number(e.target.value) } })} placeholder="Base latitude" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+                <LabeledField label="Base longitude">
+                  <input type="number" value={business.mobileSettings?.baseLocation?.lng || 0} onChange={(e) => patch("mobileSettings", { baseLocation: { ...(business.mobileSettings?.baseLocation || {}), lng: Number(e.target.value) } })} placeholder="Base longitude" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+              </div>
+              {business.mobileSettings?.baseLocation?.address ? (
+                <a href={business.mobileSettings.baseLocation.address} target="_blank" rel="noreferrer" className="inline-block text-sm text-sky-700 underline underline-offset-4">
+                  Open saved base location link
+                </a>
+              ) : null}
+              <LabeledField label="Mobile pricing type">
+                <select value={business.mobileSettings?.calloutPolicy?.type || "fixed"} onChange={(e) => patch("mobileSettings", { calloutPolicy: { ...(business.mobileSettings?.calloutPolicy || {}), type: e.target.value } })} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none">
+                  <option value="fixed">Fixed fee</option>
+                  <option value="per_km">Per KM</option>
+                </select>
+              </LabeledField>
+              {business.mobileSettings?.calloutPolicy?.type === "fixed" ? (
+                <LabeledField label="Fixed fee">
+                  <input type="number" value={business.mobileSettings?.calloutPolicy?.baseFee || 0} onChange={(e) => patch("mobileSettings", { calloutPolicy: { ...(business.mobileSettings?.calloutPolicy || {}), baseFee: Number(e.target.value), perKmFee: 0 } })} placeholder="Fixed fee" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+              ) : null}
+              {business.mobileSettings?.calloutPolicy?.type === "per_km" ? (
+                <LabeledField label="Per KM fee">
+                  <input type="number" value={business.mobileSettings?.calloutPolicy?.perKmFee || 0} onChange={(e) => patch("mobileSettings", { calloutPolicy: { ...(business.mobileSettings?.calloutPolicy || {}), perKmFee: Number(e.target.value), baseFee: 0 } })} placeholder="Per KM fee" className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none" />
+                </LabeledField>
+              ) : null}
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {activeTab === "Access & Subscription" ? <AccessStatusCard business={business} /> : null}
+
+      <div className="flex justify-end">
+        <button type="button" onClick={save} disabled={!unsavedChanges || saving || usernameState === "checking"} className="rounded-full px-5 py-3 text-sm font-semibold text-white disabled:opacity-60" style={{ background: theme.primary }}>
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      </div>
+    </div>
   );
 }

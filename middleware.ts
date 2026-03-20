@@ -1,13 +1,61 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+function normalizeHost(value: string) {
+  return value.replace(/:\d+$/, "").toLowerCase();
+}
+
+function getInternalPathname(hostname: string, pathname: string) {
+  if (hostname === "lodday.com") {
+    return pathname === "/" ? "/marketplace" : `/marketplace${pathname}`;
+  }
+
+  if (hostname === "affiliates.lodday.com") {
+    return pathname === "/" ? "/affiliates" : `/affiliates${pathname}`;
+  }
+
+  if (hostname === "admin.lodday.com" && pathname === "/") {
+    return "/dashboard";
+  }
+
+  return pathname;
+}
+
+function getCanonicalHost(internalPathname: string, hostname: string) {
+  if (internalPathname === "/affiliates" || internalPathname.startsWith("/affiliates/")) {
+    return "affiliates.lodday.com";
+  }
+
+  if (internalPathname === "/marketplace" || internalPathname.startsWith("/marketplace/")) {
+    return "lodday.com";
+  }
+
+  if (hostname === "admin.lodday.com") {
+    return "admin.lodday.com";
+  }
+
+  return "booking.lodday.com";
+}
+
+function getPublicPathname(internalPathname: string, canonicalHost: string) {
+  if (canonicalHost === "lodday.com") {
+    return internalPathname.replace(/^\/marketplace/, "") || "/";
+  }
+
+  if (canonicalHost === "affiliates.lodday.com") {
+    return internalPathname.replace(/^\/affiliates/, "") || "/";
+  }
+
+  return internalPathname;
+}
+
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
-
   const url = req.nextUrl.clone();
   const pathname = req.nextUrl.pathname;
+  const hostHeader = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  const hostname = normalizeHost(hostHeader);
 
-  // 1️⃣ skip _next and static assets
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
@@ -16,7 +64,19 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  // Public booking and review APIs must stay accessible without sign-in.
+  const internalPathname = getInternalPathname(hostname, pathname);
+  const canonicalHost = getCanonicalHost(internalPathname, hostname);
+
+  if (
+    hostname &&
+    hostname !== canonicalHost &&
+    hostname.endsWith("lodday.com")
+  ) {
+    url.hostname = canonicalHost;
+    url.pathname = getPublicPathname(internalPathname, canonicalHost);
+    return NextResponse.redirect(url);
+  }
+
   const publicApiRouteMatchers = [
     (path: string) => path === "/api/availability",
     (path: string) => path === "/api/portfolio/link",
@@ -43,16 +103,24 @@ export default clerkMiddleware(async (auth, req) => {
   const publicPaths = ["/", "/pricing", "/b", "/sitemap.xml", "/robots.txt"];
   const authPages = ["/sign-in", "/sign-up"];
   const setupPath = "/setup";
-  const isReviewPage = pathname === "/review" || pathname.startsWith("/review/");
+  const isReviewPage = internalPathname === "/review" || internalPathname.startsWith("/review/");
+  const isMarketplacePage =
+    internalPathname === "/marketplace" || internalPathname.startsWith("/marketplace/");
+  const isAffiliatePage =
+    internalPathname === "/affiliates" || internalPathname.startsWith("/affiliates/");
 
   const isPublicBooking =
-    /^\/b\/[^/]+(?:\/.*)?$/.test(pathname) || pathname.startsWith("/b/");
+    /^\/b\/[^/]+(?:\/.*)?$/.test(internalPathname) || internalPathname.startsWith("/b/");
   const isPublic =
-    publicPaths.includes(pathname) || isPublicBooking || isReviewPage;
+    publicPaths.includes(internalPathname) ||
+    isPublicBooking ||
+    isReviewPage ||
+    isMarketplacePage ||
+    isAffiliatePage;
 
-  const isAuthPage = authPages.some((p) => pathname.startsWith(p));
-  const isSetup = pathname.startsWith(setupPath);
-  const isApiRoute = pathname.startsWith("/api/");
+  const isAuthPage = authPages.some((p) => internalPathname.startsWith(p));
+  const isSetup = internalPathname.startsWith(setupPath);
+  const isApiRoute = internalPathname.startsWith("/api/");
 
   if (!userId) {
     if (!isPublic && !isAuthPage && !isSetup) {
@@ -65,6 +133,11 @@ export default clerkMiddleware(async (auth, req) => {
       url.searchParams.set("redirect_url", redirectUrl);
       return NextResponse.redirect(url);
     }
+  }
+
+  if (internalPathname !== pathname) {
+    url.pathname = internalPathname;
+    return NextResponse.rewrite(url);
   }
 
   return NextResponse.next();

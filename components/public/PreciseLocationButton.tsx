@@ -10,6 +10,7 @@ interface Props {
 export default function PreciseLocationButton({ onLocationResolved }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mapsLink, setMapsLink] = useState("");
 
   const handleGenerateLocation = () => {
     if (!navigator.geolocation) {
@@ -25,6 +26,7 @@ export default function PreciseLocationButton({ onLocationResolved }: Props) {
         const lat = Number(position.coords.latitude.toFixed(6));
         const lng = Number(position.coords.longitude.toFixed(6));
         const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+        setMapsLink(mapsLink);
         onLocationResolved({ lat, lng, mapsLink });
         setIsLoading(false);
       },
@@ -50,12 +52,22 @@ export default function PreciseLocationButton({ onLocationResolved }: Props) {
         type="button"
         onClick={handleGenerateLocation}
         disabled={isLoading}
-        className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <MapPinned className="h-4 w-4" />
         {isLoading ? "Generating precise location..." : "Generate precise location"}
       </button>
-      {error ? <p className="text-sm text-red-200">{error}</p> : null}
+      {mapsLink ? (
+        <a
+          href={mapsLink}
+          target="_blank"
+          rel="noreferrer"
+          className="block text-sm text-sky-700 underline underline-offset-4"
+        >
+          Open exact Google Maps location
+        </a>
+      ) : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }

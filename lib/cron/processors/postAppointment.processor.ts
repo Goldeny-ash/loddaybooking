@@ -7,10 +7,9 @@ import { getDateWindow } from "@/lib/utils/dateWindow";
 export async function runPostAppointmentProcessor() {
   const now = new Date();
   const { yesterday, today } = getDateWindow();
-  const appUrl = (process.env.APP_URL || "https://booking.lodday.com").replace(/\/$/, "");
 
   const bookings = await Booking.find({
-    status: "confirmed",
+    status: { $in: ["confirmed", "unconfirmed"] },
     date: { $in: [yesterday, today] },
   }).limit(200);
 
@@ -21,29 +20,20 @@ export async function runPostAppointmentProcessor() {
     const endUTC = bookingToUTC(booking.date, booking.endTime);
     const diffMinutes = (now.getTime() - endUTC.getTime()) / 60000;
 
-    // Send customer completion prompt 10 mins after end, once.
-    if (diffMinutes >= 10 && !booking.completionReminderSent) {
-      await dispatchEmailEvent("MARK_COMPLETE_REMINDER", {
-        business,
-        booking,
-        completeUrl: `${appUrl}/b/${business.username}/manage?bookingId=${booking._id}&token=${booking.manageToken}`,
-      });
-
-      booking.completionReminderSent = true;
-      await booking.save();
-    }
-
-    // Auto no-show after 30 mins if still not completed.
-    if (diffMinutes >= 30 && !booking.noShowMarked) {
+    if (
+      diffMinutes >= 15 &&
+      !booking.noShowMarked &&
+      booking.status !== "completed" &&
+      booking.confirmationStatus !== "confirmed"
+    ) {
       booking.status = "no_show";
+      booking.noShowMarked = true;
+      await booking.save();
 
       await dispatchEmailEvent("NO_SHOW", {
         business,
         booking,
       });
-
-      booking.noShowMarked = true;
-      await booking.save();
     }
   }
 }

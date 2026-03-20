@@ -5,15 +5,18 @@ import PublicBusinessHeader from "@/components/public/PublicBusinessHeader";
 import ServicesGrid from "@/components/public/ServicesGrid";
 import StickyBookingCTA from "@/components/public/StickyBookingCTA";
 import PortfolioShowcase from "@/components/public/PortfolioShowcase";
+import CategoryServicesBrowser from "@/components/public/CategoryServicesBrowser";
 import ReviewsSection from "@/components/home/ReviewsSection";
 
 export interface ReferenceImage {
   _id: string;
   images?: Array<{
+    _id?: string;
     url?: string;
     description?: string;
-    dateDone?: string;
     totalCost?: number;
+    durationMinutes?: number;
+    priceBreakdown?: string;
     likes?: number;
   }>;
   linkedServiceIds?: string[];
@@ -45,6 +48,8 @@ export interface Service {
   category?: string;
   currency?: string;
   isBundle?: boolean;
+  description?: string;
+  tags?: string[];
 
   basePrice?: number;
 
@@ -79,6 +84,13 @@ export interface Service {
     type?: "fixed" | "percent";
     value?: number;
     applyToCallout?: boolean;
+  };
+  priceBreakdown?: string;
+  portfolioBooking?: {
+    refId: string;
+    imageId?: string;
+    imageIndex: number;
+    exactStyle: boolean;
   };
 }
 
@@ -222,6 +234,8 @@ export default function PublicBookingPageClient({
   seo,
 }: Props) {
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const bookingsInactive = String(status || "").toLowerCase() === "inactive";
   const base = theme?.primaryLight || "#ffffff";
   const pageBg = useMemo(
     () => `linear-gradient(135deg, ${theme.primaryLight} 0%, ${theme.accentLight} 100%)`,
@@ -270,12 +284,13 @@ export default function PublicBookingPageClient({
 
   return (
     <div
-      className="min-h-screen p-4 md:p-6 space-y-5"
+      className="relative min-h-screen p-4 md:p-6"
       style={{
         background: pageBg,
         color: cardText,
       }}
     >
+      <div className={bookingsInactive ? "space-y-5 blur-[8px] pointer-events-none select-none" : "space-y-5"}>
       <div
         className="rounded-2xl p-3 md:p-4"
         style={{
@@ -351,8 +366,32 @@ export default function PublicBookingPageClient({
           backdropFilter: "blur(14px)",
         }}
       >
-        <PortfolioShowcase referenceImages={referenceImages} theme={theme} />
+        <PortfolioShowcase
+          referenceImages={referenceImages}
+          services={servicesWithDepositPolicy}
+          theme={theme}
+          username={business.username}
+          onAddToSummary={handleAddToSummary}
+        />
       </div>
+
+      <section
+        className="rounded-2xl p-4 md:p-5"
+        style={{
+          background: cardBg,
+          color: cardText,
+          border: `1px solid ${cardBorder}`,
+          boxShadow: cardShadow,
+          backdropFilter: "blur(14px)",
+        }}
+      >
+        <CategoryServicesBrowser
+          services={servicesWithDepositPolicy}
+          theme={theme}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
+      </section>
 
       <section
         id="services"
@@ -370,6 +409,7 @@ export default function PublicBookingPageClient({
   services={servicesWithDepositPolicy}
   username={business.username}
   theme={theme}
+  selectedCategory={selectedCategory}
  requiresDeposit={business.depositPolicy?.enabled || false}
   onAddToSummary={handleAddToSummary}
 />
@@ -405,6 +445,33 @@ export default function PublicBookingPageClient({
         ) : null}
       </section>
 
+      </div>
+
+      {bookingsInactive ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center px-4">
+          <div
+            className="max-w-xl rounded-[28px] p-6 text-center md:p-8"
+            style={{
+              background: "rgba(255,255,255,0.82)",
+              color: "#0f172a",
+              border: `1px solid ${cardBorder}`,
+              boxShadow: cardShadow,
+              backdropFilter: "blur(18px)",
+            }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Bookings unavailable
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold md:text-3xl">
+              {business.name} is not accepting bookings right now
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base">
+              This booking page is temporarily unavailable while the business is inactive. Please
+              check back later or contact the business directly for updates.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

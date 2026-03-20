@@ -1,17 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import ThemedPopup from "@/components/ThemedPopup";
 
 type Affiliate = {
   _id: string;
   name: string;
   email: string;
   phone: string;
-  accessCode: string;
-  referralCode: string;
-  codeExpiresAt: string;
-  availableBalance: number;
-  totalEarned: number;
+  idDocumentUrl: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAUSED";
+  referralCode?: string | null;
+  accessCode?: string | null;
+  performanceReviewDueAt?: string;
+  referralCount: number;
+  latestReferralAt?: string;
+  createdAt: string;
 };
 
 type Withdrawal = {
@@ -26,16 +31,24 @@ type Withdrawal = {
 export default function AffiliatesAdminClient() {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
-  const [loading, setLoading] = useState(false);
+  const [popupMessage, setPopupMessage] = useState<string | null>(null);
+  const [popupVariant, setPopupVariant] = useState<"success" | "error">("success");
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const showPopup = (message: string, variant: "success" | "error" = "error") => {
+    setPopupVariant(variant);
+    setPopupMessage(message);
+  };
 
   const load = async () => {
     const [aRes, wRes] = await Promise.all([
       fetch("/api/admin/affiliates"),
       fetch("/api/admin/affiliates/withdrawals"),
     ]);
+
     const aData = await aRes.json();
     const wData = await wRes.json();
+
     setAffiliates(aData.affiliates || []);
     setWithdrawals(wData.withdrawals || []);
   };
@@ -44,23 +57,26 @@ export default function AffiliatesAdminClient() {
     load();
   }, []);
 
-  const createAffiliate = async () => {
-    setLoading(true);
+  const runAction = async (affiliateId: string, action: "approve" | "reject" | "pause" | "resume") => {
+    setLoadingId(`${action}-${affiliateId}`);
+
     try {
       const res = await fetch("/api/admin/affiliates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ affiliateId, action }),
       });
+      const json = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
-        alert(err?.error || "Failed");
+        showPopup(json?.error || "Action failed");
         return;
       }
-      setForm({ name: "", email: "", phone: "" });
+
+      showPopup(json?.message || "Affiliate updated.", "success");
       await load();
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   };
 
@@ -68,72 +84,125 @@ export default function AffiliatesAdminClient() {
     const res = await fetch(`/api/admin/affiliates/withdrawals/${id}/approve`, {
       method: "POST",
     });
+    const json = await res.json();
+
     if (!res.ok) {
-      const err = await res.json();
-      alert(err?.error || "Failed to approve withdrawal");
+      showPopup(json?.error || "Failed to approve withdrawal");
       return;
     }
+
+    showPopup("Withdrawal approved and disbursed.", "success");
     await load();
   };
 
   return (
     <div className="space-y-8">
-      <section className="rounded-xl border p-4 bg-white space-y-3">
-        <h2 className="text-lg font-semibold">Create Affiliate</h2>
-        <div className="grid gap-2 md:grid-cols-3">
-          <input
-            placeholder="Name"
-            value={form.name}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            className="border rounded px-3 py-2"
-          />
-          <input
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-            className="border rounded px-3 py-2"
-          />
-          <input
-            placeholder="Phone"
-            value={form.phone}
-            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            className="border rounded px-3 py-2"
-          />
-        </div>
-        <button
-          onClick={createAffiliate}
-          disabled={loading}
-          className="px-4 py-2 rounded bg-black text-white"
-        >
-          {loading ? "Saving..." : "Create Affiliate"}
-        </button>
-      </section>
+      <ThemedPopup
+        message={popupMessage}
+        variant={popupVariant}
+        onClose={() => setPopupMessage(null)}
+      />
 
-      <section className="rounded-xl border p-4 bg-white">
-        <h2 className="text-lg font-semibold mb-3">Affiliates</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <section className="rounded-[2rem] border border-black/5 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold">Affiliate Applications</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
             <thead>
-              <tr className="text-left border-b">
-                <th>Name</th>
-                <th>Email</th>
-                <th>Access Code</th>
-                <th>Referral Code</th>
-                <th>Expires</th>
-                <th>Balance</th>
-                <th>Total Earned</th>
+              <tr className="border-b text-left">
+                <th className="pb-3">Name</th>
+                <th className="pb-3">Email</th>
+                <th className="pb-3">Phone</th>
+                <th className="pb-3">ID</th>
+                <th className="pb-3">Status</th>
+                <th className="pb-3">Codes</th>
+                <th className="pb-3">Referrals</th>
+                <th className="pb-3">Review Due</th>
+                <th className="pb-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {affiliates.map((a) => (
-                <tr key={a._id} className="border-b">
-                  <td>{a.name}</td>
-                  <td>{a.email}</td>
-                  <td>{a.accessCode}</td>
-                  <td>{a.referralCode}</td>
-                  <td>{new Date(a.codeExpiresAt).toLocaleDateString()}</td>
-                  <td>KES {Number(a.availableBalance || 0).toLocaleString()}</td>
-                  <td>KES {Number(a.totalEarned || 0).toLocaleString()}</td>
+              {affiliates.map((affiliate) => (
+                <tr key={affiliate._id} className="border-b align-top">
+                  <td className="py-3">
+                    <Link
+                      href={`/admin/affiliates/${affiliate._id}`}
+                      className="font-medium text-[#15616D] underline-offset-4 hover:underline"
+                    >
+                      {affiliate.name}
+                    </Link>
+                  </td>
+                  <td className="py-3">{affiliate.email}</td>
+                  <td className="py-3">{affiliate.phone}</td>
+                  <td className="py-3">
+                    <a
+                      href={affiliate.idDocumentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#15616D] underline"
+                    >
+                      View ID
+                    </a>
+                  </td>
+                  <td className="py-3">{affiliate.status}</td>
+                  <td className="py-3">
+                    <div>{affiliate.referralCode || "—"}</div>
+                    <div>{affiliate.accessCode || "—"}</div>
+                  </td>
+                  <td className="py-3">
+                    <div>{affiliate.referralCount}</div>
+                    <div className="text-xs text-slate-500">
+                      {affiliate.latestReferralAt
+                        ? new Date(affiliate.latestReferralAt).toLocaleDateString()
+                        : "No activity"}
+                    </div>
+                  </td>
+                  <td className="py-3">
+                    {affiliate.performanceReviewDueAt
+                      ? new Date(affiliate.performanceReviewDueAt).toLocaleDateString()
+                      : "—"}
+                  </td>
+                  <td className="py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {affiliate.status === "PENDING" ? (
+                        <>
+                          <button
+                            onClick={() => runAction(affiliate._id, "approve")}
+                            disabled={loadingId === `approve-${affiliate._id}`}
+                            className="rounded-full bg-green-600 px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => runAction(affiliate._id, "reject")}
+                            disabled={loadingId === `reject-${affiliate._id}`}
+                            className="rounded-full bg-red-600 px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : null}
+
+                      {affiliate.status === "APPROVED" ? (
+                        <button
+                          onClick={() => runAction(affiliate._id, "pause")}
+                          disabled={loadingId === `pause-${affiliate._id}`}
+                          className="rounded-full bg-[#111827] px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Pause
+                        </button>
+                      ) : null}
+
+                      {affiliate.status === "PAUSED" ? (
+                        <button
+                          onClick={() => runAction(affiliate._id, "resume")}
+                          disabled={loadingId === `resume-${affiliate._id}`}
+                          className="rounded-full bg-[#15616D] px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Resume
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -141,26 +210,30 @@ export default function AffiliatesAdminClient() {
         </div>
       </section>
 
-      <section className="rounded-xl border p-4 bg-white">
-        <h2 className="text-lg font-semibold mb-3">Withdrawal Requests</h2>
-        <div className="space-y-2">
-          {withdrawals.map((w) => (
-            <div key={w._id} className="border rounded p-3 flex items-center justify-between">
+      <section className="rounded-[2rem] border border-black/5 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold">Withdrawal Requests</h2>
+        <div className="mt-4 space-y-3">
+          {withdrawals.map((withdrawal) => (
+            <div
+              key={withdrawal._id}
+              className="flex flex-col gap-3 rounded-2xl border border-black/5 p-4 md:flex-row md:items-center md:justify-between"
+            >
               <div className="text-sm">
                 <p>
-                  <strong>{w.affiliateId?.name || "Affiliate"}</strong> • {w.affiliateId?.email}
+                  <strong>{withdrawal.affiliateId?.name || "Affiliate"}</strong> • {withdrawal.affiliateId?.email}
                 </p>
-                <p>KES {Number(w.amount).toLocaleString()} to {w.phoneNumber}</p>
-                <p>Status: {w.status}</p>
+                <p>KES {Number(withdrawal.amount).toLocaleString()} to {withdrawal.phoneNumber}</p>
+                <p>Status: {withdrawal.status}</p>
               </div>
-              {w.status === "REQUESTED" && (
+
+              {withdrawal.status === "REQUESTED" ? (
                 <button
-                  onClick={() => approveWithdrawal(w._id)}
-                  className="px-3 py-2 rounded bg-green-600 text-white text-sm"
+                  onClick={() => approveWithdrawal(withdrawal._id)}
+                  className="rounded-full bg-green-600 px-4 py-3 text-sm font-semibold text-white"
                 >
                   Approve & Disburse
                 </button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

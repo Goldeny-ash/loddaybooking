@@ -4,8 +4,9 @@ import ReferenceImage from "@/lib/models/ReferenceImage";
 type UploadImageInput = {
   url?: string;
   description?: string;
-  dateDone?: string;
   totalCost?: number;
+  durationMinutes?: number;
+  priceBreakdown?: string;
 };
 
 const parseAmount = (value: unknown) => {
@@ -48,8 +49,9 @@ export async function POST(req: Request) {
     .map((img) => ({
       url: String(img.url || "").trim(),
       description: String(img.description || "").trim(),
-      dateDone: img.dateDone ? new Date(img.dateDone) : undefined,
       totalCost: parseAmount(img.totalCost),
+      durationMinutes: Math.max(Number(img.durationMinutes || 0), 0),
+      priceBreakdown: String(img.priceBreakdown || "").trim(),
       likes: 0,
     }))
     .filter((img) => img.url);

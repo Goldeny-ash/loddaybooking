@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Link2,
   Menu,
+  Store,
   QrCode,
   Scissors,
   Search,
@@ -29,6 +30,7 @@ import StaffSlotOverridesManager from "./StaffSlotOverridesManager";
 import BookingStaffAssignmentPanel from "./BookingStaffAssignmentPanel";
 import SubscriptionManagerClient from "./SubscriptionManagerClient";
 import BusinessWalletPanel from "./BusinessWalletPanel";
+import MarketplaceVisibilityManager from "./MarketplaceVisibilityManager";
 
 type SidebarProps = {
   business: {
@@ -36,6 +38,12 @@ type SidebarProps = {
     name?: string;
     email?: string;
     username?: string;
+    access?: {
+      status?: string;
+    };
+    marketplaceVisible?: boolean;
+    marketplaceStatus?: "none" | "pending" | "approved" | "rejected";
+    marketplaceRejectionReason?: string;
   };
   staffList: Array<Record<string, unknown>>;
   services: Array<{
@@ -51,6 +59,7 @@ type NavItem = {
   id: string;
   label: string;
   icon: ReactNode;
+  disabled?: boolean;
 };
 
 type SidebarContentProps = {
@@ -108,11 +117,14 @@ function SidebarContent({
         {navItems.map((item) => (
           <button
             key={item.id}
+            disabled={item.disabled}
             onClick={() => onOpenTab(item.id)}
             className={`w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
               activeItem === item.id
                 ? "text-[var(--brand-primary-dark)]"
-                : "text-gray-600 hover:bg-gray-50"
+                : item.disabled
+                  ? "text-gray-300"
+                  : "text-gray-600 hover:bg-gray-50"
             }`}
             style={
               activeItem === item.id
@@ -166,6 +178,12 @@ export default function Sidebar({
       { id: "portfolio", label: "Portfolio", icon: <ImageIcon size={16} /> },
       { id: "qr", label: "QR Code", icon: <QrCode size={16} /> },
       { id: "bookings", label: "Bookings", icon: <Calendar size={16} /> },
+      {
+        id: "marketplace",
+        label: "Marketplace",
+        icon: <Store size={16} />,
+        disabled: business.access?.status !== "ACTIVE",
+      },
       { id: "subscription", label: "Subscription", icon: <Clock3 size={16} /> },
       { id: "wallet", label: "Wallet", icon: <Wallet size={16} /> },
       { id: "staff-slots", label: "Staff Slots", icon: <Clock3 size={16} /> },
@@ -256,6 +274,9 @@ export default function Sidebar({
                 businessId={business._id.toString()}
                 initialBookings={bookings}
               />
+            )}
+            {activeTab === "marketplace" && (
+              <MarketplaceVisibilityManager business={business} />
             )}
             {activeTab === "subscription" && (
               <SubscriptionManagerClient business={business} />

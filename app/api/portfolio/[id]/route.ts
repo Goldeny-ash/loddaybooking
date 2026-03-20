@@ -5,8 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 type UpdateImageInput = {
   url?: string;
   description?: string;
-  dateDone?: string;
   totalCost?: number;
+  durationMinutes?: number;
+  priceBreakdown?: string;
   likes?: number;
 };
 
@@ -36,8 +37,9 @@ export async function PUT(
     .map((img) => ({
       url: String(img.url || "").trim(),
       description: String(img.description || "").trim(),
-      dateDone: img.dateDone ? new Date(img.dateDone) : undefined,
       totalCost: parseAmount(img.totalCost),
+      durationMinutes: Math.max(Number(img.durationMinutes || 0), 0),
+      priceBreakdown: String(img.priceBreakdown || "").trim(),
       likes: Number(img.likes || 0),
     }))
     .filter((img) => img.url);

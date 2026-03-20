@@ -2,10 +2,12 @@ import { emailLayout } from "./layout";
 import { BrandTheme } from "@/lib/theme";
 import { formatDuration } from "@/lib/utils/formatDuration";
 import { formatBookingPrice } from "@/lib/utils/bookingPresentation";
+import { buildInvoiceAttachment } from "./invoice";
 
 type TemplateDefinition = {
-  subject: (data: any) => string;
-  html: (data: any) => string;
+  subject: string | ((data: any) => string);
+  html: string | ((data: any) => string);
+  text?: string | ((data: any) => string);
 };
 
 function hasText(value: unknown): value is string {
@@ -35,6 +37,7 @@ function renderList(items: string[]) {
 }
 
 function renderEmailButton(url: string, label: string, color: string) {
+  if (!hasText(url)) return "";
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-top:24px;">
   <tr>
@@ -55,6 +58,31 @@ function renderEmailButton(url: string, label: string, color: string) {
   </tr>
 </table>
 `;
+}
+
+function renderManageSection(data: any, label = "Manage Booking") {
+  if (!hasText(data?.manageUrl)) return "";
+  return renderEmailButton(data.manageUrl, label, data?.theme?.primary || "#111827");
+}
+
+function renderInvoiceNotice(data: any) {
+  if (!data?.business || !data?.booking || !data?.theme) return "";
+
+  const attachment = buildInvoiceAttachment({
+    business: data.business,
+    booking: data.booking,
+    theme: data.theme,
+  });
+
+  return `
+    <div style="margin:20px 0;padding:16px;border-radius:18px;background:${data.theme.backgroundSoft};">
+      <p style="margin:0 0 8px;font-weight:700;">Invoice attached</p>
+      <p style="margin:0;line-height:1.7;">
+        A themed invoice is attached as <strong>${attachment.filename}</strong>. It includes your selected services,
+        any discount applied, the deposit paid if any, and the balance due after service completion.
+      </p>
+    </div>
+  `;
 }
 
 function renderServiceCards(services: any[], options?: { imageOnLeft?: boolean }) {
@@ -201,7 +229,7 @@ BOOKING_RECEIVED_CUSTOMER: {
           : ""
       }
 
-      ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
+      ${renderManageSection({ manageUrl, theme })}
     `;
 
     return emailLayout(business, theme, content);
@@ -310,7 +338,7 @@ NEW_BOOKING_BUSINESS: {
           from the final amount.
         </p>
 
-        ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
+        ${renderManageSection({ manageUrl, theme })}
 
         <p>
           Open the booking page to pay the deposit and complete confirmation.
@@ -328,12 +356,37 @@ NEW_BOOKING_BUSINESS: {
           No deposit is required. Your appointment is secured.
         </p>
 
-        ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
+        ${renderManageSection({ manageUrl, theme })}
       `;
 
     return emailLayout(business, theme, content);
   },
 },
+
+  BOOKING_CONFIRMED_NO_DEPOSIT: {
+    subject: (data) =>
+      `Booking Confirmed: ${data.business.name}`,
+
+    html: (data) => {
+      const { business, theme, booking, manageUrl } = data;
+
+      const content = `
+        <p>Hi ${booking.customerName},</p>
+
+        <p>Your booking with <strong>${business.name}</strong> is now <strong>confirmed</strong>.</p>
+
+        <p>
+          Your current service total is <strong>${formatCurrency(booking.grandTotal)}</strong>.
+          Prices are subject to change if anything is updated during the appointment.
+        </p>
+
+        ${renderInvoiceNotice(data)}
+        ${renderManageSection(data)}
+      `;
+
+      return emailLayout(business, theme, content);
+    },
+  },
 
   /* =====================================================
      BOOKING CONFIRMED WITH DEPOSIT
@@ -351,14 +404,17 @@ NEW_BOOKING_BUSINESS: {
         <p>Your deposit has been received and your booking is now confirmed.</p>
 
         <p>
-          Funds are securely held until you mark the booking complete.
+          The deposit of <strong>${formatCurrency(booking.depositAmount)}</strong> is part of your service charge
+          and has already been deducted from the balance due after the appointment.
         </p>
 
         <p>
-          You can review or manage the appointment any time from your booking page.
+          Funds are securely held until you mark the booking complete.
         </p>
 
-        ${renderEmailButton(manageUrl, "Manage Booking", theme.primary)}
+        ${renderInvoiceNotice(data)}
+
+        ${renderManageSection({ manageUrl, theme })}
       `;
 
       return emailLayout(business, theme, content);
@@ -383,10 +439,7 @@ BOOKING_REJECTED: {
           : ""
       }
 
-      <p>
-        You may reschedule here:
-        <a href="${rescheduleUrl}" target="_blank">${rescheduleUrl}</a>
-      </p>
+      ${renderManageSection({ manageUrl: rescheduleUrl || data.manageUrl, theme }, "Manage Booking")}
     `;
 
     return emailLayout(business, theme, content);
@@ -397,13 +450,14 @@ BOOKING_RESCHEDULED: {
   subject: () => `Booking Rescheduled`,
 
   html: (data) => {
-    const { business, theme, booking } = data;
+    const { business, theme, booking, manageUrl } = data;
 
     const content = `
       <p>Your appointment has been rescheduled.</p>
 
       <p><strong>New Date:</strong> ${booking.date}</p>
       <p><strong>New Time:</strong> ${booking.startTime}</p>
+      ${renderManageSection({ manageUrl, theme })}
     `;
 
     return emailLayout(business, theme, content);
@@ -459,7 +513,7 @@ MARK_BOOKING_COMPLETE_REMINDER: {
       `Reminder: Appointment Tomorrow at ${data.booking.startTime}`,
 
     html: (data) => {
-      const { business, theme, booking } = data;
+      const { business, theme, booking, manageUrl } = data;
 
       const content = `
         <p>Hi ${booking.customerName},</p>
@@ -471,6 +525,7 @@ MARK_BOOKING_COMPLETE_REMINDER: {
         </p>
 
         <p>Please arrive on time.</p>
+        ${renderManageSection({ manageUrl, theme })}
       `;
 
       return emailLayout(business, theme, content);
@@ -508,43 +563,47 @@ MARK_BOOKING_COMPLETE_REMINDER: {
       return emailLayout(business, theme, content);
     },
   },
-APPOINTMENT_REMINDER_1H: {
-  subject: () => `Appointment in 1 Hour`,
+  APPOINTMENT_REMINDER_1H: {
+  subject: () => `Confirm your appointment`,
 
   html: (data) => {
-    const { business, theme, booking } = data;
+    const { business, theme, booking, confirmUrl, cancelUrl, manageUrl } = data;
 
     return emailLayout(
       business,
       theme,
-      `<p>Your appointment starts in 1 hour at ${booking.startTime}.</p>`
+      `
+        <p>Hi ${booking.customerName},</p>
+
+        <p>You have an appointment scheduled at <strong>${booking.startTime}</strong>.</p>
+        <p>Please confirm if you will attend.</p>
+
+        ${renderEmailButton(confirmUrl, "Confirm Appointment", theme.primary)}
+        ${renderEmailButton(cancelUrl, "Cancel Appointment", "#DC2626")}
+        ${renderManageSection({ manageUrl, theme })}
+      `
     );
   },
 },
 APPOINTMENT_REMINDER_30M: {
-  subject: () => `Appointment in 30 Minutes`,
+  subject: () => `Action required: Confirm your appointment`,
 
   html: (data) => {
-    const { business, theme, booking } = data;
+    const { business, theme, booking, confirmUrl, cancelUrl, manageUrl } = data;
 
     return emailLayout(
       business,
       theme,
-      `<p>Your appointment starts in 30 minutes. Please arrive on time.</p>`
-    );
-  },
-},
+      `
+        <p>Hi ${booking.customerName},</p>
 
-SLOT_RELEASED_NOTICE: {
-  subject: () => `Booking Released`,
+        <p>Your appointment at <strong>${booking.startTime}</strong> is not yet confirmed.</p>
+        <p>Please confirm to secure your slot.</p>
 
-  html: (data) => {
-    const { business, theme } = data;
-
-    return emailLayout(
-      business,
-      theme,
-      `<p>Your slot was released due to no check-in within the grace period.</p>`
+        ${renderEmailButton(confirmUrl, "Confirm Appointment", theme.primary)}
+        ${renderEmailButton(cancelUrl, "Cancel Appointment", "#DC2626")}
+        ${renderManageSection({ manageUrl, theme })}
+      `
     );
   },
 },
@@ -553,12 +612,12 @@ NO_SHOW_NOTICE: {
   subject: () => `No Show Recorded`,
 
   html: (data) => {
-    const { business, theme } = data;
+    const { business, theme, manageUrl } = data;
 
     return emailLayout(
       business,
       theme,
-      `<p>Your booking was marked as no-show.</p>`
+      `<p>Your booking was marked as no-show.</p>${renderManageSection({ manageUrl, theme })}`
     );
   },
 },
@@ -593,7 +652,7 @@ POST_APPOINTMENT_THANK_YOU: {
   subject: () => `Thank You for Choosing Us`,
 
   html: (data) => {
-    const { business, theme, reviewUrl, rebookUrl } = data;
+    const { business, theme, reviewUrl, rebookUrl, manageUrl } = data;
 
     return emailLayout(
       business,
@@ -610,6 +669,8 @@ POST_APPOINTMENT_THANK_YOU: {
           Rebook:
           <a href="${rebookUrl}" target="_blank">Book Again</a>
         </p>
+
+        ${renderManageSection({ manageUrl, theme })}
       `
     );
   },
@@ -665,6 +726,59 @@ TRIAL_STARTED: {
     );
   },
 },
+BOOKING_CONFIRMATION_CONFIRMED: {
+  subject: () => `Appointment confirmed`,
+
+  html: (data) => {
+    const { business, theme, booking, manageUrl } = data;
+
+    return emailLayout(
+      business,
+      theme,
+      `
+        <p>Hi ${booking.customerName},</p>
+        <p>Your appointment at <strong>${booking.startTime}</strong> has been confirmed.</p>
+        <p>We look forward to seeing you.</p>
+        ${renderInvoiceNotice(data)}
+        ${renderManageSection({ manageUrl, theme })}
+      `
+    );
+  },
+},
+BOOKING_CONFIRMATION_BUSINESS_ALERT_45M: {
+  subject: () => `Booking not confirmed yet`,
+
+  html: (data) => {
+    const { business, theme, booking } = data;
+
+    return emailLayout(
+      business,
+      theme,
+      `
+        <p>A booking has not yet been confirmed by the client.</p>
+        <p><strong>Time:</strong> ${booking.startTime}</p>
+        <p><strong>Customer phone:</strong> ${booking.customerPhone}</p>
+      `
+    );
+  },
+},
+BOOKING_CONFIRMATION_BUSINESS_ALERT_30M: {
+  subject: () => `Urgent: booking still unconfirmed`,
+
+  html: (data) => {
+    const { business, theme, booking } = data;
+
+    return emailLayout(
+      business,
+      theme,
+      `
+        <p>The client has still not confirmed this booking.</p>
+        <p><strong>Time:</strong> ${booking.startTime}</p>
+        <p><strong>Customer phone:</strong> ${booking.customerPhone}</p>
+      `
+    );
+  },
+},
 BUSINESS_WELCOME: {
   subject: () => `Welcome to Lodday`,
 
@@ -693,6 +807,148 @@ BUSINESS_WELCOME: {
       `
     );
   },
+},
+  AFFILIATE_APPROVED: {
+  subject: () => `You've been approved as a Lodday Affiliate`,
+
+  html: (data) => {
+    const dashboardUrl = data.dashboardUrl || "https://affiliates.lodday.com/dashboard";
+
+    return `
+      <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;">
+        <h2>You're approved as a Lodday Affiliate</h2>
+        <p>Hello ${data.name},</p>
+        <p>Your affiliate application has been approved.</p>
+        <p><strong>Referral Code:</strong> ${data.referralCode}</p>
+        <p><strong>Access Code:</strong> ${data.accessCode}</p>
+        <p>You can access your dashboard here:</p>
+        <p><a href="${dashboardUrl}" target="_blank" rel="noreferrer">${dashboardUrl}</a></p>
+      </div>
+    `;
+  },
+  },
+  AFFILIATE_APPLICATION_RECEIVED: {
+    subject: "Application Received – Lodday Affiliates",
+    text: ({ name }: { name?: string }) =>
+      [
+        `Hello${name ? ` ${name}` : ""},`,
+        "",
+        "Your affiliate application has been received successfully.",
+        "Our team is currently reviewing your details.",
+        "You will receive an email once a decision has been made.",
+        "Please allow 24 to 72 hours for review.",
+        "",
+        "Lodday Affiliates",
+      ].join("\n"),
+    html: ({ name }: { name?: string }) => `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+        <p>Hello${name ? ` ${name}` : ""},</p>
+        <p>Your affiliate application has been received successfully.</p>
+        <p>Our team is currently reviewing your details.</p>
+        <p>You will receive an email once a decision has been made.</p>
+        <p>Please allow 24 to 72 hours for review.</p>
+        <p>Lodday Affiliates</p>
+      </div>
+    `,
+  },
+  AFFILIATE_APPLICATION_REVIEW_ALERT: {
+    subject: "New Affiliate Application – Action Required",
+    text: ({
+      name,
+      email,
+      phone,
+      adminUrl,
+    }: {
+      name: string;
+      email: string;
+      phone: string;
+      adminUrl: string;
+    }) =>
+      [
+        "A new affiliate application has been submitted.",
+        "",
+        `Applicant Name: ${name}`,
+        `Email: ${email}`,
+        `Phone: ${phone}`,
+        "",
+        `Review in admin panel: ${adminUrl}`,
+      ].join("\n"),
+    html: ({
+      name,
+      email,
+      phone,
+      adminUrl,
+    }: {
+      name: string;
+      email: string;
+      phone: string;
+      adminUrl: string;
+    }) => `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+        <p>A new affiliate application has been submitted.</p>
+        <p><strong>Applicant Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><a href="${adminUrl}">Review in admin panel</a></p>
+      </div>
+    `,
+  },
+  AFFILIATE_REJECTED: {
+  subject: () => `Affiliate Application Update`,
+
+  html: (data) => `
+    <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;">
+      <h2>Affiliate Application Update</h2>
+      <p>Hello ${data.name},</p>
+      <p>Thank you for applying to the Lodday Affiliate Program.</p>
+      <p>We reviewed your application and are unable to approve it at this time.</p>
+      <p>You may apply again later if your information changes.</p>
+    </div>
+  `,
+},
+MARKETPLACE_REQUEST_RECEIVED: {
+  subject: () => `Marketplace Request Received`,
+  html: (data) => `
+    <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;">
+      <h2>Marketplace Request Received</h2>
+      <p>Hello ${data.businessName || "there"},</p>
+      <p>Your marketplace visibility request has been received and is now under review.</p>
+      <p>We will notify you once a decision has been made.</p>
+    </div>
+  `,
+},
+MARKETPLACE_REQUEST_ADMIN_ALERT: {
+  subject: () => `New Marketplace Visibility Request`,
+  html: (data) => `
+    <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;">
+      <h2>New Marketplace Visibility Request</h2>
+      <p><strong>Business:</strong> ${data.businessName}</p>
+      <p><strong>Admin Panel:</strong> <a href="${data.adminUrl}">${data.adminUrl}</a></p>
+    </div>
+  `,
+},
+MARKETPLACE_APPROVED: {
+  subject: () => `Marketplace Approved`,
+  html: (data) => `
+    <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;">
+      <h2>Marketplace Approved</h2>
+      <p>Hello ${data.businessName || "there"},</p>
+      <p>Your business is now visible on the Lodday Marketplace.</p>
+      <p>You can manage marketplace visibility from your business dashboard.</p>
+    </div>
+  `,
+},
+MARKETPLACE_REJECTED: {
+  subject: () => `Marketplace Request Update`,
+  html: (data) => `
+    <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;">
+      <h2>Marketplace Request Update</h2>
+      <p>Hello ${data.businessName || "there"},</p>
+      <p>Your marketplace visibility request was not approved at this time.</p>
+      <p><strong>Reason:</strong> ${data.reason || "No reason provided."}</p>
+      <p>Please update your business details and reapply from your dashboard.</p>
+    </div>
+  `,
 },
 TRIAL_EXPIRING: {
   subject: (data) =>

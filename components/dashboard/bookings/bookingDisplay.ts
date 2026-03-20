@@ -32,6 +32,9 @@ export type BookingService = {
 export type DashboardBooking = {
   _id: string;
   status?: string;
+  confirmationStatus?: "pending" | "confirmed" | "not_confirmed";
+  confirmedAt?: string | Date;
+  cancelledAt?: string | Date;
   date?: string;
   startTime?: string;
   endTime?: string;

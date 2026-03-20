@@ -11,7 +11,6 @@ const AffiliateReferralUseSchema = new Schema(
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
     referralCode: { type: String, required: true, index: true },
     usedAt: { type: Date, default: Date.now },
-    expiresAt: { type: Date, required: true },
 
     firstSubscriptionCommissionPaid: { type: Boolean, default: false },
     renewalCount: { type: Number, default: 0 },

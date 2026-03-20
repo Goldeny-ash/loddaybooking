@@ -3,6 +3,7 @@ import { Schema, model, models } from "mongoose";
 const BusinessSchema = new Schema(
   {
     clerkUserId: { type: String, required: true, unique: true },
+    referredBy: { type: Schema.Types.ObjectId, ref: "Affiliate", index: true, default: null },
     name: String,
     username: { type: String, unique: true },
     phone: String,
@@ -62,14 +63,14 @@ const BusinessSchema = new Schema(
       lastPaymentRef: String,
     },
 
-    location: {
+location: {
   county: { type: String, default: "" },
   subCounty: { type: String, default: "" },
   ward: { type: String, default: "" },
   countyOptions: { type: [String], default: [] },
   subCountyOptions: { type: [String], default: [] },
   wardOptions: { type: [String], default: [] },
-  addressLine: String,
+  area: { type: String, default: "" },
   locationDescription: { type: String, default: "" },
   lat: Number,
   lng: Number,
@@ -150,9 +151,28 @@ wallet: {
       tiktok: String,
     },
     tags: [String],
+    marketplaceVisible: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    marketplaceStatus: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+      index: true,
+    },
+    marketplaceRequestedAt: Date,
+    marketplaceApprovedAt: Date,
+    marketplaceRejectedAt: Date,
+    marketplaceRejectionReason: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );
 BusinessSchema.index({ "access.status": 1 });
 BusinessSchema.index({ "access.nextChargeAt": 1 });
+BusinessSchema.index({ marketplaceStatus: 1, marketplaceVisible: 1 });
 export default models.Business || model("Business", BusinessSchema);

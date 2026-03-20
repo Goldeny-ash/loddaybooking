@@ -7,14 +7,12 @@ import BookingDetailsModal from "./BookingDetailsModal";
 import { type DashboardBooking } from "./bookingDisplay";
 import { hasBookingStarted } from "@/lib/booking/utils";
 
-function shouldShowPendingBooking(booking: DashboardBooking) {
-  const isPendingActionStatus =
-    booking.status === "pending" || booking.status === "pendingDeposit";
-
-  return (
-    isPendingActionStatus &&
-    !hasBookingStarted(booking.date, booking.startTime)
+function shouldShowUpcomingBooking(booking: DashboardBooking) {
+  const isUpcomingStatus = ["pending", "pendingDeposit", "confirmed", "unconfirmed"].includes(
+    booking.status || ""
   );
+
+  return isUpcomingStatus && !hasBookingStarted(booking.date, booking.startTime);
 }
 
 export default function UpcomingBookings({
@@ -30,14 +28,14 @@ export default function UpcomingBookings({
   );
 
   const [bookings, setBookings] = useState(
-    initialBookings.filter(shouldShowPendingBooking)
+    initialBookings.filter(shouldShowUpcomingBooking)
   );
 
   const updateBooking = (updated: DashboardBooking) => {
     setBookings((prev) =>
         prev
           .map((b) => (b._id === updated._id ? updated : b))
-          .filter(shouldShowPendingBooking)
+          .filter(shouldShowUpcomingBooking)
     );
   };
 
@@ -57,7 +55,7 @@ export default function UpcomingBookings({
         <div className="divide-y">
           {bookings.length === 0 && (
             <p className="text-sm py-6 text-center" style={{ color: theme.accentDark }}>
-              No pending bookings need action
+              No upcoming bookings to review
             </p>
           )}
 
@@ -76,6 +74,7 @@ export default function UpcomingBookings({
       <BookingDetailsModal
         booking={selectedBooking}
         business={business}
+        onBookingUpdated={updateBooking}
         onClose={() => setSelectedBooking(null)}
       />
     </>

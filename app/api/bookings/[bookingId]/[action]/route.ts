@@ -18,7 +18,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
     }
 
-    if (!["approve", "reject"].includes(action)) {
+    if (!["approve", "reject", "confirm", "cancel"].includes(action)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
@@ -39,6 +39,9 @@ export async function PATCH(
       depositId?: string;
       rejectionReason?: string;
       depositAmount?: number;
+      confirmationStatus?: string;
+      confirmedAt?: Date;
+      cancelledAt?: Date;
     } = {};
 
     if (action === "approve") {
@@ -110,6 +113,51 @@ export async function PATCH(
           booking: updatedBooking,
           rescheduleUrl: manageLink,
         });
+      }
+
+      return NextResponse.json({ booking: updatedBooking });
+    }
+
+    if (action === "confirm") {
+      update.status = "confirmed";
+      update.confirmationStatus = "confirmed";
+      update.confirmedAt = new Date();
+
+      const updatedBooking = await Booking.findByIdAndUpdate(bookingId, update, {
+        new: true,
+      });
+
+      if (!updatedBooking) {
+        return NextResponse.json({ error: "Booking update failed" }, { status: 500 });
+      }
+
+      if (updatedBooking.customerEmail) {
+        const manageLink = buildManageBookingUrl({
+          username: business.username,
+          bookingId: updatedBooking._id.toString(),
+          token: updatedBooking.manageToken,
+        });
+        await dispatchEmailEvent("BOOKING_CONFIRMATION_CONFIRMED", {
+          business,
+          booking: updatedBooking,
+          manageUrl: manageLink,
+        });
+      }
+
+      return NextResponse.json({ booking: updatedBooking });
+    }
+
+    if (action === "cancel") {
+      update.status = "cancelled";
+      update.confirmationStatus = "not_confirmed";
+      update.cancelledAt = new Date();
+
+      const updatedBooking = await Booking.findByIdAndUpdate(bookingId, update, {
+        new: true,
+      });
+
+      if (!updatedBooking) {
+        return NextResponse.json({ error: "Booking update failed" }, { status: 500 });
       }
 
       return NextResponse.json({ booking: updatedBooking });

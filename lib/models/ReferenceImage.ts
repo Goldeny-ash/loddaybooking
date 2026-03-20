@@ -8,8 +8,9 @@ const ReferenceImageSchema = new Schema({
     {
       url: { type: String, required: true },          // Cloudinary or S3 URL
       description: { type: String, default: "" },     // Optional description
-      dateDone: { type: Date },                       // When work was done
       totalCost: { type: Number, default: 0 },        // Total service cost for this work
+      durationMinutes: { type: Number, default: 0 },  // Total time for this exact style
+      priceBreakdown: { type: String, default: "" },  // Human readable breakdown
       likes: { type: Number, default: 0 },            // Optional persisted likes counter
       staffId: { type: Schema.Types.ObjectId, ref: "Staff" },  // Staff who did it
       tags: { type: [String], default: [] },          // Tags for filtering

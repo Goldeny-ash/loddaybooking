@@ -66,8 +66,7 @@ const user = await currentUser();
     if (affiliateCode) {
       affiliateDoc = await Affiliate.findOne({
         referralCode: affiliateCode,
-        status: "ACTIVE",
-        codeExpiresAt: { $gt: now },
+        status: "APPROVED",
       });
 
       if (affiliateDoc) {

@@ -20,6 +20,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   maxFiles = 5,
   maxFileSize = 2_000_000,
 }) => {
+  const canPreviewImage = (src: string) => {
+    if (!src) return false;
+    if (src.startsWith("/")) return true;
+
+    try {
+      const parsed = new URL(src);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
   const handleUpload = (result: any) => {
     if (result.event === "success") {
       const url = result.info.secure_url;
@@ -36,7 +48,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       <div className="flex flex-wrap gap-4">
         {value.map((url) => (
           <div key={url} className="relative w-32 h-32">
-            <Image src={url} alt="uploaded" fill className="object-cover rounded" />
+            {canPreviewImage(url) ? (
+              <Image src={url} alt="uploaded" fill className="object-cover rounded" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 p-3 text-center text-xs text-gray-500">
+                Saved image reference
+              </div>
+            )}
             <button
               type="button"
               onClick={() => handleRemove(url)}

@@ -13,10 +13,12 @@ interface Service {
 }
 
 interface PortfolioImage {
+  _id?: string;
   url: string;
   description: string;
-  dateDone?: string;
   totalCost?: number;
+  durationMinutes?: number;
+  priceBreakdown?: string;
   likes?: number;
 }
 
@@ -41,14 +43,16 @@ interface PortfolioManagerProps {
 
 type UploadMeta = {
   description: string;
-  dateDone?: string;
   totalCost?: string;
+  durationMinutes?: string;
+  priceBreakdown?: string;
 };
 
 type EditMeta = {
   description: string;
-  dateDone?: string;
   totalCost?: string;
+  durationMinutes?: string;
+  priceBreakdown?: string;
 };
 
 const parseAmount = (value?: string | number) => {
@@ -87,17 +91,7 @@ export default function PortfolioManager({
   }, [businessId]);
 
   const sortedPortfolio = useMemo(() => {
-    return [...portfolio].sort((a, b) => {
-      const aLatest = Math.max(
-        ...a.images.map((img) => (img.dateDone ? new Date(img.dateDone).getTime() : 0)),
-        0
-      );
-      const bLatest = Math.max(
-        ...b.images.map((img) => (img.dateDone ? new Date(img.dateDone).getTime() : 0)),
-        0
-      );
-      return bLatest - aLatest;
-    });
+    return [...portfolio].reverse();
   }, [portfolio]);
 
   const handleMetadataChange = (
@@ -118,8 +112,9 @@ export default function PortfolioManager({
     const imagesPayload = selectedImages.map((url) => ({
       url,
       description: metadataMap[url]?.description || "",
-      dateDone: metadataMap[url]?.dateDone || undefined,
       totalCost: parseAmount(metadataMap[url]?.totalCost),
+      durationMinutes: parseAmount(metadataMap[url]?.durationMinutes),
+      priceBreakdown: metadataMap[url]?.priceBreakdown || "",
     }));
 
     try {
@@ -151,8 +146,9 @@ export default function PortfolioManager({
         images: nextImages.map((img) => ({
           url: img.url,
           description: img.description || "",
-          dateDone: img.dateDone || undefined,
           totalCost: parseAmount(img.totalCost),
+          durationMinutes: parseAmount(img.durationMinutes),
+          priceBreakdown: img.priceBreakdown || "",
           likes: Number(img.likes || 0),
         })),
       }),
@@ -197,8 +193,9 @@ export default function PortfolioManager({
       ...prev,
       [key]: {
         description: image.description || "",
-        dateDone: image.dateDone ? String(image.dateDone).slice(0, 10) : "",
         totalCost: String(Number(image.totalCost || 0)),
+        durationMinutes: String(Number(image.durationMinutes || 0)),
+        priceBreakdown: image.priceBreakdown || "",
       },
     }));
   };
@@ -218,8 +215,9 @@ export default function PortfolioManager({
           ? {
               ...img,
               description: draft.description,
-              dateDone: draft.dateDone || undefined,
               totalCost: parseAmount(draft.totalCost),
+              durationMinutes: parseAmount(draft.durationMinutes),
+              priceBreakdown: draft.priceBreakdown || "",
             }
           : img
       );
@@ -276,7 +274,7 @@ export default function PortfolioManager({
         <h2 className="font-semibold text-[var(--brand-primary)] mb-1">Upload Portfolio Images</h2>
         <p className="text-sm text-gray-600 mb-3">
           Add reference photos for services shown on your public booking page. For each image,
-          include the final look description, service date, and total service cost.
+          include the final look description, duration, total price, and a clear price breakdown.
         </p>
         <ImageUpload value={selectedImages} onChange={setSelectedImages} />
 
@@ -293,11 +291,12 @@ export default function PortfolioManager({
               className="border p-2 rounded"
             />
 
-            <label className="text-sm font-medium text-gray-700">Date service was done</label>
+            <label className="text-sm font-medium text-gray-700">Duration in minutes</label>
             <input
-              type="date"
-              value={metadataMap[url]?.dateDone || ""}
-              onChange={(e) => handleMetadataChange(url, "dateDone", e.target.value)}
+              type="number"
+              min={0}
+              value={metadataMap[url]?.durationMinutes || ""}
+              onChange={(e) => handleMetadataChange(url, "durationMinutes", e.target.value)}
               className="border p-2 rounded"
             />
 
@@ -309,6 +308,14 @@ export default function PortfolioManager({
               value={metadataMap[url]?.totalCost || ""}
               onChange={(e) => handleMetadataChange(url, "totalCost", e.target.value)}
               className="border p-2 rounded"
+            />
+
+            <label className="text-sm font-medium text-gray-700">Price Breakdown</label>
+            <textarea
+              placeholder={`Hair: 1000 KES\nLabor: 1500 KES\nStyling: 500 KES`}
+              value={metadataMap[url]?.priceBreakdown || ""}
+              onChange={(e) => handleMetadataChange(url, "priceBreakdown", e.target.value)}
+              className="min-h-[110px] border p-2 rounded"
             />
           </div>
         ))}
@@ -346,11 +353,16 @@ export default function PortfolioManager({
                       <div className="mt-2 space-y-1 text-sm">
                         <p className="font-medium">{img.description || "No description added."}</p>
                         <p className="text-gray-600">
-                          {img.dateDone ? new Date(img.dateDone).toLocaleDateString() : "No date"}
+                          Duration: {img.durationMinutes ? `${img.durationMinutes} mins` : "Not set"}
                         </p>
                         <p className="text-gray-700 font-semibold">
                           Total Cost: KES {Number(img.totalCost || 0).toLocaleString()}
                         </p>
+                        {img.priceBreakdown ? (
+                          <p className="whitespace-pre-line text-xs text-gray-600">
+                            {img.priceBreakdown}
+                          </p>
+                        ) : null}
                       </div>
                     )}
 
@@ -368,15 +380,17 @@ export default function PortfolioManager({
                           placeholder="Description"
                         />
                         <input
-                          type="date"
+                          type="number"
+                          min={0}
                           className="border rounded p-2 w-full text-sm"
-                          value={editMap[key]?.dateDone || ""}
+                          value={editMap[key]?.durationMinutes || ""}
                           onChange={(e) =>
                             setEditMap((prev) => ({
                               ...prev,
-                              [key]: { ...prev[key], dateDone: e.target.value },
+                              [key]: { ...prev[key], durationMinutes: e.target.value },
                             }))
                           }
+                          placeholder="Duration in minutes"
                         />
                         <input
                           type="number"
@@ -390,6 +404,17 @@ export default function PortfolioManager({
                             }))
                           }
                           placeholder="Total cost"
+                        />
+                        <textarea
+                          className="min-h-[110px] border rounded p-2 w-full text-sm"
+                          value={editMap[key]?.priceBreakdown || ""}
+                          onChange={(e) =>
+                            setEditMap((prev) => ({
+                              ...prev,
+                              [key]: { ...prev[key], priceBreakdown: e.target.value },
+                            }))
+                          }
+                          placeholder="Price breakdown"
                         />
                       </div>
                     )}

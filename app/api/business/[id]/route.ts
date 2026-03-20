@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoDB";
 import mongoose from "mongoose";
 import Business from "@/lib/models/Business";
+import { auth } from "@clerk/nextjs/server";
+
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function GET(
   req: NextRequest,
@@ -35,6 +39,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> } // same promise style
 ) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid business ID" }, { status: 400 });
@@ -43,6 +52,50 @@ export async function PATCH(
     await connectDB();
 
     const body = await req.json();
+    const existingBusiness = await Business.findById(id);
+    if (!existingBusiness) {
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    }
+
+    if (existingBusiness.clerkUserId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (typeof body.username === "string") {
+      body.username = body.username.toLowerCase().replace(/\s+/g, "-").trim();
+      const usernameTaken = await Business.findOne({
+        username: body.username,
+        _id: { $ne: id },
+      });
+      if (usernameTaken) {
+        return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      }
+    }
+
+    if (typeof body.email === "string") {
+      body.email = body.email.trim().toLowerCase();
+      if (body.email) {
+        const emailTaken = await Business.findOne({
+          email: { $regex: `^${escapeRegex(body.email)}$`, $options: "i" },
+          _id: { $ne: id },
+        });
+        if (emailTaken) {
+          return NextResponse.json({ error: "Business email already in use" }, { status: 409 });
+        }
+      }
+    }
+
+    if (body.location) {
+      body.location = {
+        ...body.location,
+        county: String(body.location.county || "").trim(),
+        subCounty: String(body.location.subCounty || "").trim(),
+        ward: String(body.location.ward || "").trim(),
+        area: String(body.location.area || "").trim(),
+        locationDescription: String(body.location.locationDescription || "").trim(),
+        mapsLink: String(body.location.mapsLink || "").trim(),
+      };
+    }
 
     // ---------------- SANITIZE NESTED FIELDS ----------------
     if (body.bookingRules) {

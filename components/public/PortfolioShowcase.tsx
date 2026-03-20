@@ -1,23 +1,34 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, Heart, X } from "lucide-react";
+import { CalendarClock, Clock3, Heart, X } from "lucide-react";
 
-type Theme = {
-  primary: string;
-  accent: string;
-  primaryLight?: string;
-  accentLight?: string;
-  primaryDark?: string;
-};
+import ServiceModal from "./ServiceModal";
+import type { AddOn, Service, Theme } from "@/components/public/PublicBookingPageClient";
+
+interface AddToSummaryPayload {
+  service: Service;
+  selectedRefs: string[];
+  isMobile: boolean;
+  selectedAddOns?: AddOn[];
+  selectedSessions?: { sessions: number; price: number; durationMinutes?: number }[];
+  selectedAreas?: { area: string; min?: number; max?: number; price?: number }[];
+  selectedTier?: { label: string; min?: number; max?: number; price?: number } | null;
+  price?: number;
+  durationMinutes?: number;
+  depositAmount?: number;
+}
 
 type PortfolioEntry = {
   _id: string;
+  linkedServiceIds?: string[];
   images?: Array<{
+    _id?: string;
     url?: string;
     description?: string;
-    dateDone?: string;
     totalCost?: number;
+    durationMinutes?: number;
+    priceBreakdown?: string;
     likes?: number;
   }>;
 };
@@ -25,63 +36,95 @@ type PortfolioEntry = {
 type PortfolioCard = {
   id: string;
   refId: string;
+  linkedServiceIds: string[];
   imageIndex: number;
+  imageId?: string;
   imageUrl: string;
+  gallery: string[];
   description: string;
-  dateDone?: string;
   totalCost: number;
+  durationMinutes: number;
+  priceBreakdown: string;
   likes: number;
 };
 
-function parseDateMs(value?: string) {
-  if (!value) return 0;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function formatDate(dateDone?: string) {
-  const ms = parseDateMs(dateDone);
-  if (!ms) return "Recent work";
-  return new Date(ms).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+function formatDurationMinutes(value?: number) {
+  const minutes = Number(value || 0);
+  if (!minutes) return "Duration on request";
+  if (minutes < 60) return `${minutes} mins`;
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours} hour${hours === 1 ? "" : "s"}` : `${hours.toFixed(1)} hrs`;
 }
 
 export default function PortfolioShowcase({
   referenceImages,
+  services,
   theme,
+  username,
+  onAddToSummary,
 }: {
   referenceImages: PortfolioEntry[];
+  services: Service[];
   theme: Theme;
+  username: string;
+  onAddToSummary: (data: AddToSummaryPayload) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [previewImage, setPreviewImage] = useState<PortfolioCard | null>(null);
+  const [bookStyle, setBookStyle] = useState<Service | null>(null);
 
   const cards = useMemo<PortfolioCard[]>(() => {
-    const flat = referenceImages.flatMap((entry) =>
-      (entry.images || [])
+    return referenceImages.flatMap((entry) => {
+      const gallery = (entry.images || [])
+        .map((img) => String(img.url || "").trim())
+        .filter(Boolean);
+
+      return (entry.images || [])
         .filter((img) => typeof img.url === "string" && img.url.trim())
         .map((img, index) => ({
           id: `${entry._id}-${index}`,
           refId: entry._id,
+          linkedServiceIds: (entry.linkedServiceIds || []).map((id) => String(id)),
           imageIndex: index,
+          imageId: img._id,
           imageUrl: String(img.url),
+          gallery,
           description: String(img.description || "").trim(),
-          dateDone: img.dateDone,
           totalCost: Number(img.totalCost || 0),
+          durationMinutes: Number(img.durationMinutes || 0),
+          priceBreakdown: String(img.priceBreakdown || "").trim(),
           likes: Number(img.likes || 0),
-        }))
-    );
-    return flat.sort((a, b) => parseDateMs(b.dateDone) - parseDateMs(a.dateDone));
+        }));
+    });
   }, [referenceImages]);
 
   if (!cards.length) return null;
 
   const titleText = theme?.primaryDark || theme?.primary || "#111827";
+
+  const openBookStyle = (card: PortfolioCard) => {
+    const linkedService = services.find((service) => card.linkedServiceIds.includes(service._id));
+    if (!linkedService) return;
+
+    setBookStyle({
+      ...linkedService,
+      name: linkedService.name,
+      gallery: card.gallery.length ? card.gallery : [card.imageUrl],
+      basePrice: card.totalCost > 0 ? card.totalCost : linkedService.basePrice,
+      durationMinutes: card.durationMinutes > 0 ? card.durationMinutes : linkedService.durationMinutes,
+      description: card.description || linkedService.description,
+      priceBreakdown: card.priceBreakdown,
+      portfolioBooking: {
+        refId: card.refId,
+        imageId: card.imageId,
+        imageIndex: card.imageIndex,
+        exactStyle: true,
+      },
+      username,
+    });
+  };
 
   return (
     <section className="space-y-4">
@@ -90,7 +133,7 @@ export default function PortfolioShowcase({
           Look At Our Previous Work
         </h2>
         <p className="text-sm opacity-80" style={{ color: titleText }}>
-          Browse our portfolio by scrolling sideways.
+          Browse our portfolio and book the exact style you want.
         </p>
       </div>
 
@@ -102,10 +145,12 @@ export default function PortfolioShowcase({
             const count = likeCounts[card.id] ?? card.likes;
             const shouldTruncate = card.description.length > 110;
             const shortText = shouldTruncate ? `${card.description.slice(0, 110)}...` : card.description;
+            const hasLinkedService = services.some((service) => card.linkedServiceIds.includes(service._id));
+
             return (
               <article
                 key={card.id}
-                className="group relative overflow-hidden rounded-2xl border shadow-lg w-[270px] h-[360px] shrink-0"
+                className="group relative overflow-hidden rounded-2xl border shadow-lg w-[290px] h-[430px] shrink-0"
                 style={{
                   borderColor: `${theme.primary}33`,
                   background: `linear-gradient(180deg, ${theme.primaryLight || "#f3f4f6"} 0%, ${theme.accentLight || "#e5e7eb"} 100%)`,
@@ -169,14 +214,20 @@ export default function PortfolioShowcase({
                   {count} {count === 1 ? "like" : "likes"}
                 </div>
 
-                <div className="absolute inset-x-0 bottom-0 z-20 p-3 bg-gradient-to-t from-black/80 via-black/60 to-transparent text-white">
-                  <div className="flex items-center gap-1 text-xs opacity-90 mb-1">
-                    <CalendarClock size={13} />
-                    <span>{formatDate(card.dateDone)}</span>
+                <div className="absolute inset-x-0 bottom-0 z-20 p-3 bg-gradient-to-t from-black/85 via-black/65 to-transparent text-white">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1 text-xs opacity-90">
+                      <Clock3 size={13} />
+                      <span>{formatDurationMinutes(card.durationMinutes)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs opacity-90">
+                      <CalendarClock size={13} />
+                      <span>KES {card.totalCost.toLocaleString()}</span>
+                    </div>
                   </div>
-                  <p className="text-xs font-semibold mb-1">Total Cost: KES {card.totalCost.toLocaleString()}</p>
+
                   <p className="text-sm leading-snug">{isExpanded ? card.description || "Portfolio work showcase." : shortText || "Portfolio work showcase."}</p>
-                  {shouldTruncate && (
+                  {shouldTruncate ? (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -188,7 +239,26 @@ export default function PortfolioShowcase({
                     >
                       {isExpanded ? "See less" : "See more details"}
                     </button>
-                  )}
+                  ) : null}
+
+                  {card.priceBreakdown ? (
+                    <p className="mt-2 whitespace-pre-line text-[11px] leading-5 text-white/85">
+                      {card.priceBreakdown}
+                    </p>
+                  ) : null}
+
+                  {hasLinkedService ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openBookStyle(card);
+                      }}
+                      className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                    >
+                      Book This Style
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
@@ -196,7 +266,7 @@ export default function PortfolioShowcase({
         </div>
       </div>
 
-      {previewImage && (
+      {previewImage ? (
         <div
           className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setPreviewImage(null)}
@@ -216,7 +286,20 @@ export default function PortfolioShowcase({
             <img src={previewImage.imageUrl} alt="Portfolio full view" className="w-full max-h-[80vh] object-contain bg-black" />
           </div>
         </div>
-      )}
+      ) : null}
+
+      {bookStyle ? (
+        <ServiceModal
+          service={bookStyle}
+          theme={theme}
+          onClose={() => setBookStyle(null)}
+          onAddToSummary={(data) => {
+            onAddToSummary(data);
+            setBookStyle(null);
+          }}
+          username={username}
+        />
+      ) : null}
     </section>
   );
 }

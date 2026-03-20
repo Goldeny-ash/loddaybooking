@@ -21,6 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const business = await getCurrentBusiness({ requireSetup: true });
   if (!business) return null;
+  const businessPlain = JSON.parse(JSON.stringify(business));
 
   const [bookingsRaw, staffRaw, servicesRaw] = await Promise.all([
     Booking.find({ businessId: business._id })
@@ -99,17 +100,17 @@ if (typeof svc.serviceId === "string") {
   }));
 
   const theme = {
-    primaryColor: business.theme?.primaryColor || "#1f2937",
-    secondaryColor: business.theme?.secondaryColor || "#374151",
-    accentColor: business.theme?.accentColor || "#3b82f6",
-    brandBgSoft: business.theme?.brandBgSoft || "#f9fafb",
+    primaryColor: businessPlain.theme?.primaryColor || "#1f2937",
+    secondaryColor: businessPlain.theme?.secondaryColor || "#374151",
+    accentColor: businessPlain.theme?.accentColor || "#3b82f6",
+    brandBgSoft: businessPlain.theme?.brandBgSoft || "#f9fafb",
   };
 
   return (
     <div className="min-h-screen bg-white">
       <div className="flex w-full">
         <Sidebar
-          business={business}
+          business={businessPlain}
           staffList={staffList}
           services={services}
           bookings={bookings}
@@ -119,35 +120,35 @@ if (typeof svc.serviceId === "string") {
         <main className="min-w-0 flex-1">
           <div className="mx-auto w-full max-w-7xl space-y-6 px-3 py-4 pb-24 sm:px-5 sm:py-5 lg:px-8 lg:py-6 lg:space-y-8">
           <DashboardHeader
-            business={business}
+            business={businessPlain}
             rightSlot={
               <BusinessSettingsDrawe
-                initialBusiness={business}
+                initialBusiness={businessPlain}
                 staffList={staffList}
                 services={services}
               />
             }
           >
-            <DashboardAlerts business={business} bookings={bookings} />
+            <DashboardAlerts business={businessPlain} bookings={bookings} />
           </DashboardHeader>
 
-          <StatsCards businessId={business._id.toString()} />
+          <StatsCards businessId={businessPlain._id.toString()} />
 
           <PerformanceChart bookings={bookings} />
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6" id="todays-schedule">
-            <TodaysSchedule bookings={bookings} business={business} />
-            <RevenuePanel bookings={bookings} business={business} />
+            <TodaysSchedule bookings={bookings} business={businessPlain} />
+            <RevenuePanel bookings={bookings} business={businessPlain} />
           </div>
 
           <div className="space-y-6" id="upcoming-bookings">
-            <BookingLinkCard username={business.username} />
-            <UpcomingBookings initialBookings={bookings} business={business} />
+            <BookingLinkCard username={businessPlain.username} />
+            <UpcomingBookings initialBookings={bookings} business={businessPlain} />
           </div>
         </div>
         </main>
         <NewBottomSidebar
-          business={business}
+          business={businessPlain}
           staffList={staffList}
           services={services}
           bookings={bookings}

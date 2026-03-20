@@ -2,7 +2,8 @@ import { sendEmail } from "./sendEmail";
 import type { TemplateKey } from "./sendEmail";
 import { EmailEvent } from "./types";
 import { getTheme } from "@/lib/theme";
-import { buildDashboardUrl } from "@/lib/booking/utils";
+import { buildDashboardUrl, buildManageBookingUrl } from "@/lib/booking/utils";
+import { buildInvoiceAttachment } from "@/lib/email/invoice";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -34,6 +35,26 @@ export async function dispatchEmailEvent(
   const bookingObj = (booking as Record<string, unknown> | undefined) ?? {};
   const staffObj = (staff as Record<string, unknown> | undefined) ?? {};
   const theme = business ? getTheme(business) : null;
+  const derivedManageUrl =
+    typeof payload.manageUrl === "string" && payload.manageUrl.trim()
+      ? payload.manageUrl
+      : typeof businessObj.username === "string" &&
+          bookingObj._id &&
+          typeof bookingObj.manageToken === "string"
+        ? buildManageBookingUrl({
+            username: businessObj.username,
+            bookingId: String(bookingObj._id),
+            token: bookingObj.manageToken,
+          })
+        : undefined;
+  const invoiceAttachment =
+    business && booking && theme
+      ? buildInvoiceAttachment({
+          business,
+          booking,
+          theme,
+        })
+      : null;
 
 const send = async (
   template: TemplateKey,
@@ -91,7 +112,7 @@ const send = async (
       if (typeof customerTo === "string" && customerTo.trim()) {
         await send("BOOKING_RECEIVED_CUSTOMER",
           { to: customerTo },
-          { booking, manageUrl: payload.manageUrl }
+          { booking, manageUrl: derivedManageUrl }
         );
       }
 
@@ -108,12 +129,15 @@ const send = async (
       if ((Number(bookingObj.depositAmount) || 0) > 0) {
         await send("DEPOSIT_PAYMENT_REQUEST",
           { to: bookingObj.customerEmail },
-          { booking, manageUrl: payload.manageUrl }
+          { booking, manageUrl: derivedManageUrl }
         );
       } else {
-        await send("BOOKING_CONFIRMED_WITH_DEPOSIT",
-          { to: bookingObj.customerEmail },
-          { booking, manageUrl: payload.manageUrl }
+        await send("BOOKING_CONFIRMED_NO_DEPOSIT",
+          {
+            to: bookingObj.customerEmail,
+            attachments: invoiceAttachment ? [invoiceAttachment] : undefined,
+          },
+          { booking, manageUrl: derivedManageUrl }
         );
       }
       break;
@@ -121,21 +145,38 @@ const send = async (
     case "BOOKING_REJECTED":
       await send("BOOKING_REJECTED",
         { to: bookingObj.customerEmail },
-        { booking, rescheduleUrl: payload.rescheduleUrl }
+        {
+          booking,
+          rescheduleUrl: payload.rescheduleUrl || derivedManageUrl,
+          manageUrl: derivedManageUrl,
+        }
+      );
+      break;
+
+    case "BOOKING_CONFIRMATION_CONFIRMED":
+      await send((Number(bookingObj.depositAmount) || 0) > 0 ? "BOOKING_CONFIRMED_WITH_DEPOSIT" : "BOOKING_CONFIRMED_NO_DEPOSIT",
+        {
+          to: bookingObj.customerEmail,
+          attachments: invoiceAttachment ? [invoiceAttachment] : undefined,
+        },
+        { booking, manageUrl: derivedManageUrl }
       );
       break;
 
     case "BOOKING_RESCHEDULED":
       await send("BOOKING_RESCHEDULED",
         { to: bookingObj.customerEmail },
-        { booking }
+        { booking, manageUrl: derivedManageUrl }
       );
       break;
 
     case "DEPOSIT_PAID":
       await send("BOOKING_CONFIRMED_WITH_DEPOSIT",
-        { to: bookingObj.customerEmail },
-        { booking, manageUrl: payload.manageUrl }
+        {
+          to: bookingObj.customerEmail,
+          attachments: invoiceAttachment ? [invoiceAttachment] : undefined,
+        },
+        { booking, manageUrl: derivedManageUrl }
       );
 
       await send("DEPOSIT_RECEIVED",
@@ -147,28 +188,21 @@ const send = async (
     case "MARK_COMPLETE_REMINDER":
       await send("MARK_BOOKING_COMPLETE_REMINDER",
         { to: bookingObj.customerEmail },
-        { booking, completeUrl: payload.completeUrl }
+        { booking, completeUrl: payload.completeUrl, manageUrl: derivedManageUrl }
       );
       break;
 
     case "POST_APPOINTMENT_THANK_YOU":
       await send("POST_APPOINTMENT_THANK_YOU",
         { to: bookingObj.customerEmail },
-        { reviewUrl: payload.reviewUrl, rebookUrl: payload.rebookUrl }
+        { reviewUrl: payload.reviewUrl, rebookUrl: payload.rebookUrl, booking, manageUrl: derivedManageUrl }
       );
       break;
 
     case "NO_SHOW":
       await send("NO_SHOW_NOTICE",
         { to: bookingObj.customerEmail },
-        {}
-      );
-      break;
-
-    case "SLOT_RELEASED":
-      await send("SLOT_RELEASED_NOTICE",
-        { to: bookingObj.customerEmail },
-        {}
+        { booking, manageUrl: derivedManageUrl }
       );
       break;
 
@@ -179,36 +213,48 @@ const send = async (
     case "REMINDER_24H":
       await send("APPOINTMENT_REMINDER_24H",
         { to: bookingObj.customerEmail },
-        { booking }
+        { booking, manageUrl: derivedManageUrl }
       );
       break;
 
-    case "REMINDER_1H":
+    case "CONFIRMATION_REQUEST_1H":
       await send("APPOINTMENT_REMINDER_1H",
         { to: bookingObj.customerEmail },
-        { booking }
+        { booking, confirmUrl: payload.confirmUrl, cancelUrl: payload.cancelUrl, manageUrl: derivedManageUrl }
       );
       break;
 
-    case "REMINDER_30M":
+    case "CONFIRMATION_WARNING_30M":
       await send("APPOINTMENT_REMINDER_30M",
         { to: bookingObj.customerEmail },
-        { booking }
+        { booking, confirmUrl: payload.confirmUrl, cancelUrl: payload.cancelUrl, manageUrl: derivedManageUrl }
       );
       break;
 
-    case "CHECKIN_WARNING_10M":
-      await send("CHECKIN_WARNING_10M",
-        { to: bookingObj.customerEmail },
-        { booking, checkInUrl: payload.checkInUrl }
-      );
-      break;
-
-    case "BUSINESS_10M_ALERT":
-      await send("BUSINESS_10_MIN_ALERT",
+    case "BUSINESS_CONFIRMATION_45M_ALERT":
+      await send("BOOKING_CONFIRMATION_BUSINESS_ALERT_45M",
         { to: businessObj.email },
         { booking }
       );
+      if (staffObj.email) {
+        await send("BOOKING_CONFIRMATION_BUSINESS_ALERT_45M",
+          { to: staffObj.email },
+          { booking }
+        );
+      }
+      break;
+
+    case "BUSINESS_CONFIRMATION_30M_ALERT":
+      await send("BOOKING_CONFIRMATION_BUSINESS_ALERT_30M",
+        { to: businessObj.email },
+        { booking }
+      );
+      if (staffObj.email) {
+        await send("BOOKING_CONFIRMATION_BUSINESS_ALERT_30M",
+          { to: staffObj.email },
+          { booking }
+        );
+      }
       break;
 
     case "DAILY_SUMMARY":

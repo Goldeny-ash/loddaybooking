@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { X, CalendarDays, Clock3, StickyNote, User } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import { formatDuration } from "@/lib/utils/formatDuration";
@@ -17,11 +17,15 @@ export default function BookingDetailsModal({
   booking,
   business,
   onClose,
+  onBookingUpdated,
 }: {
   booking: DashboardBooking | null;
   business: unknown;
   onClose: () => void;
+  onBookingUpdated?: (booking: DashboardBooking) => void;
 }) {
+  const [actionLoading, setActionLoading] = useState<"" | "confirm" | "cancel">("");
+
   if (!booking) return null;
 
   const theme = getTheme(business);
@@ -31,6 +35,29 @@ export default function BookingDetailsModal({
     typeof booking.grandTotal === "number"
       ? booking.grandTotal
       : getBookingTotal(booking);
+
+  const handleCallAction = async (action: "confirm" | "cancel") => {
+    try {
+      setActionLoading(action);
+      const response = await fetch(`/api/bookings/${booking._id}/${action}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "dashboard_call" }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to update booking.");
+      }
+
+      onBookingUpdated?.(payload.booking);
+      onClose();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to update booking.");
+    } finally {
+      setActionLoading("");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm p-4 md:p-8">
@@ -74,6 +101,53 @@ export default function BookingDetailsModal({
             />
             <InfoTile icon={<User size={14} />} label="Status" value={booking.status || "-"} />
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <InfoTile
+              icon={<User size={14} />}
+              label="Confirmation"
+              value={booking.confirmationStatus || "pending"}
+            />
+            <InfoTile
+              icon={<Clock3 size={14} />}
+              label="Confirmed At"
+              value={booking.confirmedAt ? new Date(booking.confirmedAt).toLocaleString() : "-"}
+            />
+            <InfoTile
+              icon={<Clock3 size={14} />}
+              label="Cancelled At"
+              value={booking.cancelledAt ? new Date(booking.cancelledAt).toLocaleString() : "-"}
+            />
+          </div>
+
+          <section className="rounded-2xl border p-4 bg-white" style={{ borderColor: theme.primaryLight }}>
+            <h4 className="text-sm font-semibold mb-3" style={{ color: theme.primaryDark }}>
+              Phone Confirmation
+            </h4>
+            <p className="text-sm mb-4" style={{ color: theme.accentDark }}>
+              If the customer confirms or cancels by phone, update it here.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => handleCallAction("confirm")}
+                disabled={actionLoading !== ""}
+                className="rounded-full px-4 py-2 text-sm font-semibold text-white"
+                style={{ backgroundColor: theme.primary }}
+              >
+                {actionLoading === "confirm" ? "Confirming..." : "Confirm by Call"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCallAction("cancel")}
+                disabled={actionLoading !== ""}
+                className="rounded-full border px-4 py-2 text-sm font-semibold"
+                style={{ borderColor: theme.primaryLight, color: theme.primaryDark }}
+              >
+                {actionLoading === "cancel" ? "Cancelling..." : "Cancel by Call"}
+              </button>
+            </div>
+          </section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <InfoTile

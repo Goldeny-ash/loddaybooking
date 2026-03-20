@@ -49,19 +49,10 @@ export default function ThemedPopup({
           className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-4 py-6 sm:items-center sm:px-6"
         >
           <div
-            className="my-auto w-full max-w-md rounded-3xl px-5 py-5 text-center shadow-2xl sm:px-8 sm:py-6"
-            style={{
-              background:
-                mode === "confirm"
-                  ? "#ffffff"
-                  : variant === "error"
-                    ? "var(--brand-accent-dark)"
-                    : "var(--brand-primary)",
-              color: mode === "confirm" ? "#000000" : "#ffffff",
-            }}
+            className="my-auto w-full max-w-md rounded-3xl border border-gray-200 bg-white px-5 py-5 text-center text-black shadow-2xl sm:px-8 sm:py-6"
           >
-            {title ? <h3 className="mb-2 text-xl font-semibold">{title}</h3> : null}
-            <p className="text-base">{message}</p>
+            {title ? <h3 className="mb-2 text-xl font-semibold text-black">{title}</h3> : null}
+            <p className="text-base text-black">{message}</p>
             {mode === "confirm" ? (
               <div className="mt-5 flex justify-center gap-3">
                 <Button
@@ -75,7 +66,7 @@ export default function ThemedPopup({
                 <Button
                   type="button"
                   onClick={onConfirm}
-                  className="bg-white text-black hover:bg-white/90"
+                  className={variant === "error" ? "bg-[#111827] text-white hover:bg-black" : "bg-[#15616D] text-white hover:bg-[#0f4f59]"}
                 >
                   {confirmText}
                 </Button>

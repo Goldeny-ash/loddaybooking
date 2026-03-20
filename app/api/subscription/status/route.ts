@@ -29,13 +29,15 @@ type SubscriptionDoc = {
 
 type BusinessDoc = {
   _id: Types.ObjectId;
+  referredBy?: Types.ObjectId;
+  save: () => Promise<unknown>;
 };
 
 async function creditAffiliateIfEligible(subscription: SubscriptionDoc, business: BusinessDoc) {
   if (!subscription.affiliateId || !subscription.affiliateCode) return;
 
   const affiliate = await Affiliate.findById(subscription.affiliateId);
-  if (!affiliate) return;
+  if (!affiliate || affiliate.status !== "APPROVED") return;
 
   let referralUse = await AffiliateReferralUse.findOne({
     affiliateId: affiliate._id,
@@ -49,7 +51,6 @@ async function creditAffiliateIfEligible(subscription: SubscriptionDoc, business
       businessId: business._id,
       referralCode: subscription.affiliateCode,
       usedAt: new Date(),
-      expiresAt: affiliate.codeExpiresAt,
       firstSubscriptionCommissionPaid: false,
       renewalCount: 0,
     });
@@ -64,10 +65,12 @@ async function creditAffiliateIfEligible(subscription: SubscriptionDoc, business
     commissionAmount = FIRST_COMMISSION;
     commissionType = "FIRST";
     referralUse.firstSubscriptionCommissionPaid = true;
-  } else {
+  } else if ((referralUse.renewalCount || 0) < 1) {
     commissionAmount = RENEWAL_COMMISSION;
     commissionType = "RENEWAL";
     referralUse.renewalCount = (referralUse.renewalCount || 0) + 1;
+  } else {
+    return;
   }
 
   if (!commissionType) return;
@@ -84,9 +87,11 @@ async function creditAffiliateIfEligible(subscription: SubscriptionDoc, business
 
   affiliate.totalEarned = (affiliate.totalEarned || 0) + commissionAmount;
   affiliate.availableBalance = (affiliate.availableBalance || 0) + commissionAmount;
+  affiliate.lastSuccessfulReferralAt = new Date();
+  business.referredBy = affiliate._id;
   subscription.affiliateCommissionAmount = commissionAmount;
 
-  await Promise.all([affiliate.save(), referralUse.save()]);
+  await Promise.all([affiliate.save(), referralUse.save(), business.save()]);
 }
 
 export async function GET() {

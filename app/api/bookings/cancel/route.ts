@@ -53,6 +53,8 @@ export async function POST(req: Request) {
 
   // Now cancel booking
   booking.status = "cancelled";
+  booking.confirmationStatus = "not_confirmed";
+  booking.cancelledAt = new Date();
   await booking.save();
 
   return NextResponse.json({ ok: true });

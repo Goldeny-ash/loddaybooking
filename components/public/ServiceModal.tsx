@@ -111,8 +111,16 @@ export default function ServiceModal({
   const [selectedTier, setSelectedTier] = useState<number | null>(() =>
     getCheapestTierIndex(service.priceTiers)
   );
+  const isPortfolioBooking = Boolean(service.portfolioBooking);
+  const lockedReferenceId = service.portfolioBooking?.imageId;
 
   useEffect(() => {
+    if (isPortfolioBooking) {
+      setReferenceImages([]);
+      setSelectedRefs(lockedReferenceId ? [lockedReferenceId] : []);
+      return;
+    }
+
     async function fetchRefs() {
       try {
         const res = await axios.get<{ linkedImages: ReferenceImage[] }>(
@@ -124,7 +132,7 @@ export default function ServiceModal({
       }
     }
     fetchRefs();
-  }, [service._id]);
+  }, [isPortfolioBooking, lockedReferenceId, service._id]);
 
   const addOns = service.addOns ?? [];
   const sessionPackages = service.sessionPackages ?? [];
@@ -164,11 +172,13 @@ export default function ServiceModal({
       base = selectedTierObject?.price as number;
     }
 
-    base += selectedAddOnObjects.reduce((sum, a) => sum + (a.price || 0), 0);
-    base += selectedSessionObjects.reduce((sum, s) => sum + (s.price || 0), 0);
-    base += selectedAreaObjects.reduce((sum, a) => sum + (a.price || a.min || 0), 0);
-    if (service.isBundle && bundleItemsWithPrice.length) {
-      base += bundleItemsWithPrice.reduce((sum, b) => sum + (b.price || 0), 0);
+    if (!isPortfolioBooking) {
+      base += selectedAddOnObjects.reduce((sum, a) => sum + (a.price || 0), 0);
+      base += selectedSessionObjects.reduce((sum, s) => sum + (s.price || 0), 0);
+      base += selectedAreaObjects.reduce((sum, a) => sum + (a.price || a.min || 0), 0);
+      if (service.isBundle && bundleItemsWithPrice.length) {
+        base += bundleItemsWithPrice.reduce((sum, b) => sum + (b.price || 0), 0);
+      }
     }
 
     let depositAmount: number | undefined;
@@ -204,12 +214,16 @@ export default function ServiceModal({
     selectedAddOnObjects,
     selectedSessionObjects,
     selectedAreaObjects,
+    isPortfolioBooking,
   ]);
 
   const handleAdd = () => {
+    const effectiveSelectedRefs =
+      selectedRefs.length > 0 ? selectedRefs : lockedReferenceId ? [lockedReferenceId] : [];
+
     onAddToSummary({
       service,
-      selectedRefs,
+      selectedRefs: effectiveSelectedRefs,
       isMobile,
       selectedAddOns: selectedAddOnObjects,
       selectedSessions: selectedSessionObjects,
@@ -225,8 +239,9 @@ export default function ServiceModal({
     () => [
       {
         ...service,
-        selectedReferenceImages: selectedRefs,
-        selectedRefs,
+        selectedReferenceImages:
+          selectedRefs.length > 0 ? selectedRefs : lockedReferenceId ? [lockedReferenceId] : [],
+        selectedRefs: selectedRefs.length > 0 ? selectedRefs : lockedReferenceId ? [lockedReferenceId] : [],
         isMobile,
         selectedAddOns: selectedAddOnObjects,
         selectedSessions: selectedSessionObjects,
@@ -244,11 +259,12 @@ export default function ServiceModal({
       priceOnRequest,
       selectedAddOnObjects,
       selectedAreaObjects,
-      selectedRefs,
       selectedSessionObjects,
       selectedTierObject,
       service,
       totalDuration,
+      lockedReferenceId,
+      selectedRefs,
     ]
   );
 
@@ -309,7 +325,7 @@ export default function ServiceModal({
                 </div>
               )}
 
-              {referenceImages.length > 0 ? (
+              {!isPortfolioBooking && referenceImages.length > 0 ? (
                 <div>
                   <h4 className="mb-2 font-semibold text-slate-900">
                     Select reference photos
@@ -350,7 +366,7 @@ export default function ServiceModal({
                 </div>
               ) : null}
 
-              {addOns.length > 0 ? (
+              {!isPortfolioBooking && addOns.length > 0 ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold text-slate-900">Optional Add-Ons</h4>
                   <div className="flex flex-col gap-2">
@@ -393,7 +409,7 @@ export default function ServiceModal({
                 </div>
               ) : null}
 
-              {sessionPackages.length > 0 ? (
+              {!isPortfolioBooking && sessionPackages.length > 0 ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold text-slate-900">Session Packages</h4>
                   <div className="space-y-2">
@@ -429,7 +445,7 @@ export default function ServiceModal({
                 </div>
               ) : null}
 
-              {areaPricing.length > 0 ? (
+              {!isPortfolioBooking && areaPricing.length > 0 ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold text-slate-900">Area Pricing</h4>
                   <div className="space-y-2">
@@ -467,7 +483,7 @@ export default function ServiceModal({
                 </div>
               ) : null}
 
-              {priceTiers.length > 0 ? (
+              {!isPortfolioBooking && priceTiers.length > 0 ? (
                 <div>
                   <h4 className="mb-2 text-sm font-semibold text-slate-900">Select Price Tier</h4>
                   <div className="space-y-2">
@@ -524,6 +540,15 @@ export default function ServiceModal({
                   <p className="mt-4 text-sm text-slate-600">{service.description}</p>
                 ) : null}
 
+                {isPortfolioBooking ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-[#f8f4ee] p-4">
+                    <p className="text-sm font-semibold text-slate-900">This is the exact style you will get</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Booking from the portfolio keeps the saved style price and time commitment for this look.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="mt-4">
                   <p className="text-3xl font-extrabold text-slate-900">
                     {priceOnRequest
@@ -542,6 +567,15 @@ export default function ServiceModal({
                       />
                       Service at customer&apos;s location
                     </label>
+                  </div>
+                ) : null}
+
+                {service.priceBreakdown ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <h4 className="text-sm font-semibold text-slate-900">Price Breakdown</h4>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
+                      {service.priceBreakdown}
+                    </p>
                   </div>
                 ) : null}
               </div>
