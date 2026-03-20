@@ -4,12 +4,25 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import FloatingShape from "@/components/FloatingShape";
 import Image from "next/image";
+import {
+  CalendarCheck2,
+  LayoutDashboard,
+  MapPinned,
+  ShieldCheck,
+} from "lucide-react";
+
+const iconMap = {
+  calendar: CalendarCheck2,
+  dashboard: LayoutDashboard,
+  location: MapPinned,
+  shield: ShieldCheck,
+} as const;
 
 export interface Feature {
   title: string;
   subtitle: string;
   benefits: string[];
-  Icon?: React.FC<{ size?: number; color?: string }>;
+  iconName?: keyof typeof iconMap;
   bgColor: string;
   textColor?: string;
   imageSrc?: string;
@@ -31,6 +44,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
   }, [features.length]);
 
   const activeFeature = features[activeTab];
+  const ActiveIcon = activeFeature.iconName ? iconMap[activeFeature.iconName] : undefined;
 
   return (
     <section id={id} className="relative py-24 overflow-x-hidden bg-[#FFF4E1]">
@@ -55,7 +69,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
               color: activeFeature.textColor || "#FFF",
             }}
           >
-            {activeFeature.Icon && (
+            {ActiveIcon && (
               <div
                 className="inline-flex p-3 rounded-full mb-4"
                 style={{
@@ -64,7 +78,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
                     : "#FFFFFF20",
                 }}
               >
-                <activeFeature.Icon
+                <ActiveIcon
                   size={32}
                   color={activeFeature.textColor || "#FFF"}
                 />
@@ -148,7 +162,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
             {/* Content */}
             <div className="flex flex-col md:flex-row items-center gap-8 p-10 relative z-10">
               {/* Icon */}
-              {activeFeature.Icon && (
+              {ActiveIcon && (
                 <motion.div
                   className="flex-shrink-0 flex justify-center md:justify-start"
                   whileHover={{ y: -6 }}
@@ -162,7 +176,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
                         : "#FFFFFF20",
                     }}
                   >
-                    <activeFeature.Icon
+                    <ActiveIcon
                       size={48}
                       color={activeFeature.textColor || "#FFF"}
                     />

@@ -1,12 +1,18 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+const MARKETPLACE_HOSTS = new Set([
+  "lodday.com",
+  "www.lodday.com",
+  "marketplace.lodday.com",
+]);
+
 function normalizeHost(value: string) {
   return value.replace(/:\d+$/, "").toLowerCase();
 }
 
 function getInternalPathname(hostname: string, pathname: string) {
-  if (hostname === "lodday.com") {
+  if (MARKETPLACE_HOSTS.has(hostname)) {
     return pathname === "/" ? "/marketplace" : `/marketplace${pathname}`;
   }
 
