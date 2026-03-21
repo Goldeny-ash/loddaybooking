@@ -1,10 +1,43 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
-import { getSiteUrl } from "@/lib/seo";
+import { getCanonicalSiteUrl } from "@/lib/seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = getSiteUrl();
+  const headerStore = await headers();
+  const hostHeader =
+    headerStore.get("x-forwarded-host") ||
+    headerStore.get("host") ||
+    "booking.lodday.com";
+  const hostname = hostHeader.split(",")[0].trim().replace(/:\d+$/, "").toLowerCase();
+  const siteUrl = getCanonicalSiteUrl(hostname);
+
+  if (
+    hostname === "lodday.com" ||
+    hostname === "www.lodday.com" ||
+    hostname === "marketplace.lodday.com"
+  ) {
+    return [
+      {
+        url: "https://lodday.com",
+        lastModified: new Date(),
+        changeFrequency: "daily",
+        priority: 1,
+      },
+    ];
+  }
+
+  if (hostname === "affiliates.lodday.com") {
+    return [
+      {
+        url: "https://affiliates.lodday.com",
+        lastModified: new Date(),
+        changeFrequency: "weekly",
+        priority: 0.8,
+      },
+    ];
+  }
 
   await connectDB();
 
@@ -21,12 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
-    },
-    {
-      url: new URL("/affiliates", siteUrl).toString(),
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
     },
   ];
 

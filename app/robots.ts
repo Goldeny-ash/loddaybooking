@@ -1,8 +1,16 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl } from "@/lib/seo";
+import { headers } from "next/headers";
+import { getCanonicalSiteUrl } from "@/lib/seo";
 
-export default function robots(): MetadataRoute.Robots {
-  const siteUrl = getSiteUrl();
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const headerStore = await headers();
+  const hostHeader =
+    headerStore.get("x-forwarded-host") ||
+    headerStore.get("host") ||
+    "booking.lodday.com";
+  const hostname = hostHeader.split(",")[0].trim().replace(/:\d+$/, "").toLowerCase();
+  const siteUrl = getCanonicalSiteUrl(hostname);
+  const root = siteUrl.toString().replace(/\/$/, "");
 
   return {
     rules: [
@@ -21,7 +29,7 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: `${siteUrl.toString().replace(/\/$/, "")}/sitemap.xml`,
+    sitemap: `${root}/sitemap.xml`,
     host: siteUrl.host,
   };
 }

@@ -32,6 +32,8 @@ export interface SeoBusinessLike {
 }
 
 const DEFAULT_SITE_URL = "https://booking.lodday.com";
+const DEFAULT_MARKETPLACE_URL = "https://lodday.com";
+const DEFAULT_AFFILIATES_URL = "https://affiliates.lodday.com";
 
 function trimText(value?: string | null) {
   return value?.replace(/\s+/g, " ").trim() || "";
@@ -60,6 +62,24 @@ export function getSiteUrl() {
   } catch {
     return new URL(DEFAULT_SITE_URL);
   }
+}
+
+export function getCanonicalSiteUrl(hostname?: string | null) {
+  const normalizedHost = trimText(hostname).toLowerCase();
+
+  if (
+    normalizedHost === "lodday.com" ||
+    normalizedHost === "www.lodday.com" ||
+    normalizedHost === "marketplace.lodday.com"
+  ) {
+    return new URL(DEFAULT_MARKETPLACE_URL);
+  }
+
+  if (normalizedHost === "affiliates.lodday.com") {
+    return new URL(DEFAULT_AFFILIATES_URL);
+  }
+
+  return getSiteUrl();
 }
 
 export function getBusinessUrl(username: string) {

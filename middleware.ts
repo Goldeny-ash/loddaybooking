@@ -6,21 +6,46 @@ const MARKETPLACE_HOSTS = new Set([
   "www.lodday.com",
   "marketplace.lodday.com",
 ]);
+const AFFILIATE_HOSTS = new Set(["affiliates.lodday.com"]);
+const BOOKING_HOSTS = new Set(["booking.lodday.com"]);
+const ADMIN_HOSTS = new Set(["admin.lodday.com"]);
+
+function isKnownLoddayHost(hostname: string) {
+  return (
+    MARKETPLACE_HOSTS.has(hostname) ||
+    AFFILIATE_HOSTS.has(hostname) ||
+    BOOKING_HOSTS.has(hostname) ||
+    ADMIN_HOSTS.has(hostname)
+  );
+}
 
 function normalizeHost(value: string) {
-  return value.replace(/:\d+$/, "").toLowerCase();
+  return value
+    .split(",")[0]
+    .trim()
+    .replace(/:\d+$/, "")
+    .toLowerCase();
 }
 
 function getInternalPathname(hostname: string, pathname: string) {
+  const isMarketplacePath =
+    pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+  const isAffiliatePath =
+    pathname === "/affiliates" || pathname.startsWith("/affiliates/");
+
+  if (isMarketplacePath || isAffiliatePath) {
+    return pathname;
+  }
+
   if (MARKETPLACE_HOSTS.has(hostname)) {
     return pathname === "/" ? "/marketplace" : `/marketplace${pathname}`;
   }
 
-  if (hostname === "affiliates.lodday.com") {
+  if (AFFILIATE_HOSTS.has(hostname)) {
     return pathname === "/" ? "/affiliates" : `/affiliates${pathname}`;
   }
 
-  if (hostname === "admin.lodday.com" && pathname === "/") {
+  if (ADMIN_HOSTS.has(hostname) && pathname === "/") {
     return "/dashboard";
   }
 
@@ -36,11 +61,19 @@ function getCanonicalHost(internalPathname: string, hostname: string) {
     return "lodday.com";
   }
 
-  if (hostname === "admin.lodday.com") {
+  if (ADMIN_HOSTS.has(hostname)) {
     return "admin.lodday.com";
   }
 
-  return "booking.lodday.com";
+  if (BOOKING_HOSTS.has(hostname)) {
+    return "booking.lodday.com";
+  }
+
+  if (isKnownLoddayHost(hostname)) {
+    return hostname;
+  }
+
+  return hostname;
 }
 
 function getPublicPathname(internalPathname: string, canonicalHost: string) {
@@ -76,9 +109,9 @@ export default clerkMiddleware(async (auth, req) => {
   if (
     hostname &&
     hostname !== canonicalHost &&
-    hostname.endsWith("lodday.com")
+    isKnownLoddayHost(hostname)
   ) {
-    url.hostname = canonicalHost;
+    url.host = canonicalHost;
     url.pathname = getPublicPathname(internalPathname, canonicalHost);
     return NextResponse.redirect(url);
   }
