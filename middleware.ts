@@ -89,7 +89,13 @@ export default clerkMiddleware(async (auth, req) => {
   const pathname = req.nextUrl.pathname;
   const hostHeader = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const hostname = normalizeHost(hostHeader);
-
+ if (
+    hostname === "admin.lodday.com" &&
+    pathname.startsWith("/admin/")
+  ) {
+    url.pathname = pathname.replace(/^\/admin/, "") || "/";
+    return NextResponse.redirect(url);
+  }
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
@@ -97,7 +103,10 @@ export default clerkMiddleware(async (auth, req) => {
   ) {
     return NextResponse.next();
   }
-
+// ✅ ADD THIS BLOCK
+if (pathname.startsWith("/api")) {
+  return NextResponse.next();
+}
   const internalPathname = getInternalPathname(hostname, pathname);
   const canonicalHost = getCanonicalHost(internalPathname, hostname);
 
