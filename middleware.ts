@@ -45,9 +45,9 @@ function getInternalPathname(hostname: string, pathname: string) {
     return pathname === "/" ? "/affiliates" : `/affiliates${pathname}`;
   }
 
-  if (ADMIN_HOSTS.has(hostname) && pathname === "/") {
-    return "/dashboard";
-  }
+ if (ADMIN_HOSTS.has(hostname)) {
+  return pathname === "/" ? "/admin" : `/admin${pathname}`;
+}
 
   return pathname;
 }
@@ -61,9 +61,9 @@ function getCanonicalHost(internalPathname: string, hostname: string) {
     return "marketplace.lodday.com";
   }
 
-  if (ADMIN_HOSTS.has(hostname)) {
-    return "admin.lodday.com";
-  }
+ if (internalPathname === "/admin" || internalPathname.startsWith("/admin/")) {
+  return "admin.lodday.com";
+}
 
   if (BOOKING_HOSTS.has(hostname)) {
     return "booking.lodday.com";
@@ -84,7 +84,9 @@ function getPublicPathname(internalPathname: string, canonicalHost: string) {
   if (canonicalHost === "affiliates.lodday.com") {
     return internalPathname.replace(/^\/affiliates/, "") || "/";
   }
-
+if (canonicalHost === "admin.lodday.com") {
+  return internalPathname.replace(/^\/admin/, "") || "/";
+}
   return internalPathname;
 }
 
