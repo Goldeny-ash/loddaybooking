@@ -96,6 +96,15 @@ export default clerkMiddleware(async (auth, req) => {
     url.pathname = pathname.replace(/^\/admin/, "") || "/";
     return NextResponse.redirect(url);
   }
+  // ✅ CLEAN marketplace double prefix
+if (
+  hostname === "marketplace.lodday.com" &&
+  pathname.startsWith("/marketplace/")
+) {
+  const url = req.nextUrl.clone();
+  url.pathname = pathname.replace(/^\/marketplace/, "") || "/";
+  return NextResponse.redirect(url);
+}
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
