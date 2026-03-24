@@ -24,7 +24,13 @@ function stripEmpty(obj: any) {
   return obj;
 }
 
-
+function normalizeCategory(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 /**
  * Remove category blocks not matching selected category
@@ -104,13 +110,19 @@ export async function validateServicePayload(body: any) {
   }
 
   // ---------- CATEGORY BLOCK ----------
-  if (body.category === "Other") {
-    if (!body.customCategory) {
-      throw new Error("Please provide a custom category name");
-    }
-  } else {
-    delete body.customCategory;
+if (body.category === "Other") {
+  if (!body.customCategory) {
+    throw new Error("Please provide a custom category name");
   }
+
+  const normalized = normalizeCategory(body.customCategory);
+
+  body.category = normalized;
+  delete body.customCategory;
+} else if (body.category) {
+  // Normalize predefined categories too (safety)
+  body.category = normalizeCategory(body.category);
+}
 
   switch (body.category) {
     case "Hair":

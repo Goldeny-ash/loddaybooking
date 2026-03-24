@@ -81,14 +81,7 @@ interface Props {
   };
 }
 
-const CATEGORY_OPTIONS = [
-  "Hair",
-  "Nails",
-  "Body Enhancements",
-  "Permanent Makeup",
-  "Beauty Treatments",
-  "Other",
-] as const;
+
 
 export default function AddServiceForm({
   open,
@@ -111,6 +104,7 @@ export default function AddServiceForm({
   } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
   const showPopup = (
     message: string,
@@ -199,7 +193,15 @@ export default function AddServiceForm({
       value,
     ]);
   };
+useEffect(() => {
+  const loadCategories = async () => {
+    const res = await fetch("/api/services/categories");
+    const data = await res.json();
+    setCategories(data.categories || []);
+  };
 
+  loadCategories();
+}, []);
   /* ================= INIT EDIT ================= */
 
   useEffect(() => {
@@ -207,9 +209,7 @@ export default function AddServiceForm({
 
   const data = initialData as CategoryDataWithDeposit;
   const incomingCategory = data.category || "";
-  const isKnownCategory = CATEGORY_OPTIONS.includes(
-    incomingCategory as (typeof CATEGORY_OPTIONS)[number]
-  );
+  const isKnownCategory = categories.includes(incomingCategory);
 
   setName(initialData.name || "");
   setDescription(initialData.description || "");
@@ -363,20 +363,21 @@ showPopup(
           <label className="text-sm font-medium block">
             Category *
           </label>
-          <select
-            className="border p-2 w-full rounded"
-            value={currentCategory.category}
-            onChange={(e) =>
-              updateField("category", e.target.value)
-            }
-          >
-            <option value="">Select category</option>
-            {CATEGORY_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+         <select
+  className="border p-2 w-full rounded"
+  value={currentCategory.category}
+  onChange={(e) => updateField("category", e.target.value)}
+>
+  <option value="">Select category</option>
+
+  {categories.map((option) => (
+    <option key={option} value={option}>
+      {option}
+    </option>
+  ))}
+
+  <option value="Other">Other</option>
+</select>
         </div>
 
         {currentCategory.category === "Other" && (
