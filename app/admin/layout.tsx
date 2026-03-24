@@ -19,7 +19,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     console.log("[AdminLayout] Unauthorized access attempt");
     redirect("/"); // permanently redirect non-owners
   } else {
-    console.log("[AdminLayout] Authorized platform owner:", user.id);
+    
   }
 
   return (

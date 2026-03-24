@@ -28,14 +28,7 @@ function normalizeHost(value: string) {
 }
 
 function getInternalPathname(hostname: string, pathname: string) {
-  const isMarketplacePath =
-    pathname === "/marketplace" || pathname.startsWith("/marketplace/");
-  const isAffiliatePath =
-    pathname === "/affiliates" || pathname.startsWith("/affiliates/");
-
-  if (isMarketplacePath || isAffiliatePath) {
-    return pathname;
-  }
+ 
 
   if (MARKETPLACE_HOSTS.has(hostname)) {
     return pathname === "/" ? "/marketplace" : `/marketplace${pathname}`;
