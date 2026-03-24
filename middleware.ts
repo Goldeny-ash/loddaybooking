@@ -58,7 +58,7 @@ function getCanonicalHost(internalPathname: string, hostname: string) {
   }
 
   if (internalPathname === "/marketplace" || internalPathname.startsWith("/marketplace/")) {
-    return "lodday.com";
+    return "marketplace.lodday.com";
   }
 
   if (ADMIN_HOSTS.has(hostname)) {
@@ -77,7 +77,7 @@ function getCanonicalHost(internalPathname: string, hostname: string) {
 }
 
 function getPublicPathname(internalPathname: string, canonicalHost: string) {
-  if (canonicalHost === "lodday.com") {
+  if (canonicalHost === "marketplace.lodday.com") {
     return internalPathname.replace(/^\/marketplace/, "") || "/";
   }
 
