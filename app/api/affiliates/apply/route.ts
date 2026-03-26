@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 import {
   isValidKenyanPhone,
@@ -41,7 +42,10 @@ export async function POST(request: Request) {
     const phone = normalizeKenyanPhone(rawPhone);
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Enter a valid email address." },
+        { status: 400 }
+      );
     }
 
     if (!isValidKenyanPhone(phone)) {
@@ -52,7 +56,10 @@ export async function POST(request: Request) {
     }
 
     if (!(idDocument instanceof File)) {
-      return NextResponse.json({ error: "ID document is required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "ID document is required." },
+        { status: 400 }
+      );
     }
 
     if (!ALLOWED_TYPES.has(idDocument.type)) {
@@ -75,27 +82,35 @@ export async function POST(request: Request) {
     ]);
 
     if (emailExists) {
-      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
+      return NextResponse.json(
+        { error: "Email already registered" },
+        { status: 409 }
+      );
     }
 
     if (phoneExists) {
-      return NextResponse.json({ error: "Phone number already registered" }, { status: 409 });
+      return NextResponse.json(
+        { error: "Phone number already registered" },
+        { status: 409 }
+      );
     }
 
     const buffer = Buffer.from(await idDocument.arrayBuffer());
 
+    // ✅ Generate _id first (fix)
+    const _id = new mongoose.Types.ObjectId();
+
     const affiliate = await Affiliate.create({
+      _id,
       name,
       email,
       phone,
       idDocumentName: idDocument.name,
       idDocumentMimeType: idDocument.type,
       idDocumentData: buffer.toString("base64"),
+      idDocumentUrl: `/api/admin/affiliates/${_id.toString()}/document`, // ✅ FIX
       status: "PENDING",
     });
-
-    affiliate.idDocumentUrl = `/api/admin/affiliates/${affiliate._id.toString()}/document`;
-    await affiliate.save();
 
     void sendAffiliateApplicationReceivedEmail({
       email,

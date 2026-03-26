@@ -46,18 +46,10 @@ const ServiceSchema = new Schema(
     description: String,
 
     category: {
-      type: String,
-      enum: [
-        "Hair",
-        "Nails",
-        "Body Enhancements",
-        "Permanent Makeup",
-        "Beauty Treatments",
-        "Other",
-      ],
-      required: true,
-      index: true,
-    },
+  type: String,
+  required: true,
+  index: true,
+},
     customCategory: String,
 
     subCategory: String,
