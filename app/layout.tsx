@@ -15,6 +15,7 @@ const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
+  manifest: "/site.webmanifest",
   title: {
     default: "Lodday Booking | Online Booking for Service Businesses",
     template: "%s | Lodday Booking",
@@ -22,6 +23,15 @@ export const metadata: Metadata = {
   description:
     "Lodday Booking helps salons, nail techs, beauty studios, and service businesses accept bookings online with branded booking pages.",
   applicationName: "Lodday Booking",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    shortcut: ["/favicon.ico"],
+  },
   alternates: {
     canonical: "/",
   },

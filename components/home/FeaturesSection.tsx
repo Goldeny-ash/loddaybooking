@@ -1,19 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import FloatingShape from "@/components/FloatingShape";
-import Image from "next/image";
 import {
+  BellRing,
   CalendarCheck2,
+  CreditCard,
+  GalleryVerticalEnd,
   LayoutDashboard,
   MapPinned,
   ShieldCheck,
 } from "lucide-react";
 
 const iconMap = {
+  bell: BellRing,
   calendar: CalendarCheck2,
+  creditCard: CreditCard,
   dashboard: LayoutDashboard,
+  gallery: GalleryVerticalEnd,
   location: MapPinned,
   shield: ShieldCheck,
 } as const;
@@ -47,23 +53,44 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
   const ActiveIcon = activeFeature.iconName ? iconMap[activeFeature.iconName] : undefined;
 
   return (
-    <section id={id} className="relative py-24 overflow-x-hidden bg-[#FFF4E1]">
+    <section id={id} className="relative overflow-x-hidden bg-[#FFF4E1] py-24">
       <FloatingShape size={80} x={10} y={10} color="#78290F" opacity={0.05} />
       <FloatingShape size={60} x={80} y={20} color="#15616D" opacity={0.06} />
 
-      <div className="max-w-7xl mx-auto px-4">
-        <h2 className="font-serif text-4xl text-center mb-12 text-[#15616D]">
-          Built for Real Businesses
+      <div className="mx-auto max-w-7xl px-4">
+        <h2 className="mb-4 text-center font-serif text-4xl text-[#15616D]">
+          Features that help you book more and chase clients less
         </h2>
+        <p className="mx-auto mb-12 max-w-3xl text-center text-lg text-[#15616D]">
+          Lead with the tools clients notice first: your booking link, deposits, mobile pricing, reminders, client
+          history, and premium approval control.
+        </p>
 
-        {/* Mobile Feature View */}
+        <div className="mb-6 flex gap-3 overflow-x-auto pb-2 md:hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {features.map((feature, i) => (
+            <button
+              key={`${feature.title}-mobile-tab`}
+              type="button"
+              onClick={() => setActiveTab(i)}
+              className="shrink-0 rounded-full px-5 py-2 text-sm font-medium transition-transform hover:scale-105"
+              style={{
+                backgroundColor: activeTab === i ? feature.bgColor : "transparent",
+                color: activeTab === i ? feature.textColor || "#FFF" : "#15616D",
+                border: activeTab === i ? "none" : "1px solid #15616D",
+              }}
+            >
+              {feature.title}
+            </button>
+          ))}
+        </div>
+
         <div className="md:hidden">
           <motion.div
             key={`mobile-${activeTab}`}
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="rounded-3xl shadow-2xl p-6"
+            className="overflow-hidden rounded-3xl p-6 shadow-2xl"
             style={{
               backgroundColor: activeFeature.bgColor,
               color: activeFeature.textColor || "#FFF",
@@ -71,26 +98,23 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
           >
             {ActiveIcon && (
               <div
-                className="inline-flex p-3 rounded-full mb-4"
+                className="mb-4 inline-flex rounded-full p-3"
                 style={{
-                  backgroundColor: activeFeature.textColor
-                    ? `${activeFeature.textColor}20`
-                    : "#FFFFFF20",
+                  backgroundColor: activeFeature.textColor ? `${activeFeature.textColor}20` : "#FFFFFF20",
                 }}
               >
-                <ActiveIcon
-                  size={32}
-                  color={activeFeature.textColor || "#FFF"}
-                />
+                <ActiveIcon size={32} color={activeFeature.textColor || "#FFF"} />
               </div>
             )}
-            <h3 className="font-serif text-xl mb-3">{activeFeature.title}</h3>
+            <h3 className="mb-3 font-serif text-xl">{activeFeature.title}</h3>
             <p className="mb-4 text-sm">{activeFeature.subtitle}</p>
-            <ul className="grid grid-cols-1 gap-2 list-disc list-inside text-sm">
-              {activeFeature.benefits.map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <ul className="grid min-w-full grid-cols-1 gap-2 list-disc list-inside text-sm">
+                {activeFeature.benefits.map((benefit) => (
+                  <li key={benefit}>{benefit}</li>
+                ))}
+              </ul>
+            </div>
           </motion.div>
 
           <div className="mt-4 flex items-center justify-center gap-2">
@@ -108,97 +132,83 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
           </div>
         </div>
 
-        {/* Desktop Tabs */}
         <div className="hidden md:block">
-          <div className="flex justify-center gap-4 mb-12 flex-wrap">
-            {features.map((f, i) => (
+          <div className="mb-12 flex flex-wrap justify-center gap-4">
+            {features.map((feature, i) => (
               <button
-                key={f.title}
+                key={feature.title}
                 onClick={() => setActiveTab(i)}
-                className="px-6 py-2 rounded-full font-medium transition-transform hover:scale-105"
+                className="rounded-full px-6 py-2 font-medium transition-transform hover:scale-105"
                 style={{
-                  backgroundColor: activeTab === i ? f.bgColor : "transparent",
-                  color: activeTab === i ? f.textColor || "#FFF" : "#15616D",
+                  backgroundColor: activeTab === i ? feature.bgColor : "transparent",
+                  color: activeTab === i ? feature.textColor || "#FFF" : "#15616D",
                   border: activeTab === i ? "none" : "1px solid #15616D",
                 }}
               >
-                {f.title}
+                {feature.title}
               </button>
             ))}
           </div>
 
-          {/* Active Feature Card */}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="relative rounded-3xl shadow-2xl mx-auto max-w-5xl overflow-hidden transform hover:-translate-y-2 transition-all duration-300"
+            className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl shadow-2xl transition-all duration-300 hover:-translate-y-2"
             style={{
               backgroundColor: activeFeature.bgColor,
               color: activeFeature.textColor || "#FFF",
             }}
           >
-            {/* Background pattern */}
             <div
               className="absolute inset-0 opacity-10"
               style={{
-                backgroundImage:
-                  "radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)",
+                backgroundImage: "radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)",
                 backgroundSize: "20px 20px",
                 zIndex: 0,
               }}
             />
 
-            {/* Gradient overlay */}
             <div
               className="absolute inset-0"
               style={{
-                background: `linear-gradient(to right, rgba(255,255,255,0.05), rgba(0,0,0,0.05))`,
+                background: "linear-gradient(to right, rgba(255,255,255,0.05), rgba(0,0,0,0.05))",
                 zIndex: 1,
               }}
             />
 
-            {/* Content */}
-            <div className="flex flex-col md:flex-row items-center gap-8 p-10 relative z-10">
-              {/* Icon */}
+            <div className="relative z-10 flex flex-col items-center gap-8 p-10 md:flex-row">
               {ActiveIcon && (
                 <motion.div
-                  className="flex-shrink-0 flex justify-center md:justify-start"
+                  className="flex flex-shrink-0 justify-center md:justify-start"
                   whileHover={{ y: -6 }}
                   transition={{ type: "spring", stiffness: 150 }}
                 >
                   <div
-                    className="p-4 rounded-full"
+                    className="rounded-full p-4"
                     style={{
-                      backgroundColor: activeFeature.textColor
-                        ? `${activeFeature.textColor}20`
-                        : "#FFFFFF20",
+                      backgroundColor: activeFeature.textColor ? `${activeFeature.textColor}20` : "#FFFFFF20",
                     }}
                   >
-                    <ActiveIcon
-                      size={48}
-                      color={activeFeature.textColor || "#FFF"}
-                    />
+                    <ActiveIcon size={48} color={activeFeature.textColor || "#FFF"} />
                   </div>
                 </motion.div>
               )}
 
-              {/* Text */}
               <div className="flex-1">
-                <h3 className="font-serif text-2xl mb-4">{activeFeature.title}</h3>
+                <h3 className="mb-4 font-serif text-2xl">{activeFeature.title}</h3>
                 <p className="mb-4 text-sm md:text-base">{activeFeature.subtitle}</p>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 list-disc list-inside text-sm">
-                  {activeFeature.benefits.map((b) => (
-                    <li key={b}>{b}</li>
+                <ul className="grid grid-cols-1 gap-2 list-disc list-inside text-sm sm:grid-cols-2">
+                  {activeFeature.benefits.map((benefit) => (
+                    <li key={benefit}>{benefit}</li>
                   ))}
                 </ul>
               </div>
 
-              {/* Optional Image */}
               {activeFeature.imageSrc && (
                 <motion.div
-                  className="hidden md:block flex-shrink-0"
+                  className="hidden flex-shrink-0 md:block"
                   animate={{ y: [0, -8, 0] }}
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 >

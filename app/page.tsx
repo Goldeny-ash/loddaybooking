@@ -8,16 +8,24 @@ import FloatingShape from "@/components/FloatingShape";
 import FeaturesSection from "@/components/home/FeaturesSection";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import Footer from "@/components/Footer";
-import { Zap, Users, BarChart2, MessageSquare, CheckSquare, Calendar, CreditCard } from "lucide-react";
 
 type Feature = {
   title: string;
   subtitle: string;
   benefits: string[];
-  Icon: React.FC<{ size?: number; color?: string }>;
+  iconName:
+    | "bell"
+    | "creditCard"
+    | "dashboard"
+    | "gallery"
+    | "location"
+    | "shield";
   bgColor: string;
   textColor?: string;
 };
+
+const whatsappHref =
+  "https://wa.me/254723711925?text=Hi%20Lodday%2C%20I%20need%20help%20setting%20up%20my%20booking%20page.";
 
 const HomePage = () => {
   const colors = {
@@ -33,65 +41,129 @@ const HomePage = () => {
 
   const features: Feature[] = [
     {
-      title: "Marketplace Discovery",
-      subtitle: "Appear in Lodday's booking marketplace instantly.",
-      benefits: ["New clients without ads", "Local visibility", "Public profile page", "Ratings & photos", "Direct booking links"],
-      Icon: Zap,
+      title: "Personal Booking Link",
+      subtitle:
+        "Share one link everywhere so clients can book you from Instagram, WhatsApp, TikTok, Facebook, or your status.",
+      benefits: [
+        "One personal booking page",
+        "Easy to share in bios and chats",
+        "Clients book without back-and-forth texts",
+        "Works for new and repeat clients",
+        "Creates a polished first impression",
+      ],
+      iconName: "dashboard",
       bgColor: colors.primary,
       textColor: colors.white,
     },
     {
-      title: "Customer Retention",
-      subtitle: "Turn walk-ins into repeat clients with personalized booking links.",
-      benefits: ["Personal booking URL", "QR code displayed at reception", "Email Follow-ups", "Auto reminders", "Loyalty memory"],
-      Icon: Users,
+      title: "Deposits & Booking Fees",
+      subtitle:
+        "Protect your time with deposits before clients confirm, especially for premium or high-demand appointments.",
+      benefits: [
+        "Collect deposits before confirmation",
+        "Reduce no-shows and late cancellations",
+        "Ideal for nail techs and makeup artists",
+        "Great for photographers and mobile pros",
+        "Makes serious clients commit faster",
+      ],
+      iconName: "creditCard",
       bgColor: colors.secondary,
       textColor: colors.white,
     },
     {
-      title: "Fairness Engine",
-      subtitle: "Automatically enforce grace periods and release late bookings.",
-      benefits: ["Configurable grace timer", "Mandatory check-in", "Auto-release", "Walk-in queue", "SMS reminders", "Late-arrival rules"],
-      Icon: CheckSquare,
+      title: "Mobile Callout Fees",
+      subtitle:
+        "Automatically charge callout fees based on client location or distance for home, office, or on-site bookings.",
+      benefits: [
+        "Set mobile pricing clearly",
+        "Charge more for farther locations",
+        "Perfect for home hairstylists",
+        "Useful for massage therapists and photographers",
+        "Protects your transport time and costs",
+      ],
+      iconName: "location",
       bgColor: colors.seamountLight,
       textColor: colors.darkText,
     },
     {
-      title: "Style Gallery",
-      subtitle: "Remember every style your clients love.",
-      benefits: ["Client style gallery", "Upload photos per visit", "Attach to booking", "Reference previous looks", "Faster service", "Personal experience"],
-      Icon: Calendar,
+      title: "Automated Reminders",
+      subtitle:
+        "Reduce missed appointments with automatic reminders that keep clients informed before the booking starts.",
+      benefits: [
+        "Automatic appointment reminders",
+        "Cuts forgotten bookings",
+        "Keeps clients updated",
+        "Saves manual follow-up time",
+        "Creates peace of mind every day",
+      ],
+      iconName: "bell",
       bgColor: colors.lightPeach,
       textColor: colors.darkText,
     },
     {
-      title: "Approval-Based Bookings",
-      subtitle: "Accept or decline bookings with confidence.",
-      benefits: ["Manual approval mode", "Decline reason messages", "Auto-reschedule suggestions", "Staff availability checks", "Capacity rules"],
-      Icon: BarChart2,
+      title: "Client History & Previous Styles",
+      subtitle:
+        "Save previous hairstyles, nail designs, colors, preferences, and notes so each visit feels personal.",
+      benefits: [
+        "Track styles and preferences",
+        "Remember past looks faster",
+        "Perfect for salons and braiders",
+        "Useful for nail artists and beauty studios",
+        "Makes repeat visits feel seamless",
+      ],
+      iconName: "gallery",
       bgColor: colors.accent,
       textColor: colors.white,
     },
     {
-      title: "Booking Fees",
-      subtitle: "Protect your time with optional booking deposits.",
-      benefits: ["Optional booking deposit", "Customer pre-payment", "Escrow-style holding", "Auto release after approval", "Refund rules", "Reduces no-shows"],
-      Icon: CreditCard,
-      bgColor: colors.secondary,
+      title: "Approval Mode",
+      subtitle:
+        "Approve premium bookings manually before clients pay when you need extra control over custom or high-value sessions.",
+      benefits: [
+        "Great for photographers",
+        "Useful for tattoo artists and consultants",
+        "Helps music teachers review requests",
+        "Adds control for premium sessions",
+        "Keeps your calendar protected",
+      ],
+      iconName: "shield",
+      bgColor: colors.primary,
       textColor: colors.white,
-    },
-   
-    {
-      title: "Automated Messaging",
-      subtitle: "Customers show up because you remind them.",
-      benefits: ["Email", "Custom templates", "Check-in links"],
-      Icon: MessageSquare,
-      bgColor: colors.seamountLight,
-      textColor: colors.darkText,
     },
   ];
 
-  const businessTypes = ["Salons & Barbershops", "Spas & Beauty Clinics", "Nail Studios", "Physios / Dentists", "Tattoo Artists"];
+  const businessTypes = [
+    "Salons & Barbers",
+    "Nail Technicians",
+    "Makeup Artists",
+    "Lash & Brow Artists",
+    "Braiders & Hairstylists",
+    "Tattoo Artists",
+    "Massage Therapists",
+    "Photographers",
+    "Music Teachers",
+    "Tutors & Coaches",
+    "Therapists & Consultants",
+    "Mobile Service Professionals",
+  ];
+
+  const steps = [
+    {
+      step: "1",
+      title: "Set your services",
+      text: "Hair, nails, shoots, lessons, consultations, and every other one-on-one session you offer.",
+    },
+    {
+      step: "2",
+      title: "Share your booking link",
+      text: "Post it on Instagram, WhatsApp, TikTok, Facebook, or send it directly to clients.",
+    },
+    {
+      step: "3",
+      title: "Get booked automatically",
+      text: "Clients pick a slot, pay a deposit, and receive reminders without all the texting back and forth.",
+    },
+  ];
 
   return (
     <main className="relative pt-28">
@@ -105,22 +177,24 @@ const HomePage = () => {
           <FloatingShape size={80} x={75} y={20} color={colors.primary} opacity={0.05} />
           <FloatingShape size={60} x={50} y={70} color={colors.secondary} opacity={0.06} />
 
-          <div className="flex w-full max-w-[1600px] mx-auto flex-col gap-12 md:flex-row md:items-center md:justify-between">
+          <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-12 md:flex-row md:items-center md:justify-between">
             <div className="flex w-full flex-col justify-center text-center md:w-1/2 md:text-left">
               <h1 className="mb-6 font-serif text-4xl leading-tight text-[#001524] md:text-6xl">
-                Stop No-Shows. Fill Every Slot.
+                Get More Clients and Stay Fully Booked
               </h1>
-              <p className="mx-auto mb-6 max-w-lg text-lg text-[#15616D] md:mx-0 md:text-xl">
-                Enforce grace periods, mandatory check-ins, late rules, and walk-in fairness automatically.
+              <p className="mx-auto mb-6 max-w-xl text-lg text-[#15616D] md:mx-0 md:text-xl">
+                Give clients your personal booking link, collect deposits, manage mobile callout fees, and let them
+                book you 24/7.
               </p>
-              
+
               <div className="flex flex-col gap-4 sm:flex-row md:justify-start">
                 <Link
-                  href="/dashboard"
-                  className="inline-block rounded-full px-10 py-4 drop-shadow-lg transition-transform hover:scale-105"
+                  href="/setup?mode=trial"
+                  onClick={() => localStorage.setItem("onboardingMode", "trial")}
+                  className="inline-block rounded-full px-10 py-4 text-center drop-shadow-lg transition-transform hover:scale-105"
                   style={{ backgroundColor: colors.accent, color: colors.lightPeach }}
                 >
-                  Start Free
+                  Start Free Trial
                 </Link>
                 <div className="flex flex-col gap-3">
                   <Link
@@ -133,12 +207,19 @@ const HomePage = () => {
                     href="/help"
                     className="rounded-full border border-[#FE7F2D]/20 bg-[#FFF4E1] px-10 py-4 text-center text-[#78290F] shadow-sm transition-transform hover:scale-105"
                   >
-                    Help / Tutorials
+                    Watch Demo
                   </Link>
                 </div>
-                <p className="mt-2 text-sm text-[#15616D] opacity-70 md:mt-0">
-                  No credit card required • Cancel anytime
-                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                
+                <Link
+                  href={whatsappHref}
+                  className="rounded-full border border-[#15616D]/20 bg-white/80 px-6 py-3 text-center text-[#15616D] shadow-sm transition-transform hover:scale-105"
+                >
+                  Need help setting up? Chat on WhatsApp
+                </Link>
               </div>
             </div>
 
@@ -162,18 +243,45 @@ const HomePage = () => {
 
       <CurvedSection bg={colors.softPeach}>
         <>
-          <h2 className="mb-14 text-center font-serif text-4xl text-[#001524]">
-            Perfect for Service Businesses
+          <div className="mx-auto max-w-6xl px-6 text-center">
+            <h2 className="mb-4 font-serif text-4xl text-[#001524]">How Lodday works</h2>
+            <p className="mx-auto mb-12 max-w-3xl text-lg text-[#15616D]">
+              Lodday helps any appointment-based business get booked professionally with one simple link.
+            </p>
+            <div className="grid gap-6 md:grid-cols-3">
+              {steps.map((item) => (
+                <motion.div
+                  key={item.step}
+                  whileHover={{ y: -6 }}
+                  className="rounded-[28px] bg-white/80 p-8 text-left shadow-xl"
+                >
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#15616D] text-lg font-semibold text-white">
+                    {item.step}
+                  </div>
+                  <h3 className="mb-3 font-serif text-2xl text-[#001524]">{item.title}</h3>
+                  <p className="text-[#15616D]">{item.text}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </>
+      </CurvedSection>
+
+      <CurvedSection bg={colors.softPeach}>
+        <>
+          <h2 className="text-center font-serif text-4xl text-[#001524]">
+            Perfect for professionals who sell their time
           </h2>
-          <div className="mx-auto grid max-w-7xl gap-6 px-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+         
+          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-6 md:grid-cols-3 lg:grid-cols-4">
             {businessTypes.map((type) => (
               <motion.div
                 key={type}
                 whileHover={{ y: -6 }}
-                className="rounded-3xl p-6 text-center shadow-xl transition-all hover:shadow-2xl"
+                className="rounded-3xl p-5 text-center shadow-xl transition-all hover:shadow-2xl md:p-6"
                 style={{ backgroundColor: colors.secondary, color: colors.lightPeach }}
               >
-                <h3 className="font-serif text-lg">{type}</h3>
+                <h3 className="font-serif text-base md:text-lg">{type}</h3>
               </motion.div>
             ))}
           </div>
@@ -186,8 +294,14 @@ const HomePage = () => {
 
       <div id="pricing">
         <CurvedSection bg={colors.primary} centerContent>
+          <p className="mb-3 max-w-4xl text-center text-sm uppercase tracking-[0.2em] text-lightPeach/80">
+            Trusted by salons, barbers, nail techs, photographers, tutors and mobile beauty professionals across Kenya.
+          </p>
           <h2 className="mb-4 font-serif text-4xl text-lightPeach">Pricing</h2>
-          <p className="mb-8 text-lightPeach">Simple flat monthly pricing. Includes email reminders.</p>
+          <p className="mb-2 text-center text-2xl font-semibold text-lightPeach">One client can pay your whole month</p>
+          <p className="mb-8 text-center text-lightPeach">
+            Just KSh 600/month, usually recovered from one deposit booking.
+          </p>
           <div className="flex flex-col items-center justify-center gap-6 md:flex-row">
             <motion.div
               className="w-64 rounded-3xl bg-secondary p-8 shadow-2xl transition transform hover:-translate-y-1"
@@ -212,7 +326,8 @@ const HomePage = () => {
               whileHover={{ y: -4 }}
             >
               <h3 className="mb-4 text-3xl font-serif">Go Live Now</h3>
-              <p className="mb-6">600 KSh / month</p>
+              <p className="mb-2 text-2xl font-semibold">KSh 600 / month</p>
+              <p className="mb-6 text-sm text-white/80">Usually recovered from one deposit booking.</p>
               <Link
                 href="/setup?mode=subscribe"
                 onClick={() => localStorage.setItem("onboardingMode", "subscribe")}
@@ -223,10 +338,34 @@ const HomePage = () => {
               </Link>
             </motion.div>
           </div>
-          <p className="mt-4 text-sm text-lightPeach opacity-70">
-            Appear in customer marketplace immediately.
-          </p>
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <p className="text-sm text-lightPeach opacity-70">Appear in customer marketplace immediately.</p>
+            <Link
+              href={whatsappHref}
+              className="rounded-full border border-[#FFF4E1]/30 bg-white/10 px-8 py-3 text-center text-lightPeach transition-transform hover:scale-105"
+            >
+              Need help setting up? Chat with us on WhatsApp
+            </Link>
+          </div>
         </CurvedSection>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-4 z-40 px-4 md:hidden">
+        <div className="mx-auto flex max-w-md items-center gap-3 rounded-full bg-[#001524] p-3 shadow-2xl">
+          <Link
+            href="/setup?mode=trial"
+            onClick={() => localStorage.setItem("onboardingMode", "trial")}
+            className="flex-1 rounded-full bg-[#FE7F2D] px-4 py-3 text-center text-sm font-medium text-white"
+          >
+            Start Free Trial
+          </Link>
+          <Link
+            href={whatsappHref}
+            className="rounded-full border border-white/20 px-4 py-3 text-sm font-medium text-white"
+          >
+            WhatsApp
+          </Link>
+        </div>
       </div>
 
       <Footer />

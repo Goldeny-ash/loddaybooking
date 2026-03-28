@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     // ✅ Generate _id first (fix)
     const _id = new mongoose.Types.ObjectId();
 
-    const affiliate = await Affiliate.create({
+    await Affiliate.create({
       _id,
       name,
       email,
