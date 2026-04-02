@@ -6,6 +6,8 @@ import {
   MARKETPLACE_URL,
 } from "@/lib/marketplace";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: MARKETPLACE_TITLE,
   description: MARKETPLACE_DESCRIPTION,

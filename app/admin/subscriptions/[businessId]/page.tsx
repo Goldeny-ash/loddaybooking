@@ -3,6 +3,8 @@ import Business from "@/lib/models/Business";
 import { currentUser } from "@clerk/nextjs/server";
 import SubscriptionDetailsClient from "@/components/admin/SubscriptionDetailsClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function SubscriptionDetailsPage(
   { params }: any
 ) {

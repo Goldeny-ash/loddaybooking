@@ -8,6 +8,8 @@ import AffiliateWithdrawal from "@/lib/models/AffiliateWithdrawal";
 import AffiliateReferralUse from "@/lib/models/AffiliateReferralUse";
 import Business from "@/lib/models/Business";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminAffiliateDetailPage({
   params,
 }: {

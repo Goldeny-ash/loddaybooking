@@ -4,6 +4,8 @@ import Business from "@/lib/models/Business";
 import { currentUser } from "@clerk/nextjs/server";
 import TransactionsListClient from "@/components/admin/TransactionsListClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminTransactionsPage({
   searchParams,
 }: any) {

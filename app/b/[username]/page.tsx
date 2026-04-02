@@ -12,6 +12,8 @@ import {
 } from "@/lib/seo";
 import { getTheme } from "@/lib/theme";
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{
     username: string;

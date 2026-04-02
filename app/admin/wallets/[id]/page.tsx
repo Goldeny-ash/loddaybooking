@@ -4,6 +4,8 @@ import WalletTransaction from "@/lib/models/WalletTransaction";
 import { currentUser } from "@clerk/nextjs/server";
 import WalletDetailsClient from "@/components/admin/WalletDetailsClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function WalletDetailsPage(
   context: { params: Promise<{ id: string }> }
 ) {

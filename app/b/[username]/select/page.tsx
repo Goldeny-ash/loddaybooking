@@ -6,6 +6,8 @@ import Business from "@/lib/models/Business";
 import { getTheme } from "@/lib/theme";
 import BookingClient from "@/components/public/BookingClient";
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ username: string }>;
 }

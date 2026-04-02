@@ -11,6 +11,8 @@ import {
 } from "@/lib/wallet/getWalletWithdrawalLimits";
 import { syncIntasendWalletTransactions } from "@/lib/wallet/syncIntasendWalletTransactions";
 
+export const dynamic = "force-dynamic";
+
 export default async function BusinessWalletPage() {
   const business = await getCurrentBusiness({ requireSetup: true });
   if (!business) return null;

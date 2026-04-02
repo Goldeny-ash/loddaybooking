@@ -6,6 +6,8 @@ import Business from "@/lib/models/Business";
 import Subscription from "@/lib/models/Subscription";
 import SubscriptionManagerClient from "@/components/dashboard/SubscriptionManagerClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function SubscriptionPage() {
   const user = await currentUser();
   if (!user?.id) throw new Error("UNAUTHORIZED");

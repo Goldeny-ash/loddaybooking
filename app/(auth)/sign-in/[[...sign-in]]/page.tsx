@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+
+
 import type { Metadata } from "next";
 import SignInScreen from "@/components/auth/SignInScreen";
 
