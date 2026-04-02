@@ -3,6 +3,8 @@ import Footer from "@/components/Footer";
 import MarketplaceAllBusinessesClient from "@/components/marketplace/MarketplaceAllBusinessesClient";
 import { getMarketplaceBusinesses } from "@/lib/marketplace";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Filtered Lodday Businesses",
   description:

@@ -1,6 +1,8 @@
 import MarketplaceAllBusinessesClient from "@/components/marketplace/MarketplaceAllBusinessesClient";
 import { getMarketplaceBusinesses } from "@/lib/marketplace";
 
+export const dynamic = "force-dynamic";
+
 export default async function MarketplaceSearchPage({
   searchParams,
 }: {
