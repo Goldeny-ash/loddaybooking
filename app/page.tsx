@@ -262,14 +262,16 @@ const HomePage = () => {
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             >
-              <video
-                src="/animations/checkin-demo.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full max-w-[560px] rounded-[32px] object-cover shadow-2xl"
-              />
+              <div className="w-full max-w-[360px] overflow-hidden rounded-[32px] shadow-2xl sm:max-w-[420px] md:max-w-[460px]">
+                <video
+                  src="/checkin-demo.webm"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="h-[300px] w-full object-cover object-center sm:h-[580px] md:h-[620px]"
+                />
+              </div>
             </motion.div>
           </div>
         </>
