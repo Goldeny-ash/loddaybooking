@@ -1,7 +1,6 @@
-// lib/mongoDB.ts
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
+const MONGODB_URI = process.env.MONGODB_URI?.trim();
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable");
@@ -18,10 +17,23 @@ declare global {
 }
 
 const cached: MongooseCache =
-  global.mongooseCache ||
-  (global.mongooseCache = { conn: null, promise: null });
+  globalThis.mongooseCache ||
+  (globalThis.mongooseCache = { conn: null, promise: null });
 
 export async function connectDB() {
+  if (mongoose.connection.readyState === 1) {
+    cached.conn = mongoose;
+    return cached.conn;
+  }
+
+  if (mongoose.connection.readyState === 2 && cached.promise) {
+    return cached.promise;
+  }
+
+  if (cached.conn && mongoose.connection.readyState === 0) {
+    cached.conn = null;
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -37,10 +49,11 @@ export async function connectDB() {
 
   try {
     cached.conn = await cached.promise;
-    console.log("✅ MongoDB connected");
+    console.log("MongoDB connected");
   } catch (error) {
     cached.promise = null; // reset promise on failure
-    console.error("❌ MongoDB connection error:", error);
+    cached.conn = null;
+    console.error("MongoDB connection error:", error);
     throw error;
   }
 
