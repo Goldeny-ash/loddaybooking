@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { MessageCircle, X } from "lucide-react";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import CurvedSection from "@/components/home/CurvedSection";
 import FloatingShape from "@/components/FloatingShape";
@@ -28,6 +30,8 @@ const whatsappHref =
   "https://wa.me/254723711925?text=Hi%20Lodday%2C%20I%20need%20help%20setting%20up%20my%20booking%20page.";
 
 const HomePage = () => {
+  const [showWhatsAppHint, setShowWhatsAppHint] = useState(true);
+
   const colors = {
     primary: "#15616D",
     secondary: "#78290F",
@@ -165,6 +169,31 @@ const HomePage = () => {
     },
   ];
 
+  const growthLinks = [
+    {
+      eyebrow: "Customer Discovery",
+      title: "Explore the Lodday marketplace",
+      description:
+        "Browse active businesses, see how booking pages look live, and discover how customers find service providers on Lodday.",
+      href: "/marketplace",
+      cta: "Visit Marketplace",
+      bgColor: colors.white,
+      textColor: colors.darkText,
+      borderColor: "border-[#15616D]/10",
+    },
+    {
+      eyebrow: "Extra Revenue",
+      title: "Join the affiliate program",
+      description:
+        "Refer businesses to Lodday, earn commission on successful subscriptions, and track your progress from the affiliate dashboard.",
+      href: "/affiliates",
+      cta: "Become an Affiliate",
+      bgColor: colors.secondary,
+      textColor: colors.white,
+      borderColor: "border-[#78290F]/20",
+    },
+  ];
+
   return (
     <main className="relative pt-28">
       <CurvedSection
@@ -187,40 +216,45 @@ const HomePage = () => {
                 book you 24/7.
               </p>
 
-              <div className="flex flex-col gap-4 sm:flex-row md:justify-start">
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row md:justify-start">
                 <Link
                   href="/setup?mode=trial"
                   onClick={() => localStorage.setItem("onboardingMode", "trial")}
-                  className="inline-block rounded-full px-10 py-4 text-center drop-shadow-lg transition-transform hover:scale-105"
+                  className="inline-block rounded-full px-6 py-4 text-center drop-shadow-lg transition-transform hover:scale-105"
                   style={{ backgroundColor: colors.accent, color: colors.lightPeach }}
                 >
                   Start Free Trial
                 </Link>
-                <div className="flex flex-col gap-3">
-                  <Link
-                    href="/dashboard"
-                    className="rounded-full border border-[#15616D]/20 bg-white/70 px-10 py-4 text-center text-[#15616D] shadow-sm transition-transform hover:scale-105"
-                  >
-                    View Dashboard
-                  </Link>
-                  <Link
-                    href="/help"
-                    className="rounded-full border border-[#FE7F2D]/20 bg-[#FFF4E1] px-10 py-4 text-center text-[#78290F] shadow-sm transition-transform hover:scale-105"
-                  >
-                    Watch Demo
-                  </Link>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                
                 <Link
-                  href={whatsappHref}
-                  className="rounded-full border border-[#15616D]/20 bg-white/80 px-6 py-3 text-center text-[#15616D] shadow-sm transition-transform hover:scale-105"
+                  href="/dashboard"
+                  className="rounded-full border border-[#15616D]/20 bg-white/70 px-6 py-4 text-center text-[#15616D] shadow-sm transition-transform hover:scale-105"
                 >
-                  Need help setting up? Chat on WhatsApp
+                  View Dashboard
+                </Link>
+                <Link
+                  href="/help"
+                  className="rounded-full border align-center border-[#FE7F2D]/20 bg-[#FFF4E1] px-6 py-4 text-center text-[#78290F] shadow-sm transition-transform hover:scale-105"
+                >
+                  Watch Demo
                 </Link>
               </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 md:flex md:flex-wrap md:justify-start">
+                <Link
+                  href="/marketplace"
+                  className="rounded-full border border-[#15616D]/20 bg-white/70 px-6 py-3 text-sm font-medium text-[#15616D] shadow-sm transition-transform hover:scale-105"
+                >
+                  Explore Marketplace
+                </Link>
+                <Link
+                  href="/affiliates"
+                  className="rounded-full border border-[#78290F]/20 bg-[#FFF4E1] px-6 py-3 text-sm font-medium text-[#78290F] shadow-sm transition-transform hover:scale-105"
+                >
+                  Earn as an Affiliate
+                </Link>
+              </div>
+
+              
             </div>
 
             <motion.div
@@ -240,6 +274,8 @@ const HomePage = () => {
           </div>
         </>
       </CurvedSection>
+
+   
 
       <CurvedSection bg={colors.softPeach}>
         <>
@@ -309,7 +345,7 @@ const HomePage = () => {
               whileHover={{ y: -4 }}
             >
               <h3 className="mb-4 text-3xl font-serif">Free Trial</h3>
-              <p className="mb-6">Test all features without credit card.</p>
+              <p className="mb-6">Test all features.</p>
               <Link
                 href="/setup?mode=trial"
                 onClick={() => localStorage.setItem("onboardingMode", "trial")}
@@ -350,20 +386,31 @@ const HomePage = () => {
         </CurvedSection>
       </div>
 
-      <div className="fixed inset-x-0 bottom-4 z-40 px-4 md:hidden">
-        <div className="mx-auto flex max-w-md items-center gap-3 rounded-full bg-[#001524] p-3 shadow-2xl">
-          <Link
-            href="/setup?mode=trial"
-            onClick={() => localStorage.setItem("onboardingMode", "trial")}
-            className="flex-1 rounded-full bg-[#FE7F2D] px-4 py-3 text-center text-sm font-medium text-white"
-          >
-            Start Free Trial
-          </Link>
+      <div className="fixed bottom-4 right-4 z-40 md:hidden">
+        <div className="flex items-end gap-3">
+          {showWhatsAppHint ? (
+            <div className="max-w-[220px] rounded-2xl bg-[#001524] px-4 py-3 text-white shadow-2xl">
+              <div className="flex items-start gap-3">
+                <p className="text-xs leading-5 text-white/85">
+                  Need help setting up? Chat with us on WhatsApp
+                </p>
+                <button
+                  type="button"
+                  aria-label="Dismiss WhatsApp message"
+                  onClick={() => setShowWhatsAppHint(false)}
+                  className="shrink-0 rounded-full bg-white/10 p-1 text-white/75 transition hover:bg-white/20 hover:text-white"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          ) : null}
           <Link
             href={whatsappHref}
-            className="rounded-full border border-white/20 px-4 py-3 text-sm font-medium text-white"
+            aria-label="Chat on WhatsApp"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105"
           >
-            WhatsApp
+            <MessageCircle size={26} strokeWidth={2.2} />
           </Link>
         </div>
       </div>

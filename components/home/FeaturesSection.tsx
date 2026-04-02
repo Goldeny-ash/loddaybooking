@@ -61,10 +61,7 @@ export default function FeaturesSection({ features, id }: FeaturesSectionProps) 
         <h2 className="mb-4 text-center font-serif text-4xl text-[#15616D]">
           Features that help you book more and chase clients less
         </h2>
-        <p className="mx-auto mb-12 max-w-3xl text-center text-lg text-[#15616D]">
-          Lead with the tools clients notice first: your booking link, deposits, mobile pricing, reminders, client
-          history, and premium approval control.
-        </p>
+       
 
         <div className="mb-6 flex gap-3 overflow-x-auto pb-2 md:hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {features.map((feature, i) => (
