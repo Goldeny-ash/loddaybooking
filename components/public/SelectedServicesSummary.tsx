@@ -9,10 +9,16 @@ interface SummaryService {
   price: number;
   durationMinutes: number;
   isMobile?: boolean;
+  selectedTier?: { label?: string | null } | null;
+  selectedAddOns?: { title?: string | null }[] | null;
 }
 
 interface Props {
   services: SummaryService[];
+  calloutFee?: number;
+  calloutFeePending?: boolean;
+  depositAmount?: number;
+  grandTotal?: number;
   theme: {
     primary: string;
     accent: string;
@@ -20,7 +26,14 @@ interface Props {
   };
 }
 
-export default function SelectedServicesSummary({ services, theme }: Props) {
+export default function SelectedServicesSummary({
+  services,
+  calloutFee = 0,
+  calloutFeePending = false,
+  depositAmount = 0,
+  grandTotal,
+  theme,
+}: Props) {
   const totals = useMemo(() => {
     return services.reduce(
       (acc, service) => {
@@ -32,6 +45,9 @@ export default function SelectedServicesSummary({ services, theme }: Props) {
       { price: 0, duration: 0, mobileCount: 0 }
     );
   }, [services]);
+
+  const effectiveGrandTotal =
+    typeof grandTotal === "number" ? grandTotal : totals.price + Number(calloutFee || 0);
 
   return (
     <div
@@ -51,34 +67,55 @@ export default function SelectedServicesSummary({ services, theme }: Props) {
         <div className="mt-4 space-y-2 text-left">
           {services.map((service) => {
             const durationLabel = formatDuration(service.durationMinutes);
+            const addOnNames = (service.selectedAddOns || [])
+              .map((item) => item.title || "")
+              .filter(Boolean)
+              .join(", ");
 
             return (
               <div
                 key={service._id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-white/35 bg-white/15 px-3 py-2 text-white"
+                className="rounded-lg border border-white/35 bg-white/15 px-3 py-2 text-white"
               >
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{service.name}</p>
-                  {durationLabel ? (
-                    <p className="text-xs text-white/90">
-                      {durationLabel}
-                      {service.isMobile ? " • Mobile" : ""}
-                    </p>
-                  ) : service.isMobile ? (
-                    <p className="text-xs text-white/90">Mobile</p>
-                  ) : null}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{service.name}</p>
+                    {service.selectedTier?.label ? (
+                      <p className="text-xs text-white/90">Tier: {service.selectedTier.label}</p>
+                    ) : null}
+                    {addOnNames ? (
+                      <p className="text-xs text-white/90">Add-ons: {addOnNames}</p>
+                    ) : null}
+                    {durationLabel ? (
+                      <p className="text-xs text-white/90">
+                        {durationLabel}
+                        {service.isMobile ? " • Mobile" : ""}
+                      </p>
+                    ) : service.isMobile ? (
+                      <p className="text-xs text-white/90">Mobile</p>
+                    ) : null}
+                  </div>
+                  <p className="whitespace-nowrap font-bold">KES {(service.price || 0).toLocaleString()}</p>
                 </div>
-                <p className="whitespace-nowrap font-bold">KES {(service.price || 0).toLocaleString()}</p>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm text-white/90">
+        <div className="mt-4 space-y-2 text-left text-sm text-white/90">
+          <p>Services Total: KES {totals.price.toLocaleString()}</p>
+          {calloutFee > 0 ? <p>Callout Fee: KES {calloutFee.toLocaleString()}</p> : null}
+          {calloutFeePending ? (
+            <p>Callout Fee: This per KM fee is calculated once you generate your home location link.</p>
+          ) : null}
+          {depositAmount > 0 ? <p>Deposit Due: KES {depositAmount.toLocaleString()}</p> : null}
+          <p className="font-semibold text-white">Grand Total: KES {effectiveGrandTotal.toLocaleString()}</p>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm text-white/90">
           {formatDuration(totals.duration) ? (
             <span>Total Duration: {formatDuration(totals.duration)}</span>
           ) : null}
-          <span>Total: KES {totals.price.toLocaleString()}</span>
           {totals.mobileCount > 0 ? <span>Mobile Services: {totals.mobileCount}</span> : null}
         </div>
       </div>

@@ -39,6 +39,7 @@ const BusinessSchema = new Schema(
 
       trialStartedAt: Date,
       trialEndsAt: Date,
+      trialWarningSent: { type: Boolean, default: false },
 
       subscriptionId: {
         type: String,
@@ -72,6 +73,7 @@ location: {
   wardOptions: { type: [String], default: [] },
   area: { type: String, default: "" },
   locationDescription: { type: String, default: "" },
+  mapsLink: { type: String, default: "" },
   lat: Number,
   lng: Number,
 },
@@ -85,6 +87,11 @@ location: {
       whatsapp: Boolean,
       sms: Boolean,
       email: Boolean,
+    },
+
+    dailySummarySentFor: {
+      type: String,
+      default: "",
     },
 
     theme: {

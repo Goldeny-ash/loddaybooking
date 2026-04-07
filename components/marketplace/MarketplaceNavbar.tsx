@@ -93,8 +93,8 @@ export default function MarketplaceNavbar(_: Props) {
               className="ml-0.5 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#78C0A8] px-1.5 py-1.5 text-[10px] font-semibold text-[#06231c] shadow-[0_10px_30px_rgba(120,192,168,0.22)] transition hover:-translate-y-0.5 sm:gap-1.5 sm:px-3 sm:py-2 sm:text-sm"
             >
               <Handshake size={14} className="sm:h-4 sm:w-4" />
-              <span className="sm:hidden">Join</span>
-              <span className="hidden sm:inline">Partners</span>
+              <span className="sm:hidden">Refer</span>
+              <span className="hidden sm:inline">Refer</span>
             </Link>
             <a
               href="https://booking.lodday.com"

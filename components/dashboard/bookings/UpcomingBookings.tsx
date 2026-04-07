@@ -44,8 +44,8 @@ export default function UpcomingBookings({
       <div
         className="rounded-xl shadow p-4"
         style={{
-          backgroundColor: theme.backgroundSoft,
-          border: `1px solid ${theme.primary}`,
+          background: `linear-gradient(180deg, ${theme.backgroundSoft} 0%, #ffffff 24%, #ffffff 100%)`,
+          border: `1px solid ${theme.primaryLight}`,
         }}
       >
         <h2 className="text-xl font-semibold mb-4" style={{ color: theme.primaryDark }}>

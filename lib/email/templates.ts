@@ -78,7 +78,7 @@ function renderInvoiceNotice(data: any) {
     <div style="margin:20px 0;padding:16px;border-radius:18px;background:${data.theme.backgroundSoft};">
       <p style="margin:0 0 8px;font-weight:700;">Invoice attached</p>
       <p style="margin:0;line-height:1.7;">
-        A themed invoice is attached as <strong>${attachment.filename}</strong>. It includes your selected services,
+        A PDF invoice is attached as <strong>${attachment.filename}</strong>. It includes your selected services,
         any discount applied, the deposit paid if any, and the balance due after service completion.
       </p>
     </div>
@@ -721,6 +721,7 @@ TRIAL_STARTED: {
           You can start setting up services, managing availability, and accepting bookings right away.
         </p>
 
+        ${renderEmailButton("https://booking.lodday.com/subscription", "Subscribe Now", theme.primary)}
         ${renderEmailButton(dashboardUrl, "Open Dashboard", theme.primary)}
       `
     );
@@ -739,7 +740,6 @@ BOOKING_CONFIRMATION_CONFIRMED: {
         <p>Hi ${booking.customerName},</p>
         <p>Your appointment at <strong>${booking.startTime}</strong> has been confirmed.</p>
         <p>We look forward to seeing you.</p>
-        ${renderInvoiceNotice(data)}
         ${renderManageSection({ manageUrl, theme })}
       `
     );
@@ -972,9 +972,7 @@ TRIAL_EXPIRING: {
           Upgrade now to continue accepting bookings without interruption.
         </p>
 
-        <p>
-          <a href="${upgradeUrl}" target="_blank">Upgrade Subscription</a>
-        </p>
+        ${renderEmailButton(upgradeUrl || "https://booking.lodday.com/subscription", "Upgrade Subscription", theme.primary)}
       `
     );
   },
@@ -995,10 +993,7 @@ TRIAL_EXPIRED: {
           Your public booking link is now disabled.
         </p>
 
-        <p>
-          Subscribe to reactivate:
-          <a href="${upgradeUrl}" target="_blank">Activate Plan</a>
-        </p>
+        ${renderEmailButton(upgradeUrl || "https://booking.lodday.com/subscription", "Activate Plan", theme.primary)}
       `
     );
   },

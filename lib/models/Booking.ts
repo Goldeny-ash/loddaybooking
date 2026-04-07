@@ -67,6 +67,7 @@ const BookingSchema = new Schema(
     customerPhone: { type: String, required: true },
     customerEmail: String,
     note: String,
+    termsAccepted: { type: Boolean, default: false },
 
     isMobile: { type: Boolean, default: false },
     customerLocation: {

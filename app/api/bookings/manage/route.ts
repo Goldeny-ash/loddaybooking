@@ -89,6 +89,7 @@ export async function GET(req: Request) {
 
   // Map services to include service name and staff name
   const services = (bookingServices as BookingServiceRow[]).map((s) => ({
+    _id: s.serviceId?._id,
     serviceId: s.serviceId?._id,
     serviceName: s.serviceId?.name,
     serviceDescription: s.serviceId?.description,
@@ -155,6 +156,9 @@ export async function GET(req: Request) {
     customerEmail: booking.customerEmail,
     customerPhone: booking.customerPhone,
     note: booking.note,
+    customerLocation: booking.customerLocation,
+    distanceKm: booking.distanceKm,
+    confirmationStatus: booking.confirmationStatus,
     source: booking.source,
     business: booking.businessId,
     services,

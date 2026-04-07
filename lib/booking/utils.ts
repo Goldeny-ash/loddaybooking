@@ -4,6 +4,24 @@ type DepositPolicyLike = {
   value?: number;
 };
 
+type MobileSettingsLike = {
+  enabled?: boolean;
+  baseLocation?: {
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
+  calloutPolicy?: {
+    type?: "fixed" | "per_km" | "zone" | null;
+    baseFee?: number | null;
+    perKmFee?: number | null;
+  } | null;
+} | null;
+
+type CustomerLocationLike = {
+  lat?: number | null;
+  lng?: number | null;
+} | null;
+
 type ServiceDepositLike = {
   depositOverride?: DepositPolicyLike | null;
 };
@@ -69,4 +87,102 @@ export function hasBookingStarted(date?: string, time?: string, now = new Date()
   const value = toComparableDateTime(date, time);
   if (!Number.isFinite(value)) return false;
   return value <= now.getTime();
+}
+
+function toCoordinate(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function haversineDistanceKm(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+) {
+  const earthRadiusKm = 6371;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const latDelta = toRadians(endLat - startLat);
+  const lngDelta = toRadians(endLng - startLng);
+  const a =
+    Math.sin(latDelta / 2) * Math.sin(latDelta / 2) +
+    Math.cos(toRadians(startLat)) *
+      Math.cos(toRadians(endLat)) *
+      Math.sin(lngDelta / 2) *
+      Math.sin(lngDelta / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+}
+
+export function computeCalloutCharge(params: {
+  mobileSettings?: MobileSettingsLike;
+  customerLocation?: CustomerLocationLike;
+}) {
+  const mobileSettings = params.mobileSettings;
+  const policy = mobileSettings?.calloutPolicy;
+
+  if (!mobileSettings?.enabled || !policy?.type) {
+    return {
+      calloutFee: 0,
+      distanceKm: null as number | null,
+      calculationMode: "none" as const,
+      pendingPreciseLocation: false,
+    };
+  }
+
+  if (policy.type === "fixed") {
+    return {
+      calloutFee: Math.max(0, Math.round(Number(policy.baseFee || 0))),
+      distanceKm: null,
+      calculationMode: "fixed" as const,
+      pendingPreciseLocation: false,
+    };
+  }
+
+  if (policy.type === "per_km") {
+    const originLat = toCoordinate(mobileSettings.baseLocation?.lat);
+    const originLng = toCoordinate(mobileSettings.baseLocation?.lng);
+    const destinationLat = toCoordinate(params.customerLocation?.lat);
+    const destinationLng = toCoordinate(params.customerLocation?.lng);
+
+    if (
+      originLat === null ||
+      originLng === null ||
+      destinationLat === null ||
+      destinationLng === null
+    ) {
+      return {
+        calloutFee: 0,
+        distanceKm: null,
+        calculationMode: "per_km" as const,
+        pendingPreciseLocation: true,
+      };
+    }
+
+    const distanceKm = haversineDistanceKm(
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng
+    );
+    const roundedDistanceKm = Math.round(distanceKm * 10) / 10;
+    const calloutFee = Math.max(
+      0,
+      Math.round(roundedDistanceKm * Math.max(0, Number(policy.perKmFee || 0)))
+    );
+
+    return {
+      calloutFee,
+      distanceKm: roundedDistanceKm,
+      calculationMode: "per_km" as const,
+      pendingPreciseLocation: false,
+    };
+  }
+
+  return {
+    calloutFee: 0,
+    distanceKm: null,
+    calculationMode: "none" as const,
+    pendingPreciseLocation: false,
+  };
 }

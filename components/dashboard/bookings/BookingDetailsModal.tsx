@@ -61,7 +61,13 @@ export default function BookingDetailsModal({
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm p-4 md:p-8">
-      <div className="mx-auto h-full w-full max-w-4xl overflow-hidden rounded-3xl border bg-white shadow-2xl">
+      <div
+        className="mx-auto h-full w-full max-w-4xl overflow-hidden rounded-3xl border shadow-2xl"
+        style={{
+          background: `linear-gradient(180deg, ${theme.backgroundSoft} 0%, #ffffff 22%, #ffffff 100%)`,
+          borderColor: theme.primaryLight,
+        }}
+      >
         <div
           className="flex items-start justify-between px-5 py-4 md:px-7 md:py-5 border-b"
           style={{
@@ -93,30 +99,40 @@ export default function BookingDetailsModal({
 
         <div className="h-[calc(100%-92px)] overflow-y-auto px-5 py-5 md:px-7 md:py-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <InfoTile icon={<CalendarDays size={14} />} label="Date" value={booking.date || "-"} />
+            <InfoTile icon={<CalendarDays size={14} />} label="Date" value={booking.date || "-"} theme={theme} />
             <InfoTile
               icon={<Clock3 size={14} />}
               label="Time"
               value={`${booking.startTime || "--:--"}${booking.endTime ? ` - ${booking.endTime}` : ""}`}
+              theme={theme}
             />
-            <InfoTile icon={<User size={14} />} label="Status" value={booking.status || "-"} />
+            <InfoTile icon={<User size={14} />} label="Status" value={booking.status || "-"} theme={theme} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <InfoTile
               icon={<User size={14} />}
-              label="Confirmation"
-              value={booking.confirmationStatus || "pending"}
+              label="Attendance Confirmation"
+              value={
+                booking.confirmationStatus === "confirmed"
+                  ? "Customer confirmed attendance"
+                  : booking.confirmationStatus === "not_confirmed"
+                    ? "Customer did not confirm"
+                    : "Awaiting customer confirmation"
+              }
+              theme={theme}
             />
             <InfoTile
               icon={<Clock3 size={14} />}
               label="Confirmed At"
               value={booking.confirmedAt ? new Date(booking.confirmedAt).toLocaleString() : "-"}
+              theme={theme}
             />
             <InfoTile
               icon={<Clock3 size={14} />}
               label="Cancelled At"
               value={booking.cancelledAt ? new Date(booking.cancelledAt).toLocaleString() : "-"}
+              theme={theme}
             />
           </div>
 
@@ -154,6 +170,7 @@ export default function BookingDetailsModal({
               icon={<User size={14} />}
               label="Assigned Staff"
               value={booking.assignedTo?.name || booking.staffId?.name || "Not assigned"}
+              theme={theme}
             />
             <InfoTile
               icon={<Clock3 size={14} />}
@@ -163,6 +180,7 @@ export default function BookingDetailsModal({
                   ? new Date(booking.assignedAt).toLocaleString()
                   : "-"
               }
+              theme={theme}
             />
           </div>
 
@@ -266,18 +284,20 @@ function InfoTile({
   icon,
   label,
   value,
+  theme,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  theme: ReturnType<typeof getTheme>;
 }) {
   return (
-    <div className="rounded-xl border bg-white px-3 py-2.5" style={{ borderColor: "var(--brand-primary-light)" }}>
-      <p className="text-[11px] uppercase tracking-wide opacity-70 flex items-center gap-1" style={{ color: "var(--brand-accent-dark)" }}>
+    <div className="rounded-xl border bg-white px-3 py-2.5" style={{ borderColor: theme.primaryLight }}>
+      <p className="text-[11px] uppercase tracking-wide opacity-70 flex items-center gap-1" style={{ color: theme.accentDark }}>
         {icon}
         {label}
       </p>
-      <p className="text-sm font-medium mt-1" style={{ color: "var(--brand-primary-dark)" }}>
+      <p className="text-sm font-medium mt-1" style={{ color: theme.primaryDark }}>
         {value}
       </p>
     </div>

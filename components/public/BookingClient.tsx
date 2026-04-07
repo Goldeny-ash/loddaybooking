@@ -7,6 +7,7 @@ import SelectedServicesSummary from "./SelectedServicesSummary";
 import SlotPicker from "./SlotPicker";
 import CustomerDetailsForm from "./CustomerDetailsForm";
 import ThemedPopup from "@/components/ThemedPopup";
+import { computeCalloutCharge } from "@/lib/booking/utils";
 import { getTheme } from "@/lib/theme";
 import type { CustomerLocation } from "@/lib/types/customerLocation";
 
@@ -36,6 +37,7 @@ interface SlotSelection {
 interface BookingBusiness {
   _id: string;
   name: string;
+  username?: string;
   logo?: string;
   description?: string;
   openingHours?: Record<string, { open: string; close: string; closed?: boolean }>;
@@ -43,6 +45,15 @@ interface BookingBusiness {
   locationLabel?: string | null;
   depositRequired?: boolean;
   bookingRules?: { autoApprove?: boolean };
+  mobileSettings?: {
+    enabled?: boolean;
+    baseLocation?: { lat?: number; lng?: number; address?: string };
+    calloutPolicy?: {
+      type?: "fixed" | "per_km" | "zone";
+      baseFee?: number;
+      perKmFee?: number;
+    };
+  };
   [key: string]: unknown;
 }
 
@@ -74,6 +85,8 @@ export default function BookingClient({ username, business }: BookingClientProps
   const [promoCode, setPromoCode] = useState("");
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const [popup, setPopup] = useState<PopupState | null>(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -97,12 +110,28 @@ export default function BookingClient({ username, business }: BookingClientProps
     }
   }, [router, username]);
 
+  const servicesSubtotal = useMemo(
+    () => services.reduce((sum, service) => sum + Number(service.price || 0), 0),
+    [services]
+  );
+
+  const calloutCalculation = useMemo(
+    () =>
+      computeCalloutCharge({
+        mobileSettings: business.mobileSettings,
+        customerLocation,
+      }),
+    [business.mobileSettings, customerLocation]
+  );
+
   const depositInfo = useMemo(() => {
     const totalDeposit = services.reduce((sum, service) => sum + (service.depositAmount || 0), 0);
-    return { required: totalDeposit > 0, amount: totalDeposit };
-  }, [services]);
+    const cappedDeposit = Math.min(totalDeposit, servicesSubtotal + calloutCalculation.calloutFee);
+    return { required: cappedDeposit > 0, amount: cappedDeposit };
+  }, [calloutCalculation.calloutFee, services, servicesSubtotal]);
 
   const isMobileBooking = useMemo(() => services.some((service) => service.isMobile), [services]);
+  const grandTotal = servicesSubtotal + calloutCalculation.calloutFee;
 
   const showPopup = useCallback((message: string, variant: "success" | "error" = "error", title?: string) => {
     setPopup({ message, variant, title });
@@ -120,43 +149,77 @@ export default function BookingClient({ username, business }: BookingClientProps
     setSlot(null);
   }, []);
 
-  const confirmBooking = async () => {
+  const validateBooking = useCallback((options?: { requireTerms?: boolean }) => {
     if (!customerName.trim()) {
       showPopup("Full name is required.", "error", "Missing field");
-      return;
+      return false;
     }
 
     if (!customerPhone.trim()) {
       showPopup("Phone number is required.", "error", "Missing field");
-      return;
+      return false;
     }
 
     if (!customerEmail.trim()) {
       showPopup("Email is required.", "error", "Missing field");
-      return;
+      return false;
     }
 
     if (!/^07\d{8}$/.test(customerPhone.trim())) {
       showPopup("Enter a valid Kenyan phone number in the format 07XXXXXXXX.", "error", "Invalid phone");
-      return;
+      return false;
     }
 
     if (!slot) {
       showPopup("Please select an available time slot first.", "error", "Missing slot");
-      return;
+      return false;
     }
 
     if (!selectedDate) {
       showPopup("Please select a booking date first.", "error", "Missing date");
-      return;
+      return false;
     }
 
-    if (isMobileBooking) {
-      if (!customerLocation?.county || !customerLocation?.subCounty) {
-        showPopup("County and sub-county are required for mobile services.", "error", "Missing location");
-        return;
-      }
+    if (isMobileBooking && (!customerLocation?.county || !customerLocation?.subCounty)) {
+      showPopup("County and sub-county are required for mobile services.", "error", "Missing location");
+      return false;
     }
+
+    if (isMobileBooking && calloutCalculation.pendingPreciseLocation) {
+      showPopup(
+        "Generate your home location link first so the per KM callout fee and grand total can be calculated.",
+        "error",
+        "Location needed"
+      );
+      return false;
+    }
+
+    if (options?.requireTerms && !acceptedTerms) {
+      showPopup(
+        "Please accept the booking terms and reminder consent before submitting the booking.",
+        "error",
+        "Terms required"
+      );
+      return false;
+    }
+
+    return true;
+  }, [
+    acceptedTerms,
+    calloutCalculation.pendingPreciseLocation,
+    customerEmail,
+    customerLocation?.county,
+    customerLocation?.subCounty,
+    customerName,
+    customerPhone,
+    isMobileBooking,
+    selectedDate,
+    showPopup,
+    slot,
+  ]);
+
+  const confirmBooking = async () => {
+    if (!validateBooking({ requireTerms: true })) return;
 
     setLoading(true);
     setError("");
@@ -164,7 +227,7 @@ export default function BookingClient({ username, business }: BookingClientProps
     try {
       const servicesPayload = services.map((service) => ({
         serviceId: service._id,
-        staffId: slot.staffAssignments?.[0]?.staffId,
+        staffId: slot?.staffAssignments?.[0]?.staffId,
         durationMinutes: service.durationMinutes,
         price: service.price,
         depositAmount: service.depositAmount || 0,
@@ -188,8 +251,8 @@ export default function BookingClient({ username, business }: BookingClientProps
           businessId: business._id,
           services: servicesPayload,
           date: selectedDate,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
+          startTime: slot?.startTime,
+          endTime: slot?.endTime,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
           customerEmail: customerEmail.trim(),
@@ -197,6 +260,9 @@ export default function BookingClient({ username, business }: BookingClientProps
           note,
           customerLocation: isMobileBooking ? customerLocation : undefined,
           promoCode,
+          calloutFee: calloutCalculation.calloutFee,
+          distanceKm: calloutCalculation.distanceKm,
+          termsAccepted: acceptedTerms,
         }),
       });
 
@@ -221,6 +287,7 @@ export default function BookingClient({ username, business }: BookingClientProps
         variant: "success",
         title: "Booking received",
       });
+      setShowConfirmationModal(false);
 
       window.setTimeout(() => {
         router.replace(`/b/${username}/thank-you?bookingId=${data.bookingId}&token=${data.manageToken}`);
@@ -331,7 +398,13 @@ export default function BookingClient({ username, business }: BookingClientProps
               price: service.price,
               durationMinutes: service.durationMinutes,
               isMobile: service.isMobile,
+              selectedTier: service.selectedTier,
+              selectedAddOns: service.selectedAddOns,
             }))}
+            calloutFee={calloutCalculation.calloutFee}
+            calloutFeePending={calloutCalculation.pendingPreciseLocation}
+            depositAmount={depositInfo.amount}
+            grandTotal={grandTotal}
             theme={theme}
           />
         ) : null}
@@ -397,12 +470,29 @@ export default function BookingClient({ username, business }: BookingClientProps
               }}
             />
 
+            {isMobileBooking && calloutCalculation.distanceKm !== null ? (
+              <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-sm text-white">
+                Distance: {calloutCalculation.distanceKm.toFixed(1)} km
+                <br />
+                Callout Fee: KES {calloutCalculation.calloutFee.toLocaleString()}
+              </div>
+            ) : null}
+
+            {isMobileBooking && calloutCalculation.pendingPreciseLocation ? (
+              <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-sm text-white">
+                Generate the home location link to calculate the per KM callout fee and final grand total.
+              </div>
+            ) : null}
+
             {error ? <p className="text-sm text-red-100">{error}</p> : null}
 
             <button
               type="button"
               disabled={loading}
-              onClick={confirmBooking}
+              onClick={() => {
+                if (!validateBooking()) return;
+                setShowConfirmationModal(true);
+              }}
               className="w-full rounded-xl py-2 font-medium disabled:opacity-50"
               style={{ backgroundColor: "#ffffff", color: theme.primary || primaryText }}
             >
@@ -411,6 +501,68 @@ export default function BookingClient({ username, business }: BookingClientProps
           </div>
         ) : null}
       </div>
+
+      {showConfirmationModal ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-4">
+          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl md:p-6">
+            <h3 className="text-xl font-semibold text-slate-900">Are you sure you want to proceed with this booking?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Review your services, add-ons, tier, callout fee, deposit, and grand total before submitting.
+            </p>
+
+            <div className="mt-4">
+              <SelectedServicesSummary
+                services={services.map((service) => ({
+                  _id: service._id,
+                  name: service.name,
+                  price: service.price,
+                  durationMinutes: service.durationMinutes,
+                  isMobile: service.isMobile,
+                  selectedTier: service.selectedTier,
+                  selectedAddOns: service.selectedAddOns,
+                }))}
+                calloutFee={calloutCalculation.calloutFee}
+                calloutFeePending={calloutCalculation.pendingPreciseLocation}
+                depositAmount={depositInfo.amount}
+                grandTotal={grandTotal}
+                theme={theme}
+              />
+            </div>
+
+            <label className="mt-4 flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                I agree to this booking&apos;s terms and conditions, including receiving booking updates, reminders,
+                confirmations, and service emails related to this appointment.
+              </span>
+            </label>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={confirmBooking}
+                disabled={loading}
+                className="flex-1 rounded-xl bg-[#15616D] px-4 py-3 font-semibold text-white disabled:opacity-60"
+              >
+                {loading ? "Submitting Booking..." : "Proceed"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowConfirmationModal(false)}
+                disabled={loading}
+                className="flex-1 rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700"
+              >
+                No, not yet
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ThemedPopup
         message={popup?.message ?? null}

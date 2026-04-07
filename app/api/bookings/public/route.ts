@@ -15,6 +15,7 @@ import type { CustomerLocation } from "@/lib/types/customerLocation";
 import {
   buildDashboardUrl,
   buildManageBookingUrl,
+  computeCalloutCharge,
   computeDepositAmountForService,
 } from "@/lib/booking/utils";
 
@@ -170,6 +171,9 @@ export async function POST(req: Request) {
       note,
       customerLocation,
       promoCode,
+      calloutFee,
+      distanceKm,
+      termsAccepted,
     } = body;
 
     if (
@@ -199,6 +203,10 @@ export async function POST(req: Request) {
 
     if (!subscriptionValid) {
       return NextResponse.json({ error: "Business not accepting bookings" }, { status: 403 });
+    }
+
+    if (!termsAccepted) {
+      return NextResponse.json({ error: "You must accept the booking terms first." }, { status: 400 });
     }
 
     const services: CartService[] = [];
@@ -339,16 +347,39 @@ export async function POST(req: Request) {
     }
 
     const discountedSubtotal = subtotal - discountAmount;
+    const normalizedCustomerLocation = normalizeCustomerLocation(customerLocation);
+    const computedCallout = isMobileBooking
+      ? computeCalloutCharge({
+          mobileSettings: business.mobileSettings,
+          customerLocation: normalizedCustomerLocation,
+        })
+      : { calloutFee: 0, distanceKm: null };
+    const normalizedCalloutFee = Math.max(
+      0,
+      Number.isFinite(Number(calloutFee)) ? Number(calloutFee) : computedCallout.calloutFee || 0
+    );
+    const normalizedDistanceKm =
+      typeof distanceKm === "number" && Number.isFinite(distanceKm)
+        ? distanceKm
+        : computedCallout.distanceKm ?? undefined;
     const totalDurationMinutes = processedServices.reduce(
       (sum, service) => sum + Number(service.durationMinutes || 0),
       0
     );
-    const grandTotal = discountedSubtotal;
+    const grandTotal = discountedSubtotal + normalizedCalloutFee;
 
     let depositAmount = processedServices.reduce(
       (sum, service) => sum + Number(service.depositAmount || 0),
       0
     );
+
+    if (business.depositPolicy?.enabled && business.depositPolicy?.applyToCallout && normalizedCalloutFee > 0) {
+      const calloutDeposit =
+        business.depositPolicy.type === "percent"
+          ? Math.round((normalizedCalloutFee * Number(business.depositPolicy.value || 0)) / 100)
+          : Number(business.depositPolicy.value || 0);
+      depositAmount += Math.max(0, Math.min(calloutDeposit, normalizedCalloutFee));
+    }
 
     if (depositAmount > grandTotal) {
       depositAmount = grandTotal;
@@ -364,8 +395,6 @@ export async function POST(req: Request) {
     } else {
       bookingStatus = "confirmed";
     }
-
-    const normalizedCustomerLocation = normalizeCustomerLocation(customerLocation);
 
     let booking: any = null;
     let attempts = 0;
@@ -386,10 +415,13 @@ export async function POST(req: Request) {
           customerPhone,
           customerEmail,
           note,
+          termsAccepted: Boolean(termsAccepted),
           isMobile: isMobileBooking,
           customerLocation: normalizedCustomerLocation,
+          distanceKm: normalizedDistanceKm,
           totalDurationMinutes,
           subtotal,
+          calloutFee: normalizedCalloutFee,
           discountAmount,
           grandTotal,
           depositAmount,

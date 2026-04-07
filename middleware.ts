@@ -9,13 +9,15 @@ const MARKETPLACE_HOSTS = new Set([
 const AFFILIATE_HOSTS = new Set(["affiliates.lodday.com"]);
 const BOOKING_HOSTS = new Set(["booking.lodday.com"]);
 const ADMIN_HOSTS = new Set(["admin.lodday.com"]);
+const BLOG_HOSTS = new Set(["blog.lodday.com"]);
 
 function isKnownLoddayHost(hostname: string) {
   return (
     MARKETPLACE_HOSTS.has(hostname) ||
     AFFILIATE_HOSTS.has(hostname) ||
     BOOKING_HOSTS.has(hostname) ||
-    ADMIN_HOSTS.has(hostname)
+    ADMIN_HOSTS.has(hostname) ||
+    BLOG_HOSTS.has(hostname)
   );
 }
 
@@ -42,6 +44,10 @@ function getInternalPathname(hostname: string, pathname: string) {
   return pathname === "/" ? "/admin" : `/admin${pathname}`;
 }
 
+ if (BLOG_HOSTS.has(hostname)) {
+  return pathname === "/" ? "/blg" : `/blg${pathname}`;
+ }
+
   return pathname;
 }
 
@@ -57,6 +63,10 @@ function getCanonicalHost(internalPathname: string, hostname: string) {
  if (internalPathname === "/admin" || internalPathname.startsWith("/admin/")) {
   return "admin.lodday.com";
 }
+
+ if (internalPathname === "/blg" || internalPathname.startsWith("/blg/")) {
+  return "blog.lodday.com";
+ }
 
   if (BOOKING_HOSTS.has(hostname)) {
     return "booking.lodday.com";
@@ -80,6 +90,9 @@ function getPublicPathname(internalPathname: string, canonicalHost: string) {
 if (canonicalHost === "admin.lodday.com") {
   return internalPathname.replace(/^\/admin/, "") || "/";
 }
+ if (canonicalHost === "blog.lodday.com") {
+  return internalPathname.replace(/^\/blg/, "") || "/";
+ }
   return internalPathname;
 }
 
@@ -103,6 +116,14 @@ if (
 ) {
   const url = req.nextUrl.clone();
   url.pathname = pathname.replace(/^\/marketplace/, "") || "/";
+  return NextResponse.redirect(url);
+}
+if (
+  hostname === "blog.lodday.com" &&
+  pathname.startsWith("/blg/")
+) {
+  const url = req.nextUrl.clone();
+  url.pathname = pathname.replace(/^\/blg/, "") || "/";
   return NextResponse.redirect(url);
 }
   if (
@@ -160,6 +181,8 @@ if (pathname.startsWith("/api")) {
     internalPathname === "/marketplace" || internalPathname.startsWith("/marketplace/");
   const isAffiliatePage =
     internalPathname === "/affiliates" || internalPathname.startsWith("/affiliates/");
+  const isBlogPage =
+    internalPathname === "/blg" || internalPathname.startsWith("/blg/");
 
   const isPublicBooking =
     /^\/b\/[^/]+(?:\/.*)?$/.test(internalPathname) || internalPathname.startsWith("/b/");
@@ -168,7 +191,8 @@ if (pathname.startsWith("/api")) {
     isPublicBooking ||
     isReviewPage ||
     isMarketplacePage ||
-    isAffiliatePage;
+    isAffiliatePage ||
+    isBlogPage;
 
   const isAuthPage = authPages.some((p) => internalPathname.startsWith(p));
   const isSetup = internalPathname.startsWith(setupPath);

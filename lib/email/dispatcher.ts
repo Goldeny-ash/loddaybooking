@@ -154,10 +154,9 @@ const send = async (
       break;
 
     case "BOOKING_CONFIRMATION_CONFIRMED":
-      await send((Number(bookingObj.depositAmount) || 0) > 0 ? "BOOKING_CONFIRMED_WITH_DEPOSIT" : "BOOKING_CONFIRMED_NO_DEPOSIT",
+      await send("BOOKING_CONFIRMATION_CONFIRMED",
         {
           to: bookingObj.customerEmail,
-          attachments: invoiceAttachment ? [invoiceAttachment] : undefined,
         },
         { booking, manageUrl: derivedManageUrl }
       );

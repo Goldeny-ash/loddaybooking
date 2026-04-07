@@ -34,6 +34,7 @@ export interface SeoBusinessLike {
 const DEFAULT_SITE_URL = "https://booking.lodday.com";
 const DEFAULT_MARKETPLACE_URL = "https://lodday.com";
 const DEFAULT_AFFILIATES_URL = "https://affiliates.lodday.com";
+const DEFAULT_BLOG_URL = "https://blog.lodday.com";
 
 function trimText(value?: string | null) {
   return value?.replace(/\s+/g, " ").trim() || "";
@@ -77,6 +78,10 @@ export function getCanonicalSiteUrl(hostname?: string | null) {
 
   if (normalizedHost === "affiliates.lodday.com") {
     return new URL(DEFAULT_AFFILIATES_URL);
+  }
+
+  if (normalizedHost === "blog.lodday.com") {
+    return new URL(DEFAULT_BLOG_URL);
   }
 
   return getSiteUrl();

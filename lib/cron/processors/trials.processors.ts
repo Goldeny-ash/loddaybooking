@@ -27,7 +27,7 @@ export async function runTrialProcessor() {
     ) {
       await dispatchEmailEvent("TRIAL_EXPIRING", {
         business,
-        upgradeUrl: `${process.env.APP_URL}/pricing`,
+        upgradeUrl: "https://booking.lodday.com/subscription",
       });
 
       access.trialWarningSent = true;
@@ -42,7 +42,7 @@ export async function runTrialProcessor() {
 
       await dispatchEmailEvent("TRIAL_EXPIRED", {
         business,
-        upgradeUrl: `${process.env.APP_URL}/pricing`,
+        upgradeUrl: "https://booking.lodday.com/subscription",
       });
 
       await business.save();

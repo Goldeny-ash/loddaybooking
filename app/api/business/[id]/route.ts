@@ -94,6 +94,8 @@ export async function PATCH(
         area: String(body.location.area || "").trim(),
         locationDescription: String(body.location.locationDescription || "").trim(),
         mapsLink: String(body.location.mapsLink || "").trim(),
+        lat: Number(body.location.lat) || 0,
+        lng: Number(body.location.lng) || 0,
       };
     }
 
@@ -113,14 +115,17 @@ export async function PATCH(
       body.mobileSettings.enabled = Boolean(body.mobileSettings.enabled);
 
       if (body.mobileSettings.baseLocation) {
-        body.mobileSettings.baseLocation.lat =
-          Number(body.mobileSettings.baseLocation.lat) || 0;
-        body.mobileSettings.baseLocation.lng =
-          Number(body.mobileSettings.baseLocation.lng) || 0;
+        body.mobileSettings.baseLocation = {
+          ...body.mobileSettings.baseLocation,
+          lat: Number(body.mobileSettings.baseLocation.lat) || 0,
+          lng: Number(body.mobileSettings.baseLocation.lng) || 0,
+          address: String(body.mobileSettings.baseLocation.address || "").trim(),
+        };
       }
 
       if (body.mobileSettings.calloutPolicy) {
         const cp = body.mobileSettings.calloutPolicy;
+        cp.type = cp.type === "per_km" ? "per_km" : "fixed";
         cp.baseFee = Number(cp.baseFee) || 0;
         cp.perKmFee = Number(cp.perKmFee) || 0;
         if (Array.isArray(cp.zones)) {

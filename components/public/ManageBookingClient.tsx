@@ -123,6 +123,17 @@ function normalizeStatus(status?: string) {
   return (status || "").replace(/[\s_-]/g, "").toLowerCase();
 }
 
+function formatStatusLabel(status?: string) {
+  const normalized = normalizeStatus(status);
+  if (normalized === "pendingdeposit") return "Awaiting deposit";
+  if (normalized === "confirmed") return "Confirmed";
+  if (normalized === "cancelled") return "Cancelled";
+  if (normalized === "completed") return "Completed";
+  if (normalized === "pending") return "Awaiting business approval";
+  if (normalized === "unconfirmed") return "Awaiting attendance confirmation";
+  return status || "-";
+}
+
 /* ======================================================
    Component
 ====================================================== */
@@ -377,7 +388,7 @@ export default function ManageBookingClient({
           <p className="font-medium">
             Status:{" "}
             <span className="font-semibold capitalize">
-              {booking.status}
+              {formatStatusLabel(booking.status)}
             </span>
 
             {canPayDeposit && (
@@ -441,6 +452,9 @@ export default function ManageBookingClient({
           }}
         >
           <p className="font-semibold">Booking Total</p>
+          {Number(booking.calloutFee || 0) > 0 ? (
+            <p className="text-sm opacity-80">Includes callout fee of KES {Number(booking.calloutFee || 0).toLocaleString()}</p>
+          ) : null}
           <p className="text-lg font-bold">KES {grandTotal.toLocaleString()}</p>
         </div>
 
