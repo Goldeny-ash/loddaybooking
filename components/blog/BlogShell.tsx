@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { MessageCircle, Moon, Store, Sun } from "lucide-react";
 
+type BlogThemeVars = CSSProperties & Record<`--${string}`, string>;
+
 function blogHref(basePath = "", slug?: string) {
   const normalizedBase = basePath || "/blg";
   return slug ? `${normalizedBase}/${slug}` : normalizedBase;
@@ -74,7 +76,7 @@ export default function BlogShell({
     window.localStorage.setItem("lodday-blog-theme", theme);
   }, [theme]);
 
-  const themeVars: CSSProperties =
+  const themeVars: BlogThemeVars =
     theme === "dark"
       ? {
           "--blog-shell-bg": "#000000",
