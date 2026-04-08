@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import mongoose from "mongoose";
 
 import BlogPostEditor from "@/components/admin/BlogPostEditor";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { serializeCategory, serializePost } from "@/lib/blog";
 import { connectDB } from "@/lib/mongoDB";
 import BlogCategory from "@/lib/models/BlogCategory";
 import BlogPost from "@/lib/models/BlogPost";
 
 export default async function AdminEditBlogPostPage({ params }: { params: Promise<{ postId: string }> }) {
+  await requirePlatformOwner();
   await connectDB();
   const { postId } = await params;
 

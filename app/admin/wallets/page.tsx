@@ -1,17 +1,12 @@
+import WalletsListClient from "@/components/admin/WalletsListClient";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { connectDB } from "@/lib/mongoDB";
 import Wallet from "@/lib/models/Wallet";
-import { currentUser } from "@clerk/nextjs/server";
-import WalletsListClient from "@/components/admin/WalletsListClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminWalletsPage() {
-  const user = await currentUser();
-
-  if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
-    throw new Error("UNAUTHORIZED");
-  }
-
+  await requirePlatformOwner();
   await connectDB();
 
   const wallets = await Wallet.find()

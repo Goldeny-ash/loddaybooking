@@ -1,10 +1,12 @@
 import BlogPostEditor from "@/components/admin/BlogPostEditor";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { serializeCategory, serializePost } from "@/lib/blog";
 import { connectDB } from "@/lib/mongoDB";
 import BlogCategory from "@/lib/models/BlogCategory";
 import BlogPost from "@/lib/models/BlogPost";
 
 export default async function AdminNewBlogPostPage() {
+  await requirePlatformOwner();
   await connectDB();
 
   const [categories, posts] = await Promise.all([

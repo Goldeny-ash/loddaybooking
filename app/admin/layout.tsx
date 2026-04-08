@@ -1,8 +1,8 @@
 // app/admin/layout.tsx
 import type { Metadata } from "next";
 import { ReactNode } from "react";
-import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { isPlatformOwner } from "@/lib/auth/isPlatformOwner";
 
 export const metadata: Metadata = {
   robots: {
@@ -12,14 +12,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const user = await currentUser();
-  console.log("[AdminLayout] currentUser:", user);
-
-  if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
-    console.log("[AdminLayout] Unauthorized access attempt");
-    redirect("/"); // permanently redirect non-owners
-  } else {
-    
+  if (!(await isPlatformOwner())) {
+    redirect("/");
   }
 
   return (

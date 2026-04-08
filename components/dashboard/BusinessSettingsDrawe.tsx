@@ -1,7 +1,6 @@
-// components/dashboard/BusinessSettingsDrawer.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
 import DashboardBusinessSettings from "./DashboardBusinessSettings";
 
@@ -17,6 +16,11 @@ export default function BusinessSettingsDrawer({
   services,
 }: BusinessSettingsDrawerProps) {
   const [open, setOpen] = useState(false);
+  const [business, setBusiness] = useState(initialBusiness);
+
+  useEffect(() => {
+    setBusiness(initialBusiness);
+  }, [initialBusiness]);
 
   return (
     <>
@@ -52,7 +56,8 @@ export default function BusinessSettingsDrawer({
 
             <div className="p-4">
               <DashboardBusinessSettings
-                initialBusiness={initialBusiness}
+                initialBusiness={business}
+                onSaved={setBusiness}
                 staffList={staffList}
                 services={services}
               />

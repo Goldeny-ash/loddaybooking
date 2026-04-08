@@ -1,20 +1,15 @@
+import TransactionsListClient from "@/components/admin/TransactionsListClient";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { connectDB } from "@/lib/mongoDB";
 import {SubscriptionTransaction }from "@/lib/models/SubscriptionTransaction";
 import Business from "@/lib/models/Business";
-import { currentUser } from "@clerk/nextjs/server";
-import TransactionsListClient from "@/components/admin/TransactionsListClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminTransactionsPage({
   searchParams,
 }: any) {
-  const user = await currentUser();
-
-  if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
-    throw new Error("UNAUTHORIZED");
-  }
-
+  await requirePlatformOwner();
   await connectDB();
 
   const filter: any = {};

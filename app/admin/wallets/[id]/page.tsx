@@ -1,20 +1,15 @@
+import WalletDetailsClient from "@/components/admin/WalletDetailsClient";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { connectDB } from "@/lib/mongoDB";
 import Wallet from "@/lib/models/Wallet";
 import WalletTransaction from "@/lib/models/WalletTransaction";
-import { currentUser } from "@clerk/nextjs/server";
-import WalletDetailsClient from "@/components/admin/WalletDetailsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function WalletDetailsPage(
   context: { params: Promise<{ id: string }> }
 ) {
-  const user = await currentUser();
-
-  if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
-    throw new Error("UNAUTHORIZED");
-  }
-
+  await requirePlatformOwner();
   await connectDB();
 
   const { id } = await context.params;

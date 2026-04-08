@@ -1,15 +1,23 @@
 import { auth } from "@clerk/nextjs/server";
 
+export async function getCurrentClerkUserId(): Promise<string | null> {
+  const { userId } = await auth();
+  return typeof userId === "string" && userId ? userId : null;
+}
+
+export async function isPlatformOwner(): Promise<boolean> {
+  const userId = await getCurrentClerkUserId();
+  const ownerId = process.env.PLATFORM_OWNER_CLERK_ID;
+  return Boolean(userId && ownerId && userId === ownerId);
+}
+
 export async function requirePlatformOwner(): Promise<string> {
-  // ✅ await the promise
-  const session = await auth();
+  const userId = await getCurrentClerkUserId();
+  const ownerId = process.env.PLATFORM_OWNER_CLERK_ID;
 
-  // TypeScript-safe check for userId
-  const userId = "userId" in session && session.userId ? session.userId : undefined;
-
-  if (!userId || userId !== process.env.PLATFORM_OWNER_CLERK_ID) {
+  if (!userId || !ownerId || userId !== ownerId) {
     throw new Error("UNAUTHORIZED");
   }
 
-  return userId; // explicitly typed as string
+  return userId;
 }

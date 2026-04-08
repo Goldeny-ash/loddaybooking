@@ -1,6 +1,6 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import {
   ensureUniquePostSlug,
   normalizeTags,
@@ -14,16 +14,9 @@ import { connectDB } from "@/lib/mongoDB";
 import BlogCategory from "@/lib/models/BlogCategory";
 import BlogPost from "@/lib/models/BlogPost";
 
-async function requirePlatformOwner() {
-  const user = await currentUser();
-  return Boolean(user?.id && user.id === process.env.PLATFORM_OWNER_CLERK_ID);
-}
-
 export async function GET() {
   try {
-    if (!(await requirePlatformOwner())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requirePlatformOwner();
 
     await connectDB();
 
@@ -37,6 +30,9 @@ export async function GET() {
       categories: categories.map((item) => serializeCategory(item)),
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("admin-blog-posts-get", error);
     return NextResponse.json({ error: "Unable to load posts." }, { status: 500 });
   }
@@ -44,9 +40,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    if (!(await requirePlatformOwner())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requirePlatformOwner();
 
     await connectDB();
 
@@ -115,6 +109,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ post: serializePost(post.toObject()) }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("admin-blog-posts-post", error);
     return NextResponse.json({ error: "Unable to create post." }, { status: 500 });
   }

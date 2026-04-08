@@ -1,6 +1,6 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import {
   buildRelatedPosts,
   ensureUniquePostSlug,
@@ -13,16 +13,9 @@ import { looksLikeHtml, sanitizeHtml } from "@/lib/htmlSanitizer";
 import { connectDB } from "@/lib/mongoDB";
 import BlogPost from "@/lib/models/BlogPost";
 
-async function requirePlatformOwner() {
-  const user = await currentUser();
-  return Boolean(user?.id && user.id === process.env.PLATFORM_OWNER_CLERK_ID);
-}
-
 export async function GET(_: Request, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    if (!(await requirePlatformOwner())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requirePlatformOwner();
 
     await connectDB();
 
@@ -48,6 +41,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ postId: st
       })),
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("admin-blog-post-get", error);
     return NextResponse.json({ error: "Unable to load post." }, { status: 500 });
   }
@@ -55,9 +51,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ postId: st
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    if (!(await requirePlatformOwner())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requirePlatformOwner();
 
     await connectDB();
 
@@ -129,6 +123,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ po
 
     return NextResponse.json({ post: serializePost(post.toObject()) });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("admin-blog-post-patch", error);
     return NextResponse.json({ error: "Unable to update post." }, { status: 500 });
   }
@@ -136,9 +133,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ po
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    if (!(await requirePlatformOwner())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requirePlatformOwner();
 
     await connectDB();
 
@@ -146,6 +141,9 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ postId:
     await BlogPost.findByIdAndDelete(postId);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("admin-blog-post-delete", error);
     return NextResponse.json({ error: "Unable to delete post." }, { status: 500 });
   }

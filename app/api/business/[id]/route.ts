@@ -8,6 +8,23 @@ import { auth } from "@clerk/nextjs/server";
 const escapeRegex = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const toTrimmedString = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
+
+const pickTrimmedString = (value: unknown, fallback = "") =>
+  typeof value === "string" ? value.trim() : fallback;
+
+const pickNumberOrZero = (value: unknown, fallback = 0) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toNumberOrZero = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> } // match promise style
@@ -85,63 +102,162 @@ export async function PATCH(
       }
     }
 
-    if (body.location) {
-      body.location = {
-        ...body.location,
-        county: String(body.location.county || "").trim(),
-        subCounty: String(body.location.subCounty || "").trim(),
-        ward: String(body.location.ward || "").trim(),
-        area: String(body.location.area || "").trim(),
-        locationDescription: String(body.location.locationDescription || "").trim(),
-        mapsLink: String(body.location.mapsLink || "").trim(),
-        lat: Number(body.location.lat) || 0,
-        lng: Number(body.location.lng) || 0,
-      };
-    }
+    const nextLocation = {
+      ...(existingBusiness.location?.toObject?.() ?? existingBusiness.location ?? {}),
+      ...(body.location ?? {}),
+      county: pickTrimmedString(body.location?.county, existingBusiness.location?.county ?? ""),
+      subCounty: pickTrimmedString(body.location?.subCounty, existingBusiness.location?.subCounty ?? ""),
+      ward: pickTrimmedString(body.location?.ward, existingBusiness.location?.ward ?? ""),
+      area: pickTrimmedString(body.location?.area, existingBusiness.location?.area ?? ""),
+      locationDescription: pickTrimmedString(
+        body.location?.locationDescription,
+        existingBusiness.location?.locationDescription ?? ""
+      ),
+      mapsLink: pickTrimmedString(body.location?.mapsLink, existingBusiness.location?.mapsLink ?? ""),
+      lat: pickNumberOrZero(body.location?.lat, existingBusiness.location?.lat ?? 0),
+      lng: pickNumberOrZero(body.location?.lng, existingBusiness.location?.lng ?? 0),
+    };
 
-    // ---------------- SANITIZE NESTED FIELDS ----------------
-    if (body.bookingRules) {
-      body.bookingRules.autoApprove = Boolean(body.bookingRules.autoApprove);
-      body.bookingRules.bufferMinutes = Number(body.bookingRules.bufferMinutes) || 0;
-    }
+    const nextTheme = {
+      ...(existingBusiness.theme?.toObject?.() ?? existingBusiness.theme ?? {}),
+      ...(body.theme ?? {}),
+      primary: pickTrimmedString(body.theme?.primary, existingBusiness.theme?.primary ?? ""),
+      accent: pickTrimmedString(body.theme?.accent, existingBusiness.theme?.accent ?? ""),
+    };
 
-    if (body.depositPolicy) {
-      body.depositPolicy.enabled = Boolean(body.depositPolicy.enabled);
-      body.depositPolicy.applyToCallout = Boolean(body.depositPolicy.applyToCallout);
-      body.depositPolicy.value = Number(body.depositPolicy.value) || 0;
-    }
+    const nextSocialLinks = {
+      ...(existingBusiness.socialLinks?.toObject?.() ?? existingBusiness.socialLinks ?? {}),
+      ...(body.socialLinks ?? {}),
+      facebook: pickTrimmedString(body.socialLinks?.facebook, existingBusiness.socialLinks?.facebook ?? ""),
+      instagram: pickTrimmedString(body.socialLinks?.instagram, existingBusiness.socialLinks?.instagram ?? ""),
+      twitter: pickTrimmedString(body.socialLinks?.twitter, existingBusiness.socialLinks?.twitter ?? ""),
+      tiktok: pickTrimmedString(body.socialLinks?.tiktok, existingBusiness.socialLinks?.tiktok ?? ""),
+    };
 
-    if (body.mobileSettings) {
-      body.mobileSettings.enabled = Boolean(body.mobileSettings.enabled);
+    const nextBookingRules = {
+      ...(existingBusiness.bookingRules?.toObject?.() ?? existingBusiness.bookingRules ?? {}),
+      ...(body.bookingRules ?? {}),
+      autoApprove:
+        body.bookingRules?.autoApprove === undefined
+          ? Boolean(existingBusiness.bookingRules?.autoApprove)
+          : Boolean(body.bookingRules.autoApprove),
+      bufferMinutes: pickNumberOrZero(
+        body.bookingRules?.bufferMinutes,
+        existingBusiness.bookingRules?.bufferMinutes ?? 0
+      ),
+    };
 
-      if (body.mobileSettings.baseLocation) {
-        body.mobileSettings.baseLocation = {
-          ...body.mobileSettings.baseLocation,
-          lat: Number(body.mobileSettings.baseLocation.lat) || 0,
-          lng: Number(body.mobileSettings.baseLocation.lng) || 0,
-          address: String(body.mobileSettings.baseLocation.address || "").trim(),
-        };
-      }
+    const nextDepositPolicy = {
+      ...(existingBusiness.depositPolicy?.toObject?.() ?? existingBusiness.depositPolicy ?? {}),
+      ...(body.depositPolicy ?? {}),
+      enabled:
+        body.depositPolicy?.enabled === undefined
+          ? Boolean(existingBusiness.depositPolicy?.enabled)
+          : Boolean(body.depositPolicy.enabled),
+      type:
+        body.depositPolicy?.type === undefined
+          ? existingBusiness.depositPolicy?.type ?? "fixed"
+          : body.depositPolicy.type === "percent"
+            ? "percent"
+            : "fixed",
+      value: pickNumberOrZero(body.depositPolicy?.value, existingBusiness.depositPolicy?.value ?? 0),
+      applyToCallout:
+        body.depositPolicy?.applyToCallout === undefined
+          ? Boolean(existingBusiness.depositPolicy?.applyToCallout)
+          : Boolean(body.depositPolicy.applyToCallout),
+    };
 
-      if (body.mobileSettings.calloutPolicy) {
-        const cp = body.mobileSettings.calloutPolicy;
-        cp.type = cp.type === "per_km" ? "per_km" : "fixed";
-        cp.baseFee = Number(cp.baseFee) || 0;
-        cp.perKmFee = Number(cp.perKmFee) || 0;
-        if (Array.isArray(cp.zones)) {
-            cp.zones = cp.zones.map((z: { name?: string; radiusKm?: number; fee?: number }) => ({
-            name: z.name || "",
-            radiusKm: Number(z.radiusKm) || 0,
-            fee: Number(z.fee) || 0,
-            }));
-        }
-      }
+    const nextMobileSettings = {
+      ...(existingBusiness.mobileSettings?.toObject?.() ?? existingBusiness.mobileSettings ?? {}),
+      ...(body.mobileSettings ?? {}),
+      enabled:
+        body.mobileSettings?.enabled === undefined
+          ? Boolean(existingBusiness.mobileSettings?.enabled)
+          : Boolean(body.mobileSettings.enabled),
+      baseLocation: {
+        ...(existingBusiness.mobileSettings?.baseLocation?.toObject?.() ??
+          existingBusiness.mobileSettings?.baseLocation ??
+          {}),
+        ...(body.mobileSettings?.baseLocation ?? {}),
+        lat: pickNumberOrZero(
+          body.mobileSettings?.baseLocation?.lat,
+          existingBusiness.mobileSettings?.baseLocation?.lat ?? 0
+        ),
+        lng: pickNumberOrZero(
+          body.mobileSettings?.baseLocation?.lng,
+          existingBusiness.mobileSettings?.baseLocation?.lng ?? 0
+        ),
+        address: pickTrimmedString(
+          body.mobileSettings?.baseLocation?.address,
+          existingBusiness.mobileSettings?.baseLocation?.address ?? ""
+        ),
+      },
+      calloutPolicy: {
+        ...(existingBusiness.mobileSettings?.calloutPolicy?.toObject?.() ??
+          existingBusiness.mobileSettings?.calloutPolicy ??
+          {}),
+        ...(body.mobileSettings?.calloutPolicy ?? {}),
+        type:
+          body.mobileSettings?.calloutPolicy?.type === undefined
+            ? existingBusiness.mobileSettings?.calloutPolicy?.type ?? "fixed"
+            : body.mobileSettings.calloutPolicy.type === "per_km"
+              ? "per_km"
+              : "fixed",
+        baseFee: pickNumberOrZero(
+          body.mobileSettings?.calloutPolicy?.baseFee,
+          existingBusiness.mobileSettings?.calloutPolicy?.baseFee ?? 0
+        ),
+        perKmFee: pickNumberOrZero(
+          body.mobileSettings?.calloutPolicy?.perKmFee,
+          existingBusiness.mobileSettings?.calloutPolicy?.perKmFee ?? 0
+        ),
+        zones: Array.isArray(body.mobileSettings?.calloutPolicy?.zones)
+          ? body.mobileSettings.calloutPolicy.zones.map(
+              (z: { name?: string; radiusKm?: number; fee?: number }) => ({
+                name: toTrimmedString(z?.name),
+                radiusKm: toNumberOrZero(z?.radiusKm),
+                fee: toNumberOrZero(z?.fee),
+              })
+            )
+          : existingBusiness.mobileSettings?.calloutPolicy?.zones ?? [],
+      },
+      maxDistanceKm: pickNumberOrZero(
+        body.mobileSettings?.maxDistanceKm,
+        existingBusiness.mobileSettings?.maxDistanceKm ?? 0
+      ),
+    };
 
-      body.mobileSettings.maxDistanceKm =
-        Number(body.mobileSettings.maxDistanceKm) || 0;
-    }
+    const nextOpeningHours =
+      body.openingHours && typeof body.openingHours === "object"
+        ? Object.fromEntries(
+            Object.entries(body.openingHours).map(([day, value]: [string, any]) => [
+              day,
+              {
+                open: toTrimmedString(value?.open),
+                close: toTrimmedString(value?.close),
+                closed: Boolean(value?.closed),
+              },
+            ])
+          )
+        : existingBusiness.openingHours;
 
-    const updatedBusiness = await Business.findByIdAndUpdate(id, body, {
+    const updateDoc = {
+      name: pickTrimmedString(body.name, existingBusiness.name ?? ""),
+      username: typeof body.username === "string" ? body.username : existingBusiness.username,
+      phone: pickTrimmedString(body.phone, existingBusiness.phone ?? ""),
+      email: typeof body.email === "string" ? body.email : existingBusiness.email,
+      logo: pickTrimmedString(body.logo, existingBusiness.logo ?? ""),
+      description: pickTrimmedString(body.description, existingBusiness.description ?? ""),
+      location: nextLocation,
+      socialLinks: nextSocialLinks,
+      openingHours: nextOpeningHours,
+      theme: nextTheme,
+      bookingRules: nextBookingRules,
+      depositPolicy: nextDepositPolicy,
+      mobileSettings: nextMobileSettings,
+    };
+
+    const updatedBusiness = await Business.findByIdAndUpdate(id, { $set: updateDoc }, {
       new: true,
       runValidators: true,
     }).lean();

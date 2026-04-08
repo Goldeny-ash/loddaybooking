@@ -1,6 +1,6 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import AffiliateDetailClient from "@/components/admin/AffiliateDetailClient";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { connectDB } from "@/lib/mongoDB";
 import Affiliate from "@/lib/models/Affiliate";
 import AffiliateCommission from "@/lib/models/AffiliateCommission";
@@ -15,8 +15,9 @@ export default async function AdminAffiliateDetailPage({
 }: {
   params: Promise<{ affiliateId: string }>;
 }) {
-  const user = await currentUser();
-  if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
+  try {
+    await requirePlatformOwner();
+  } catch {
     notFound();
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -36,6 +36,9 @@ const contentPreviewClasses =
 
 export default function BlogPostEditor({ mode, categories, posts, initialPost }: Props) {
   const router = useRouter();
+  const draftStorageKey = mode === "create" ? "admin.blogPostEditor.createDraft" : `admin.blogPostEditor.editDraft.${initialPost?._id || "unknown"}`;
+  const hasRestoredDraft = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
   const [title, setTitle] = useState(initialPost?.title || "");
   const [excerpt, setExcerpt] = useState(initialPost?.excerpt || "");
   const [contentFormat, setContentFormat] = useState<"markdown" | "html">(initialPost?.contentFormat || "markdown");
@@ -79,6 +82,160 @@ export default function BlogPostEditor({ mode, categories, posts, initialPost }:
   }, [posts, initialPost?._id, categoryId, audience]);
 
   const previewHtml = useMemo(() => sanitizeHtml(content), [content]);
+
+  useEffect(() => {
+    if (hasRestoredDraft.current || typeof window === "undefined") {
+      return;
+    }
+
+    hasRestoredDraft.current = true;
+    const rawDraft = window.localStorage.getItem(draftStorageKey);
+    if (!rawDraft) {
+      setDraftReady(true);
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(rawDraft) as Partial<{
+        title: string;
+        excerpt: string;
+        contentFormat: "markdown" | "html";
+        content: string;
+        coverImage: string;
+        gallery: string[];
+        status: BlogPostRecord["status"];
+        featured: boolean;
+        trending: boolean;
+        audience: BlogPostRecord["audience"];
+        categoryId: string;
+        tags: string;
+        seoTitle: string;
+        seoDescription: string;
+        authorName: string;
+        publishedAt: string;
+        scheduledFor: string;
+        ctaTitle: string;
+        ctaDescription: string;
+        ctaLabel: string;
+        ctaHref: string;
+        popupEnabled: boolean;
+        popupHeadline: string;
+        popupSubheadline: string;
+        popupLabel: string;
+        popupHref: string;
+        popupImage: string;
+        popupTrigger: "scroll" | "bottom";
+        internalLinks: InternalLinkState[];
+      }>;
+
+      setTitle(typeof draft.title === "string" ? draft.title : initialPost?.title || "");
+      setExcerpt(typeof draft.excerpt === "string" ? draft.excerpt : initialPost?.excerpt || "");
+      setContentFormat(draft.contentFormat === "html" ? "html" : draft.contentFormat === "markdown" ? "markdown" : initialPost?.contentFormat || "markdown");
+      setContent(typeof draft.content === "string" ? draft.content : initialPost?.content || "");
+      setCoverImage(typeof draft.coverImage === "string" ? draft.coverImage : initialPost?.coverImage || "");
+      setGallery(Array.isArray(draft.gallery) ? draft.gallery : initialPost?.gallery || []);
+      setStatus(draft.status || initialPost?.status || "draft");
+      setFeatured(typeof draft.featured === "boolean" ? draft.featured : Boolean(initialPost?.featured));
+      setTrending(typeof draft.trending === "boolean" ? draft.trending : Boolean(initialPost?.trending));
+      setAudience(draft.audience || initialPost?.audience || "all");
+      setCategoryId(typeof draft.categoryId === "string" ? draft.categoryId : initialPost?.categoryId || "");
+      setTags(typeof draft.tags === "string" ? draft.tags : (initialPost?.tags || []).join(", "));
+      setSeoTitle(typeof draft.seoTitle === "string" ? draft.seoTitle : initialPost?.seoTitle || "");
+      setSeoDescription(typeof draft.seoDescription === "string" ? draft.seoDescription : initialPost?.seoDescription || "");
+      setAuthorName(typeof draft.authorName === "string" ? draft.authorName : initialPost?.authorName || "Lodday Team");
+      setPublishedAt(typeof draft.publishedAt === "string" ? draft.publishedAt : toDateTimeInput(initialPost?.publishedAt));
+      setScheduledFor(typeof draft.scheduledFor === "string" ? draft.scheduledFor : toDateTimeInput(initialPost?.scheduledFor));
+      setCtaTitle(typeof draft.ctaTitle === "string" ? draft.ctaTitle : initialPost?.cta.title || "");
+      setCtaDescription(typeof draft.ctaDescription === "string" ? draft.ctaDescription : initialPost?.cta.description || "");
+      setCtaLabel(typeof draft.ctaLabel === "string" ? draft.ctaLabel : initialPost?.cta.label || "");
+      setCtaHref(typeof draft.ctaHref === "string" ? draft.ctaHref : initialPost?.cta.href || "");
+      setPopupEnabled(typeof draft.popupEnabled === "boolean" ? draft.popupEnabled : Boolean(initialPost?.popup.enabled));
+      setPopupHeadline(typeof draft.popupHeadline === "string" ? draft.popupHeadline : initialPost?.popup.headline || "");
+      setPopupSubheadline(typeof draft.popupSubheadline === "string" ? draft.popupSubheadline : initialPost?.popup.subheadline || "");
+      setPopupLabel(typeof draft.popupLabel === "string" ? draft.popupLabel : initialPost?.popup.label || "");
+      setPopupHref(typeof draft.popupHref === "string" ? draft.popupHref : initialPost?.popup.href || "");
+      setPopupImage(typeof draft.popupImage === "string" ? draft.popupImage : initialPost?.popup.image || "");
+      setPopupTrigger(draft.popupTrigger === "bottom" ? "bottom" : draft.popupTrigger === "scroll" ? "scroll" : initialPost?.popup.trigger || "scroll");
+      setInternalLinks(Array.isArray(draft.internalLinks) ? draft.internalLinks : initialPost?.internalLinks || []);
+      setMessage("Restored unsaved draft from this browser.");
+    } catch {
+      window.localStorage.removeItem(draftStorageKey);
+    } finally {
+      setDraftReady(true);
+    }
+  }, [draftStorageKey, initialPost]);
+
+  useEffect(() => {
+    if (!draftReady || typeof window === "undefined") {
+      return;
+    }
+
+    const draft = {
+      title,
+      excerpt,
+      contentFormat,
+      content,
+      coverImage,
+      gallery,
+      status,
+      featured,
+      trending,
+      audience,
+      categoryId,
+      tags,
+      seoTitle,
+      seoDescription,
+      authorName,
+      publishedAt,
+      scheduledFor,
+      ctaTitle,
+      ctaDescription,
+      ctaLabel,
+      ctaHref,
+      popupEnabled,
+      popupHeadline,
+      popupSubheadline,
+      popupLabel,
+      popupHref,
+      popupImage,
+      popupTrigger,
+      internalLinks,
+    };
+
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+  }, [
+    audience,
+    authorName,
+    categoryId,
+    content,
+    contentFormat,
+    coverImage,
+    ctaDescription,
+    ctaHref,
+    ctaLabel,
+    ctaTitle,
+    draftStorageKey,
+    excerpt,
+    featured,
+    gallery,
+    internalLinks,
+    popupEnabled,
+    popupHeadline,
+    popupHref,
+    popupImage,
+    popupLabel,
+    popupSubheadline,
+    popupTrigger,
+    publishedAt,
+    scheduledFor,
+    seoDescription,
+    seoTitle,
+    status,
+    tags,
+    title,
+    trending,
+    draftReady,
+  ]);
 
   function toggleSuggestedLink(post: BlogPostRecord) {
     setInternalLinks((current) => {
@@ -150,6 +307,9 @@ export default function BlogPostEditor({ mode, categories, posts, initialPost }:
     }
 
     setMessage("Post saved.");
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(draftStorageKey);
+    }
     setSaving(false);
     router.replace("/admin/blg");
     router.refresh();

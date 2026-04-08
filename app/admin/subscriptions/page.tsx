@@ -1,17 +1,12 @@
+import SubscriptionsListClient from "@/components/admin/SubscriptionsListClient";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
-import { currentUser } from "@clerk/nextjs/server";
-import SubscriptionsListClient from "@/components/admin/SubscriptionsListClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSubscriptionsPage() {
-  const user = await currentUser();
-
-  if (!user?.id || user.id !== process.env.PLATFORM_OWNER_CLERK_ID) {
-    throw new Error("UNAUTHORIZED");
-  }
-
+  await requirePlatformOwner();
   await connectDB();
 
   const businesses = await Business.find({

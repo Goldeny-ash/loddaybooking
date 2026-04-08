@@ -70,8 +70,10 @@ function LabeledField({
 
 export default function DashboardBusinessSettings({
   initialBusiness,
+  onSaved,
 }: {
   initialBusiness: any;
+  onSaved?: (business: any) => void;
   staffList: any[];
   services: any[];
 }) {
@@ -112,6 +114,28 @@ export default function DashboardBusinessSettings({
   useEffect(() => {
     applyThemeToRoot(theme);
   }, [theme]);
+
+  useEffect(() => {
+    setBusiness({
+      ...initialBusiness,
+      theme: initialBusiness.theme || {},
+      location: initialBusiness.location || {},
+      socialLinks: initialBusiness.socialLinks || {},
+      openingHours: initialBusiness.openingHours || {},
+      bookingRules: initialBusiness.bookingRules || {},
+      depositPolicy: initialBusiness.depositPolicy || {},
+      mobileSettings: {
+        enabled: initialBusiness.mobileSettings?.enabled || false,
+        baseLocation: initialBusiness.mobileSettings?.baseLocation || {},
+        calloutPolicy: {
+          type: initialBusiness.mobileSettings?.calloutPolicy?.type === "per_km" ? "per_km" : "fixed",
+          baseFee: initialBusiness.mobileSettings?.calloutPolicy?.baseFee || 0,
+          perKmFee: initialBusiness.mobileSettings?.calloutPolicy?.perKmFee || 0,
+        },
+      },
+    });
+    setUnsavedChanges(false);
+  }, [initialBusiness]);
 
   useEffect(() => {
     const next = slugifyUsername(business.username || "");
@@ -156,6 +180,7 @@ export default function DashboardBusinessSettings({
       if (!res.ok) throw new Error(payload?.error || "Failed to save business settings");
       setBusiness(payload);
       setUnsavedChanges(false);
+      onSaved?.(payload);
       alert("Business settings saved successfully.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to save business settings");
