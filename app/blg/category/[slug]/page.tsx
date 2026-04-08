@@ -59,15 +59,15 @@ export default async function BlogCategoryPage({ params }: { params: Promise<{ s
 
   return (
     <BlogShell compact basePath={basePath}>
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl bg-[var(--blog-page-bg)] px-4 py-10 text-[var(--blog-text)] transition-colors duration-300 sm:px-6 lg:px-8">
         <div className="space-y-4">
-          <Link href={blogHref(basePath)} className="text-sm font-medium text-[#15616D]">
+          <Link href={blogHref(basePath)} className="text-sm font-medium text-[var(--blog-link)]">
             Back to blog
           </Link>
-          <div className="rounded-[2rem] bg-[linear-gradient(135deg,#fff4df_0%,#f4ece1_100%)] p-8">
+          <div className="rounded-[2rem] border border-[var(--blog-border)] bg-[var(--blog-surface)] p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#9b5b2e]">Category</p>
-            <h1 className="mt-3 text-4xl font-semibold text-[#1f1a17]">{currentCategory.name}</h1>
-            <p className="mt-3 max-w-3xl text-base leading-8 text-[#5f4c3c]">
+            <h1 className="mt-3 text-4xl font-semibold text-[var(--blog-text)]">{currentCategory.name}</h1>
+            <p className="mt-3 max-w-3xl text-base leading-8 text-[var(--blog-text-muted)]">
               {currentCategory.description || "A curated set of Lodday articles to help readers find exactly what they need."}
             </p>
           </div>
@@ -75,21 +75,21 @@ export default async function BlogCategoryPage({ params }: { params: Promise<{ s
 
         <section className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {serializedPosts.map((post) => (
-            <article key={post._id} className="rounded-[2rem] border border-[#1f1a17]/8 bg-white p-6 shadow-sm">
+            <article key={post._id} className="rounded-[2rem] border border-[var(--blog-border)] bg-[var(--blog-card)] p-6 shadow-sm">
               <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#9b5b2e]">
                 <span>{post.audience}</span>
                 <span>{post.readTimeMinutes} min read</span>
               </div>
-              <h2 className="mt-3 text-2xl font-semibold text-[#1f1a17]">{post.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-[#5f4c3c]">{post.excerpt}</p>
+              <h2 className="mt-3 text-2xl font-semibold text-[var(--blog-card-text)]">{post.title}</h2>
+              <p className="mt-3 text-sm leading-7 text-[var(--blog-card-muted)]">{post.excerpt}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {post.tags.slice(0, 4).map((item) => (
-                  <Link key={item} href={blogHref(basePath, `?tag=${encodeURIComponent(item)}`)} className="rounded-full bg-[#fff6ea] px-3 py-1 text-xs text-[#9b5b2e]">
+                  <Link key={item} href={blogHref(basePath, `?tag=${encodeURIComponent(item)}`)} className="rounded-full bg-[var(--blog-surface-muted)] px-3 py-1 text-xs text-[#9b5b2e]">
                     #{item}
                   </Link>
                 ))}
               </div>
-              <Link href={blogHref(basePath, post.slug)} className="mt-5 inline-flex font-semibold text-[#15616D]">
+              <Link href={blogHref(basePath, post.slug)} className="mt-5 inline-flex font-semibold text-[var(--blog-link)]">
                 Read article
               </Link>
             </article>

@@ -293,6 +293,8 @@ export default function BlogPostEditor({ mode, categories, posts, initialPost }:
     const response = await fetch(
       mode === "create" ? "/api/admin/blog/posts" : `/api/admin/blog/posts/${initialPost?._id}`,
       {
+        cache: "no-store",
+        credentials: "include",
         method: mode === "create" ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

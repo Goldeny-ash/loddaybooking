@@ -52,14 +52,14 @@ export default function BlogPostPopup({ popup }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[var(--blog-border)] bg-[var(--blog-surface)] text-[var(--blog-text)] shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
         <button
           type="button"
           onClick={() => {
             setDismissed(true);
             setOpen(false);
           }}
-          className="absolute right-4 top-4 rounded-full bg-black/5 px-3 py-2 text-sm font-semibold text-slate-600"
+          className="absolute right-4 top-4 rounded-full bg-black/5 px-3 py-2 text-sm font-semibold text-[var(--blog-text-muted)]"
         >
           Close
         </button>
@@ -67,12 +67,12 @@ export default function BlogPostPopup({ popup }: Props) {
         {popup.image ? <img src={popup.image} alt={popup.headline} className="h-44 w-full object-cover" loading="lazy" /> : null}
 
         <div className="space-y-4 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#15616D]">Lodday updates</p>
-          <h3 className="text-2xl font-semibold text-slate-900">{popup.headline}</h3>
-          {popup.subheadline ? <p className="text-sm leading-7 text-slate-600">{popup.subheadline}</p> : null}
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--blog-accent)]">Lodday updates</p>
+          <h3 className="text-2xl font-semibold text-[var(--blog-text)]">{popup.headline}</h3>
+          {popup.subheadline ? <p className="text-sm leading-7 text-[var(--blog-text-muted)]">{popup.subheadline}</p> : null}
           <a
             href={popup.href}
-            className="inline-flex rounded-full bg-[#15616D] px-5 py-3 text-sm font-semibold text-white"
+            className="inline-flex rounded-full bg-[var(--blog-accent)] px-5 py-3 text-sm font-semibold text-[var(--blog-accent-contrast)]"
             onClick={() => setDismissed(true)}
           >
             {popup.label}

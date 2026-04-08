@@ -28,7 +28,11 @@ export default function BlogAdminDashboardClient({ posts, categories }: Props) {
     const confirmed = window.confirm("Delete this blog post?");
     if (!confirmed) return;
 
-    const response = await fetch(`/api/admin/blog/posts/${postId}`, { method: "DELETE" });
+    const response = await fetch(`/api/admin/blog/posts/${postId}`, {
+      cache: "no-store",
+      credentials: "include",
+      method: "DELETE",
+    });
     if (response.ok) {
       setItems((current) => current.filter((item) => item._id !== postId));
     }

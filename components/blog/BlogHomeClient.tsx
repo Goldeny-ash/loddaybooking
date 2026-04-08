@@ -143,10 +143,10 @@ export default function BlogHomeClient({
   };
 
   return (
-    <main className="bg-[#15616D] pb-10">
+    <main className="bg-[var(--blog-shell-bg)] pb-10 text-[var(--blog-text)] transition-colors duration-300">
       <section className="px-4 pb-6 pt-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-[2rem] bg-[linear-gradient(180deg,#1b717e_0%,#15616D_100%)] p-4 shadow-[0_24px_80px_rgba(21,97,109,0.35)] sm:p-6">
+          <div className="rounded-[2rem] bg-[linear-gradient(180deg,var(--blog-accent)_0%,var(--blog-accent-strong)_100%)] p-4 shadow-[0_24px_80px_rgba(21,97,109,0.35)] sm:p-6">
             <div className="hidden gap-4 md:grid md:grid-cols-4">
               {desktopHeroPosts.map((post, index) => (
                 <Link
@@ -234,7 +234,7 @@ export default function BlogHomeClient({
       </section>
 
       <section className="px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-[#FE7F2D] shadow-[0_24px_80px_rgba(26,26,26,0.18)]">
+        <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-[var(--blog-warm)] shadow-[0_24px_80px_rgba(26,26,26,0.18)]">
           <div className="border-b border-black/10 px-4 py-4 sm:px-6">
             <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 md:flex-row md:items-center">
               <select
@@ -268,13 +268,13 @@ export default function BlogHomeClient({
             </form>
           </div>
 
-          <div id="blog-grid" className="bg-[#FFF4E1] px-4 py-5 sm:px-6 sm:py-6">
+          <div id="blog-grid" className="bg-[var(--blog-panel)] px-4 py-5 sm:px-6 sm:py-6">
             <div className="hidden gap-5 sm:grid sm:grid-cols-2 xl:grid-cols-3">
               {currentDesktopPosts.map((post, index) => (
                 <Link
                   key={post._id}
                   href={blogHref(basePath, post.slug)}
-                  className="group rounded-[1.6rem] bg-white p-3 shadow-[0_16px_40px_rgba(30,41,89,0.1)] transition hover:-translate-y-1"
+                  className="group rounded-[1.6rem] bg-[var(--blog-card)] p-3 shadow-[0_16px_40px_rgba(30,41,89,0.1)] transition hover:-translate-y-1"
                 >
                   <div className="relative overflow-hidden rounded-[1.25rem]">
                     {post.coverImage ? (
@@ -307,9 +307,9 @@ export default function BlogHomeClient({
                     ) : null}
                   </div>
 
-                  <div className="px-2 pb-2 pt-4 text-[#1A1A1A]">
+                  <div className="px-2 pb-2 pt-4 text-[var(--blog-card-text)]">
                     <h3 className="line-clamp-2 text-lg font-black leading-snug">{post.title}</h3>
-                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#6a625b]">{post.excerpt}</p>
+                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[var(--blog-card-muted)]">{post.excerpt}</p>
 
                     <div className="mt-5 flex items-center justify-between gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[#78290F]">
                       <span>{post.readTimeMinutes} min read</span>
@@ -325,7 +325,7 @@ export default function BlogHomeClient({
                 <Link
                   key={post._id}
                   href={blogHref(basePath, post.slug)}
-                  className="group block rounded-[1.6rem] bg-white p-3 shadow-[0_16px_40px_rgba(30,41,89,0.1)]"
+                  className="group block rounded-[1.6rem] bg-[var(--blog-card)] p-3 shadow-[0_16px_40px_rgba(30,41,89,0.1)]"
                 >
                   <div className="relative overflow-hidden rounded-[1.25rem]">
                     {post.coverImage ? (
@@ -351,9 +351,9 @@ export default function BlogHomeClient({
                     </div>
                   </div>
 
-                  <div className="px-2 pb-2 pt-4 text-[#1A1A1A]">
+                  <div className="px-2 pb-2 pt-4 text-[var(--blog-card-text)]">
                     <h3 className="line-clamp-2 text-lg font-black leading-snug">{post.title}</h3>
-                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#6a625b]">{post.excerpt}</p>
+                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-[var(--blog-card-muted)]">{post.excerpt}</p>
                   </div>
                 </Link>
               ))}
@@ -382,7 +382,7 @@ export default function BlogHomeClient({
       </section>
 
       <section className="px-4 pt-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#78290F_0%,#15616D_100%)] shadow-[0_24px_80px_rgba(26,26,26,0.22)]">
+        <div className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#78290F_0%,var(--blog-accent)_100%)] shadow-[0_24px_80px_rgba(26,26,26,0.22)]">
           <div className="relative px-6 py-10 text-center sm:px-10">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12),transparent_55%)]" />
             <div id="whatsapp-channel" className="relative z-10 mx-auto max-w-3xl">
@@ -416,7 +416,7 @@ export default function BlogHomeClient({
       </section>
 
       <footer className="px-4 pt-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl rounded-[2rem] bg-[#FFECD1] px-6 py-8 text-[#1A1A1A] shadow-[0_24px_80px_rgba(26,26,26,0.16)] sm:px-8">
+        <div className="mx-auto max-w-6xl rounded-[2rem] bg-[var(--blog-footer-bg)] px-6 py-8 text-[var(--blog-footer-text)] shadow-[0_24px_80px_rgba(26,26,26,0.16)] sm:px-8">
           <div className="grid gap-8 lg:grid-cols-3">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.24em] text-[#78290F]">
@@ -431,7 +431,7 @@ export default function BlogHomeClient({
                       ) : null}
                     </div>
                     <div>
-                      <p className="line-clamp-2 text-sm font-bold leading-6 text-[#1A1A1A]">{post.title}</p>
+                      <p className="line-clamp-2 text-sm font-bold leading-6 text-[var(--blog-footer-text)]">{post.title}</p>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#78290F]">
                         {post.readTimeMinutes} min read
                       </p>
@@ -461,7 +461,7 @@ export default function BlogHomeClient({
               <p className="text-sm font-black uppercase tracking-[0.24em] text-[#78290F]">
                 Terms and conditions
               </p>
-              <div className="mt-5 space-y-3 text-sm leading-7 text-[#5f5144]">
+              <div className="mt-5 space-y-3 text-sm leading-7 text-[var(--blog-footer-muted)]">
                 <p>All blog resources are shared for inspiration, education, and service-business growth support.</p>
                 <p>Always review tools, templates, and design references before using them in client work.</p>
                 <p>By joining the channel, you agree to receive Lodday blog updates and related business-growth messages.</p>
@@ -478,7 +478,7 @@ export default function BlogHomeClient({
             <p className="text-xs font-black uppercase tracking-[0.34em] text-[#15616D]">
               Lodday Blog
             </p>
-            <p className="mt-2 text-sm text-[#5f5144]">www.booking.lodday.com</p>
+            <p className="mt-2 text-sm text-[var(--blog-footer-muted)]">www.booking.lodday.com</p>
           </div>
         </div>
       </footer>

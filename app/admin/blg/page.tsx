@@ -1,10 +1,14 @@
 import BlogAdminDashboardClient from "@/components/admin/BlogAdminDashboardClient";
+import { requirePlatformOwner } from "@/lib/auth/isPlatformOwner";
 import { serializeCategory, serializePost } from "@/lib/blog";
 import { connectDB } from "@/lib/mongoDB";
 import BlogCategory from "@/lib/models/BlogCategory";
 import BlogPost from "@/lib/models/BlogPost";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminBlogPage() {
+  await requirePlatformOwner();
   await connectDB();
 
   const [posts, categories, counts] = await Promise.all([

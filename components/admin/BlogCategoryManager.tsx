@@ -60,6 +60,8 @@ export default function BlogCategoryManager({ initialCategories }: Props) {
     };
 
     const response = await fetch(editingId ? `/api/admin/blog/categories/${editingId}` : "/api/admin/blog/categories", {
+      cache: "no-store",
+      credentials: "include",
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -83,7 +85,11 @@ export default function BlogCategoryManager({ initialCategories }: Props) {
 
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this category? Posts will keep their content but lose the category.")) return;
-    const response = await fetch(`/api/admin/blog/categories/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/admin/blog/categories/${id}`, {
+      cache: "no-store",
+      credentials: "include",
+      method: "DELETE",
+    });
     if (response.ok) {
       setCategories((current) => current.filter((item) => item._id !== id));
       if (editingId === id) resetForm();

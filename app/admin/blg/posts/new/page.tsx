@@ -5,6 +5,8 @@ import { connectDB } from "@/lib/mongoDB";
 import BlogCategory from "@/lib/models/BlogCategory";
 import BlogPost from "@/lib/models/BlogPost";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminNewBlogPostPage() {
   await requirePlatformOwner();
   await connectDB();
