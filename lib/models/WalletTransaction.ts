@@ -170,8 +170,6 @@ const WalletTransactionSchema = new Schema(
 WalletTransactionSchema.index({ walletId: 1, createdAt: -1 });
 WalletTransactionSchema.index({ businessId: 1, createdAt: -1 });
 WalletTransactionSchema.index({ type: 1, status: 1 });
-WalletTransactionSchema.index({ invoiceId: 1 });
-WalletTransactionSchema.index({ trackingId: 1 });
 
 export default models.WalletTransaction ||
   model("WalletTransaction", WalletTransactionSchema);

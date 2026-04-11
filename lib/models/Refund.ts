@@ -48,6 +48,4 @@ const RefundSchema = new Schema(
   { timestamps: true }
 );
 
-RefundSchema.index({ bookingId: 1 }, { unique: true }); // prevents double refund per booking
-
 export default models.Refund || model("Refund", RefundSchema);

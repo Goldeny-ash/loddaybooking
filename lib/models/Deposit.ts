@@ -156,10 +156,7 @@ const DepositSchema = new Schema(
 // INDEXES FOR PERFORMANCE
 // ----------------------------------
 
-DepositSchema.index({ bookingId: 1 });
 DepositSchema.index({ businessId: 1 });
-DepositSchema.index({ invoiceId: 1 });
-DepositSchema.index({ externalReference: 1 });
 DepositSchema.index({ status: 1 });
 DepositSchema.index({ walletCredited: 1 });
 
