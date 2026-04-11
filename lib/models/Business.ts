@@ -190,8 +190,6 @@ wallet: {
   },
   { timestamps: true }
 );
-BusinessSchema.index({ "access.status": 1 });
 BusinessSchema.index({ "access.nextChargeAt": 1 });
 BusinessSchema.index({ marketplaceStatus: 1, marketplaceVisible: 1 });
-BusinessSchema.index({ "adminBenefits.demoBusiness": 1 });
 export default models.Business || model("Business", BusinessSchema);

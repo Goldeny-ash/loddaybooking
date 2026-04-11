@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Loader2, RefreshCw, Smartphone } from "lucide-react";
@@ -28,10 +28,12 @@ function normalizePhone(value: string) {
   return cleaned.replace("+", "");
 }
 
-export default function SubscriptionSuccessClient() {
+export default function SubscriptionSuccessClient({
+  source,
+}: {
+  source?: string;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const source = searchParams.get("source");
   const fromSetup = source === "setup";
 
   const [phoneNumber, setPhoneNumber] = useState("");

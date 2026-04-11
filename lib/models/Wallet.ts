@@ -70,7 +70,4 @@ const WalletSchema = new Schema(
   { timestamps: true }
 );
 
-WalletSchema.index({ businessId: 1 });
-WalletSchema.index({ walletId: 1 });
-
 export default models.Wallet || model("Wallet", WalletSchema);

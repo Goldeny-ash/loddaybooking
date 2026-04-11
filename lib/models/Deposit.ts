@@ -156,8 +156,4 @@ const DepositSchema = new Schema(
 // INDEXES FOR PERFORMANCE
 // ----------------------------------
 
-DepositSchema.index({ businessId: 1 });
-DepositSchema.index({ status: 1 });
-DepositSchema.index({ walletCredited: 1 });
-
 export default models.Deposit || model("Deposit", DepositSchema);

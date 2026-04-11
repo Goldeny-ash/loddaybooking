@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inria_Serif } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -74,7 +75,9 @@ export default function RootLayout({
       <body className={`${inriaSerif.className} antialiased`}>
         <ClerkProvider>
           {children}
-          <SupportBubble />
+          <Suspense fallback={null}>
+            <SupportBubble />
+          </Suspense>
         </ClerkProvider>
       </body>
     </html>

@@ -16,9 +16,29 @@ function SubscriptionSuccessFallback() {
 }
 
 export default function SubscriptionSuccessPage() {
+  return <SubscriptionSuccessPageInner />;
+}
+
+function SubscriptionSuccessPageInner({
+  searchParams,
+}: {
+  searchParams?: Promise<{ source?: string }>;
+}) {
+  const resolvedSearchParamsPromise = searchParams ?? Promise.resolve({});
+
   return (
     <Suspense fallback={<SubscriptionSuccessFallback />}>
-      <SubscriptionSuccessClient />
+      <SubscriptionSuccessContent searchParams={resolvedSearchParamsPromise} />
     </Suspense>
   );
+}
+
+async function SubscriptionSuccessContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ source?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+
+  return <SubscriptionSuccessClient source={resolvedSearchParams?.source} />;
 }
