@@ -5,6 +5,7 @@ import Business from "@/lib/models/Business";
 import { pingGoogleSitemap } from "@/lib/seo/googlePing";
 import { dispatchEmailEvent } from "@/lib/email/dispatcher";
 import { buildDashboardUrl } from "@/lib/booking/utils";
+import { usernameToSubdomain } from "@/lib/subdomain";
 
 const escapeRegex = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
   await connectDB();
 
   const slugUsername = username.toLowerCase().replace(/\s+/g, "-").trim();
+  const normalizedSubdomain = usernameToSubdomain(slugUsername);
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const existingBusiness = await Business.findOne({ clerkUserId: userId });
   const normalizedLocation = {
@@ -70,6 +72,14 @@ export async function POST(req: Request) {
   if (usernameTaken && usernameTaken.clerkUserId !== userId) {
     return NextResponse.json(
       { error: "Username already taken" },
+      { status: 409 }
+    );
+  }
+
+  const subdomainTaken = await Business.findOne({ subdomain: normalizedSubdomain });
+  if (subdomainTaken && subdomainTaken.clerkUserId !== userId) {
+    return NextResponse.json(
+      { error: "That business URL is already taken. Please choose a different username." },
       { status: 409 }
     );
   }
@@ -115,6 +125,7 @@ export async function POST(req: Request) {
       clerkUserId: userId,
       name,
       username: slugUsername,
+      subdomain: normalizedSubdomain,
       phone,
       email: normalizedEmail,
       logo,

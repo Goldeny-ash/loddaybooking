@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoDB";
 import mongoose from "mongoose";
 import Business from "@/lib/models/Business";
 import { auth } from "@clerk/nextjs/server";
+import { usernameToSubdomain } from "@/lib/subdomain";
 
 const escapeRegex = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -80,12 +81,24 @@ export async function PATCH(
 
     if (typeof body.username === "string") {
       body.username = body.username.toLowerCase().replace(/\s+/g, "-").trim();
+      const nextSubdomain = usernameToSubdomain(body.username);
       const usernameTaken = await Business.findOne({
         username: body.username,
         _id: { $ne: id },
       });
       if (usernameTaken) {
         return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      }
+
+      const subdomainTaken = await Business.findOne({
+        subdomain: nextSubdomain,
+        _id: { $ne: id },
+      });
+      if (subdomainTaken) {
+        return NextResponse.json(
+          { error: "That business URL is already taken. Please choose a different username." },
+          { status: 409 }
+        );
       }
     }
 
@@ -244,6 +257,10 @@ export async function PATCH(
     const updateDoc = {
       name: pickTrimmedString(body.name, existingBusiness.name ?? ""),
       username: typeof body.username === "string" ? body.username : existingBusiness.username,
+      subdomain:
+        typeof body.username === "string"
+          ? usernameToSubdomain(body.username)
+          : existingBusiness.subdomain,
       phone: pickTrimmedString(body.phone, existingBusiness.phone ?? ""),
       email: typeof body.email === "string" ? body.email : existingBusiness.email,
       logo: pickTrimmedString(body.logo, existingBusiness.logo ?? ""),

@@ -6,6 +6,7 @@ const BusinessSchema = new Schema(
     referredBy: { type: Schema.Types.ObjectId, ref: "Affiliate", index: true, default: null },
     name: String,
     username: { type: String, unique: true },
+    subdomain: { type: String, unique: true, sparse: true, index: true },
     phone: String,
     email: String,
 
@@ -176,10 +177,21 @@ wallet: {
       type: String,
       default: "",
     },
+    adminBenefits: {
+      demoBusiness: {
+        type: Boolean,
+        default: false,
+        index: true,
+      },
+      freeMonthGrantedAt: Date,
+      freeMonthEndsAt: Date,
+      freeMonthEmailSentAt: Date,
+    },
   },
   { timestamps: true }
 );
 BusinessSchema.index({ "access.status": 1 });
 BusinessSchema.index({ "access.nextChargeAt": 1 });
 BusinessSchema.index({ marketplaceStatus: 1, marketplaceVisible: 1 });
+BusinessSchema.index({ "adminBenefits.demoBusiness": 1 });
 export default models.Business || model("Business", BusinessSchema);

@@ -36,6 +36,7 @@ export async function GET() {
         marketplaceVisible: Boolean(business.marketplaceVisible),
         marketplaceStatus: business.marketplaceStatus || "none",
         marketplaceRejectionReason: business.marketplaceRejectionReason || "",
+        demoBusiness: Boolean(business.adminBenefits?.demoBusiness),
       },
     });
   } catch (error) {
@@ -61,8 +62,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const action = String(body?.action || "").trim();
     const accessStatus = business.access?.status || "INACTIVE";
+    const hasDemoOverride = Boolean(business.adminBenefits?.demoBusiness);
 
-    if (!isActiveSubscription(accessStatus)) {
+    if (!isActiveSubscription(accessStatus) && !hasDemoOverride) {
       return NextResponse.json(
         { error: "Marketplace access is available on active subscriptions only." },
         { status: 403 }

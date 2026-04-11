@@ -13,6 +13,7 @@ type Props = {
     marketplaceVisible?: boolean;
     marketplaceStatus?: "none" | "pending" | "approved" | "rejected";
     marketplaceRejectionReason?: string;
+    demoBusiness?: boolean;
   };
 };
 
@@ -22,8 +23,8 @@ type MarketplaceState = {
   marketplaceRejectionReason: string;
 };
 
-function isActiveSubscription(status?: string) {
-  return status === "ACTIVE";
+function isActiveSubscription(status?: string, demoBusiness?: boolean) {
+  return status === "ACTIVE" || Boolean(demoBusiness);
 }
 
 export default function MarketplaceVisibilityManager({ business }: Props) {
@@ -62,7 +63,10 @@ export default function MarketplaceVisibilityManager({ business }: Props) {
     load();
   }, []);
 
-  const activeSubscription = isActiveSubscription(business.access?.status);
+  const activeSubscription = isActiveSubscription(
+    business.access?.status,
+    business.demoBusiness
+  );
 
   const runAction = async (action: "request" | "toggle") => {
     setLoading(true);
@@ -110,6 +114,12 @@ export default function MarketplaceVisibilityManager({ business }: Props) {
         {!activeSubscription ? (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             Marketplace access is available on active subscriptions only.
+          </div>
+        ) : null}
+
+        {business.demoBusiness ? (
+          <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+            This business is marked as a demo business by platform admin, so marketplace access remains available as an override.
           </div>
         ) : null}
 

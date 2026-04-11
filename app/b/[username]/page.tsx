@@ -10,6 +10,7 @@ import {
   buildBusinessSeoCopy,
   buildBusinessStructuredData,
 } from "@/lib/seo";
+import { usernameToSubdomain } from "@/lib/subdomain";
 import { getTheme } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,9 @@ interface PageProps {
 async function getPageData(username: string) {
   await connectDB();
 
-  const businessDoc = await Business.findOne({ username });
+  const businessDoc = await Business.findOne({
+    $or: [{ username }, { subdomain: usernameToSubdomain(username) }],
+  });
   if (!businessDoc) {
     return null;
   }
@@ -59,6 +62,7 @@ async function getPageData(username: string) {
     locationLabel,
     locationLink,
     depositRequired: Boolean(businessRaw.depositPolicy?.enabled),
+    demoBusiness: Boolean(businessRaw.adminBenefits?.demoBusiness),
   };
 
   if (process.env.NODE_ENV === "development") {

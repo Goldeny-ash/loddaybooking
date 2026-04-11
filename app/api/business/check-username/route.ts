@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
+import { usernameToSubdomain } from "@/lib/subdomain";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -10,10 +11,13 @@ export async function GET(req: Request) {
 
   // Normalize username to match what DB stores
   username = username.toLowerCase().replace(/\s+/g, "-").trim();
+  const normalizedSubdomain = usernameToSubdomain(username);
 
   await connectDB();
 
-  const exists = await Business.findOne({ username });
+  const exists = await Business.findOne({
+    $or: [{ username }, { subdomain: normalizedSubdomain }],
+  });
 
   return NextResponse.json({
     available: !exists,

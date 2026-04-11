@@ -6,6 +6,7 @@ const adminSections = [
   { name: "Finance", href: "/finance" },
   { name: "Marketplace", href: "/marketplace" },
   { name: "Refunds", href: "/refunds" },
+  { name: "Support", href: "/admin/support" },
   { name: "Subscriptions", href: "/subscriptions" },
   { name: "Wallets", href: "/wallets" },
 ];

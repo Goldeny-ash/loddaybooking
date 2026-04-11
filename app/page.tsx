@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { MessageCircle, X } from "lucide-react";
-import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import CurvedSection from "@/components/home/CurvedSection";
 import FloatingShape from "@/components/FloatingShape";
@@ -30,8 +28,6 @@ const whatsappHref =
   "https://wa.me/254723711925?text=Hi%20Lodday%2C%20I%20need%20help%20setting%20up%20my%20booking%20page.";
 
 const HomePage = () => {
-  const [showWhatsAppHint, setShowWhatsAppHint] = useState(true);
-
   const colors = {
     primary: "#15616D",
     secondary: "#78290F",
@@ -386,35 +382,6 @@ const HomePage = () => {
             </Link>
           </div>
         </CurvedSection>
-      </div>
-
-      <div className="fixed bottom-4 right-4 z-40 md:hidden">
-        <div className="flex items-end gap-3">
-          {showWhatsAppHint ? (
-            <div className="max-w-[220px] rounded-2xl bg-[#001524] px-4 py-3 text-white shadow-2xl">
-              <div className="flex items-start gap-3">
-                <p className="text-xs leading-5 text-white/85">
-                  Need help setting up? Chat with us on WhatsApp
-                </p>
-                <button
-                  type="button"
-                  aria-label="Dismiss WhatsApp message"
-                  onClick={() => setShowWhatsAppHint(false)}
-                  className="shrink-0 rounded-full bg-white/10 p-1 text-white/75 transition hover:bg-white/20 hover:text-white"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <Link
-            href={whatsappHref}
-            aria-label="Chat on WhatsApp"
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105"
-          >
-            <MessageCircle size={26} strokeWidth={2.2} />
-          </Link>
-        </div>
       </div>
 
       <Footer />

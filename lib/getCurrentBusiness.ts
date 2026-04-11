@@ -33,7 +33,8 @@ export async function getCurrentBusiness(options?: {
 
   if (
     options?.requireActiveSubscription &&
-    !["ACTIVE", "TRIAL"].includes(business.access.status)
+    !["ACTIVE", "TRIAL"].includes(business.access.status) &&
+    !business.adminBenefits?.demoBusiness
   ) {
     throw new Error("SUBSCRIPTION_REQUIRED");
   }

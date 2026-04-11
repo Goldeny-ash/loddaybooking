@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
+import { usernameToSubdomain } from "@/lib/subdomain";
 
 export const revalidate = 60;
 
@@ -10,7 +11,9 @@ export async function GET(req: Request) {
 
   await connectDB();
 
-  const business = await Business.findOne({ username }).lean();
+  const business = await Business.findOne({
+    $or: [{ username }, { subdomain: usernameToSubdomain(username) }],
+  }).lean();
   if (!business) return NextResponse.json({ error:"Not found" },{status:404});
 
   // DEV override ONLY here

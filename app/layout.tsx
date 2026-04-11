@@ -3,6 +3,7 @@ import { Inria_Serif } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { getSiteUrl } from "@/lib/seo";
+import SupportBubble from "@/components/support/SupportBubble";
 
 const inriaSerif = Inria_Serif({
   weight: ["300", "400", "700"],
@@ -71,7 +72,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inriaSerif.variable}>
       <body className={`${inriaSerif.className} antialiased`}>
-        <ClerkProvider>{children}</ClerkProvider>
+        <ClerkProvider>
+          {children}
+          <SupportBubble />
+        </ClerkProvider>
       </body>
     </html>
   );

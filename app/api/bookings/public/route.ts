@@ -197,6 +197,7 @@ export async function POST(req: Request) {
     const now = new Date();
     const { status, trialEndsAt } = business.access || {};
     const subscriptionValid =
+      Boolean(business.adminBenefits?.demoBusiness) ||
       status === "ACTIVE" ||
       status === "GRACE" ||
       (status === "TRIAL" && trialEndsAt && new Date(trialEndsAt) >= now);

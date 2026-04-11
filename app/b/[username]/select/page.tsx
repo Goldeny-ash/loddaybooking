@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connectDB } from "@/lib/mongoDB";
 import Business from "@/lib/models/Business";
+import { usernameToSubdomain } from "@/lib/subdomain";
 import { getTheme } from "@/lib/theme";
 import BookingClient from "@/components/public/BookingClient";
 
@@ -25,7 +26,11 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   }
 
   await connectDB();
-  const business = await Business.findOne({ username }).select("name").lean();
+  const business = await Business.findOne({
+    $or: [{ username }, { subdomain: usernameToSubdomain(username) }],
+  })
+    .select("name")
+    .lean();
 
   const businessName = business?.name || username;
 
@@ -47,7 +52,9 @@ export default async function BookingPage(props: PageProps) {
   if (!username) return notFound();
 
   await connectDB();
-  const businessDoc = await Business.findOne({ username });
+  const businessDoc = await Business.findOne({
+    $or: [{ username }, { subdomain: usernameToSubdomain(username) }],
+  });
   if (!businessDoc) return notFound();
 
   const businessRaw = businessDoc.toObject({ flattenMaps: true });

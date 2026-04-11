@@ -150,6 +150,7 @@ export interface Business {
     value?: number;
     applyToCallout?: boolean;
   };
+  demoBusiness?: boolean;
 }
 
 export interface Theme {
@@ -313,6 +314,26 @@ export default function PublicBookingPageClient({
           theme={theme}
         />
       </div>
+
+      {business.demoBusiness ? (
+        <section
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-4 md:p-5"
+          style={{
+            boxShadow: "0 18px 40px rgba(120, 41, 15, 0.08)",
+          }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+            Demo business
+          </p>
+          <h2 className="mt-2 text-lg font-semibold text-amber-950 md:text-xl">
+            This is a sample Lodday booking page for demonstration purposes.
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            It is shown to help visitors explore how a real Lodday business page looks and works.
+            Please confirm details with the business owner before treating this page as a live business profile.
+          </p>
+        </section>
+      ) : null}
 
       <section
         className="rounded-2xl p-4 md:p-5"

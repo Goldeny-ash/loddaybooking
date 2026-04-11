@@ -28,6 +28,7 @@ export interface MarketplaceBusiness {
   availableToday?: boolean;
   availableTomorrow?: boolean;
   createdAt?: string;
+  isDemo?: boolean;
 }
 
 export const MARKETPLACE_URL = "https://lodday.com";
@@ -95,12 +96,15 @@ export async function getMarketplaceBusinesses(): Promise<MarketplaceBusiness[]>
   const businessDocs = await Business.find({
     username: { $exists: true, $ne: "" },
     name: { $exists: true, $ne: "" },
-    "access.status": "ACTIVE",
     marketplaceVisible: true,
     marketplaceStatus: "approved",
+    $or: [
+      { "access.status": "ACTIVE" },
+      { "adminBenefits.demoBusiness": true },
+    ],
   })
     .select(
-      "name username description logo phone location website socialLinks tags access updatedAt createdAt"
+      "name username description logo phone location website socialLinks tags access updatedAt createdAt adminBenefits"
     )
     .sort({ updatedAt: -1, createdAt: -1 })
     .lean();
@@ -197,6 +201,7 @@ export async function getMarketplaceBusinesses(): Promise<MarketplaceBusiness[]>
       featured,
       priceFrom: servicePrices.length > 0 ? Math.min(...servicePrices) : null,
       createdAt: businessDoc.createdAt ? new Date(businessDoc.createdAt).toISOString() : undefined,
+      isDemo: Boolean(businessDoc.adminBenefits?.demoBusiness),
     };
   });
 }

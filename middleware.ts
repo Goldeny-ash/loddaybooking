@@ -1,5 +1,6 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getSubdomain, isLoddaySubdomainHost, normalizeHost } from "@/lib/subdomain";
 
 const MARKETPLACE_HOSTS = new Set([
   "lodday.com",
@@ -21,16 +22,13 @@ function isKnownLoddayHost(hostname: string) {
   );
 }
 
-function normalizeHost(value: string) {
-  return value
-    .split(",")[0]
-    .trim()
-    .replace(/:\d+$/, "")
-    .toLowerCase();
-}
-
 function getInternalPathname(hostname: string, pathname: string) {
- 
+  if (isLoddaySubdomainHost(hostname) && !isKnownLoddayHost(hostname)) {
+    const subdomain = getSubdomain(hostname);
+    if (subdomain) {
+      return pathname === "/" ? `/b/${subdomain}` : `/b/${subdomain}${pathname}`;
+    }
+  }
 
   if (MARKETPLACE_HOSTS.has(hostname)) {
     return pathname === "/" ? "/marketplace" : `/marketplace${pathname}`;
@@ -70,6 +68,10 @@ function getCanonicalHost(internalPathname: string, hostname: string) {
 
   if (BOOKING_HOSTS.has(hostname)) {
     return "booking.lodday.com";
+  }
+
+  if (isLoddaySubdomainHost(hostname) && !isKnownLoddayHost(hostname)) {
+    return hostname;
   }
 
   if (isKnownLoddayHost(hostname)) {
