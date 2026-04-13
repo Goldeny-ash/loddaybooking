@@ -2,22 +2,14 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  ArrowUpRight,
-  BadgeCheck,
   CalendarClock,
-  Crown,
   Gift,
   Mail,
   Plus,
   Search,
-  Sparkles,
-  Star,
   UserPlus,
-  Users,
-  WandSparkles,
-  
 } from "lucide-react";
+import ClientStats, { type ClientStatItem } from "@/components/dashboard/ClientStats";
 
 type BookingLike = {
   _id?: string;
@@ -74,6 +66,7 @@ type ClientProfile = {
   tags: string[];
   predictedAnnualValue: number;
   rewardReady: boolean;
+  rewardsUnlocked: number;
   referralCode: string;
   referralsMade: number;
   earnedRewards: number;
@@ -85,6 +78,7 @@ const TAB_OPTIONS: Array<{ key: SegmentKey; label: string; icon: string }> = [
   { key: "risk", label: "At Risk", icon: "🔴" },
   { key: "vip", label: "Loyal", icon: "💎" },
  
+  { key: "new", label: "New", icon: "🆕" },
 ];
 
 function formatKes(value: number) {
@@ -332,6 +326,7 @@ function buildClientProfiles(bookings: BookingLike[]) {
       tags,
       predictedAnnualValue: Math.round(avgSpend * Math.max(2, Math.min(visits, 6))),
       rewardReady: visits > 0 && visits % 5 === 0,
+      rewardsUnlocked: Math.floor(visits / 5),
       referralCode: makeReferralCode(sorted[0]?.customerName || "Client"),
       referralsMade: Math.min(6, Math.floor(visits / 2)),
       earnedRewards: Math.min(1500, Math.floor(visits / 2) * 200),
@@ -417,6 +412,8 @@ export default function ClientDashboard({
   const [campaignOpen, setCampaignOpen] = useState(false);
   const [comebackClientId, setComebackClientId] = useState<string>("");
   const [rewardClientId, setRewardClientId] = useState<string>("");
+  const [activityClientId, setActivityClientId] = useState<string>("");
+  const [referralClientId, setReferralClientId] = useState<string>("");
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [walkInDraft, setWalkInDraft] = useState({
@@ -433,39 +430,68 @@ export default function ClientDashboard({
   const selectedClient = clients.find((client) => client.id === selectedClientId) || null;
   const comebackClient = clients.find((client) => client.id === comebackClientId) || null;
   const rewardClient = clients.find((client) => client.id === rewardClientId) || null;
+  const activityClient = clients.find((client) => client.id === activityClientId) || null;
+  const referralClient = clients.find((client) => client.id === referralClientId) || null;
 
-  const topFiveRevenue = clients.slice(0, 5).reduce((sum, client) => sum + client.totalSpend, 0);
-  const avgClientValue =
-    clients.length > 0
-      ? clients.reduce((sum, client) => sum + client.totalSpend, 0) / clients.length
-      : 0;
-  const atRiskCount = clients.filter((client) => client.lifecycle === "at_risk").length;
-  const upcomingRevenueCount = clients.filter((client) => client.dueInDays !== null && client.dueInDays <= 7).length;
-  const rewardReadyCount = clients.filter((client) => client.rewardReady).length;
   const inactiveCount = clients.filter((client) => (client.daysSinceLastVisit ?? 0) > 45).length;
+  const loyalClients = clients.filter((client) => client.lifecycle === "loyal");
+  const activeClients = clients.filter((client) => client.lifecycle === "active");
+  const atRiskClients = clients.filter((client) => client.lifecycle === "at_risk");
+  const newClients = clients.filter((client) => client.visits === 1);
 
-  const insightCards = [
+  const monthlyRevenueForReturningClient = (client: ClientProfile) =>
+    Math.round(client.predictedAnnualValue / 12);
+
+  const statsCards: ClientStatItem[] = [
     {
-      title: "Average Client Value",
-      icon: <Crown size={18} />,
-      body: formatKes(avgClientValue),
-    },
+      key: "loyal",
+      title: "Loyal Clients Revenue",
+      
+      countLabel: `${loyalClients.length} Clients`,
+      revenueLabel: formatKes(
+        loyalClients.reduce((sum, client) => sum + monthlyRevenueForReturningClient(client), 0)
+      ),
+      tone: "success",
+      confidenceLabel: "High confidence",
+      
+ },
     {
-      title: "At-Risk Alert",
-      icon: <AlertTriangle size={18} />,
-      body: `${atRiskCount} Clients`,
-      onClick: () => setSegment("risk"),
-      standout: true,
-      cta: "View Clients",
-    },
-    {
-      title: "Upcoming Revenue",
-      icon: <CalendarClock size={18} />,
-      body: `${upcomingRevenueCount} Clients Due This Week`,
-      note: "Clients likely ready to rebook soon",
+      key: "active",
+      title: "Active Clients Revenue",
+      
+      countLabel: `${activeClients.length} Clients`,
+      revenueLabel: formatKes(
+        activeClients.reduce((sum, client) => sum + monthlyRevenueForReturningClient(client), 0)
+      ),
+      tone: "warning",
+      confidenceLabel: "Medium confidence",
+      questionLabel: "What can I still capture?",
       onClick: () => setSegment("active"),
     },
-   
+    {
+      key: "risk",
+      title: "At Risk Revenue",
+    
+      countLabel: `${atRiskClients.length} Clients`,
+      revenueLabel: formatKes(
+        atRiskClients.reduce((sum, client) => sum + monthlyRevenueForReturningClient(client), 0)
+      ),
+      tone: "danger",
+      confidenceLabel: "Low confidence",
+      questionLabel: "What am I losing?",
+      onClick: () => setSegment("risk"),
+    },
+    {
+      key: "new",
+      title: "New Clients Revenue",
+      
+      countLabel: `${newClients.length} Clients`,
+      revenueLabel: formatKes(newClients.reduce((sum, client) => sum + client.totalSpend, 0)),
+      tone: "neutral",
+      confidenceLabel: "Unknown confidence",
+      questionLabel: "What did new acquisition bring in?",
+      onClick: () => setSegment("new"),
+    },
   ];
 
   return (
@@ -515,56 +541,7 @@ export default function ClientDashboard({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-        {insightCards.map((card) => (
-          <button
-            key={card.title}
-            type="button"
-            onClick={card.onClick}
-            className="text-left"
-          >
-            <CardShell
-              className={`h-full p-5 transition-transform duration-150 hover:-translate-y-0.5 ${
-                card.standout ? "ring-1" : ""
-              }`}
-              style={
-                card.standout
-                  ? {
-                      background:
-                        "linear-gradient(135deg, rgba(254,242,242,1) 0%, rgba(255,255,255,1) 50%, var(--brand-bg-soft) 100%)",
-                      borderColor: "rgba(239,68,68,0.28)",
-                    }
-                  : undefined
-              }
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-accent-dark)" }}>
-                    {card.title}
-                  </p>
-                  <p className="mt-3 text-xl font-semibold" style={{ color: "var(--brand-primary-dark)" }}>
-                    {card.body}
-                  </p>
-                  <p className="mt-2 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
-                    {card.note}
-                  </p>
-                </div>
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                  style={{ background: "var(--brand-bg-soft)", color: "var(--brand-primary)" }}
-                >
-                  {card.icon}
-                </div>
-              </div>
-              {card.cta ? (
-                <span className="mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: "rgba(239,68,68,0.24)", color: "#b91c1c" }}>
-                  {card.cta}
-                </span>
-              ) : null}
-            </CardShell>
-          </button>
-        ))}
-      </div>
+      <ClientStats items={statsCards} />
 
       <CardShell className="p-4 sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -635,12 +612,12 @@ export default function ClientDashboard({
             <div className="grid gap-4 p-4 md:hidden">
               {filteredClients.map((client) => {
                 const lifeTone = lifecycleTone(client.lifecycle);
-                const reliabilityTone = statusTone(client.scoreTone);
+                const primaryCategory = client.tags[0] || client.statusLabel;
 
                 return (
                   <CardShell key={client.id} className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <div className="min-w-0">
                         <button
                           type="button"
                           onClick={() => setSelectedClientId(client.id)}
@@ -649,38 +626,14 @@ export default function ClientDashboard({
                         >
                           {client.name}
                         </button>
-                        <p className="mt-1 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
-                          {client.favoriteService}
+                        <p className="mt-1 text-sm font-medium" style={{ color: "var(--brand-accent-dark)" }}>
+                          {primaryCategory}
                         </p>
                       </div>
-                      <span
-                        className="rounded-full border px-3 py-1 text-xs font-semibold"
-                        style={{
-                          background: lifeTone.background,
-                          borderColor: lifeTone.border,
-                          color: lifeTone.color,
-                        }}
-                      >
-                        {client.statusLabel}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <Metric label="Visits" value={String(client.visits)} compact />
-                      <Metric label="Spend" value={formatKes(client.totalSpend)} compact />
-                      <Metric label="Last Visit" value={daysAgoLabel(client.daysSinceLastVisit)} compact />
-                      <div
-                        className="rounded-2xl border p-3"
-                        style={{
-                          background: reliabilityTone.background,
-                          borderColor: reliabilityTone.border,
-                          color: reliabilityTone.color,
-                        }}
-                      >
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">
-                          Score
-                        </p>
-                        <p className="mt-1 font-semibold">{client.scoreLabel}</p>
+                      <div className="grid gap-3">
+                        <Metric label="Visits" value={String(client.visits)} compact />
+                        <Metric label="Total Spend" value={formatKes(client.totalSpend)} compact />
+                        <Metric label="Last Visit" value={daysAgoLabel(client.daysSinceLastVisit)} compact />
                       </div>
                     </div>
 
@@ -693,14 +646,16 @@ export default function ClientDashboard({
                       >
                         View Full Profile
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setComebackClientId(client.id)}
-                        className="rounded-full border px-4 py-2 text-xs font-semibold"
-                        style={{ borderColor: "rgba(239,68,68,0.18)", color: "#b91c1c" }}
+                      <span
+                        className="inline-flex w-fit rounded-full border px-3 py-2 text-xs font-semibold"
+                        style={{
+                          background: lifeTone.background,
+                          borderColor: lifeTone.border,
+                          color: lifeTone.color,
+                        }}
                       >
-                        Send Comeback
-                      </button>
+                        {client.statusLabel}
+                      </span>
                     </div>
                   </CardShell>
                 );
@@ -711,19 +666,15 @@ export default function ClientDashboard({
               <table className="min-w-full text-sm">
                 <thead style={{ background: "var(--brand-bg-soft)" }}>
                   <tr className="text-left" style={{ color: "var(--brand-accent-dark)" }}>
-                    <th className="px-5 py-3 font-medium">Client</th>
-                    <th className="px-5 py-3 font-medium">Visits</th>
-                    <th className="px-5 py-3 font-medium">Total Spend</th>
-                    <th className="px-5 py-3 font-medium">Last Visit</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">Score</th>
-                    <th className="px-5 py-3 font-medium">Actions</th>
+                    <th className="px-5 py-3 font-medium">Client Summary</th>
+                    <th className="px-5 py-3 font-medium">Client Metrics</th>
+                    <th className="px-5 py-3 font-medium">Profile</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => {
                     const lifeTone = lifecycleTone(client.lifecycle);
-                    const reliabilityTone = statusTone(client.scoreTone);
+                    const primaryCategory = client.tags[0] || client.statusLabel;
 
                     return (
                       <tr
@@ -741,43 +692,33 @@ export default function ClientDashboard({
                             >
                               {client.name}
                             </button>
-                            <p className="mt-1 text-xs" style={{ color: "var(--brand-accent-dark)" }}>
-                              {client.favoriteService}
+                            <p className="mt-1 text-xs font-medium" style={{ color: "var(--brand-accent-dark)" }}>
+                              {primaryCategory}
                             </p>
+                            <span
+                              className="mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold"
+                              style={{
+                                background: lifeTone.background,
+                                borderColor: lifeTone.border,
+                                color: lifeTone.color,
+                              }}
+                            >
+                              {client.statusLabel}
+                            </span>
                           </div>
                         </td>
-                        <td className="px-5 py-4" style={{ color: "var(--brand-primary-dark)" }}>
-                          {client.visits}
-                        </td>
-                        <td className="px-5 py-4 font-medium" style={{ color: "var(--brand-primary-dark)" }}>
-                          {formatKes(client.totalSpend)}
-                        </td>
-                        <td className="px-5 py-4" style={{ color: "var(--brand-accent-dark)" }}>
-                          {daysAgoLabel(client.daysSinceLastVisit)}
-                        </td>
                         <td className="px-5 py-4">
-                          <span
-                            className="inline-flex rounded-full border px-3 py-1 text-xs font-semibold"
-                            style={{
-                              background: lifeTone.background,
-                              borderColor: lifeTone.border,
-                              color: lifeTone.color,
-                            }}
-                          >
-                            {client.statusLabel}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span
-                            className="inline-flex rounded-full border px-3 py-1 text-xs font-semibold"
-                            style={{
-                              background: reliabilityTone.background,
-                              borderColor: reliabilityTone.border,
-                              color: reliabilityTone.color,
-                            }}
-                          >
-                            {client.scoreLabel}
-                          </span>
+                          <div className="space-y-1">
+                            <p className="font-medium" style={{ color: "var(--brand-primary-dark)" }}>
+                              {client.visits} visits
+                            </p>
+                            <p className="font-medium" style={{ color: "var(--brand-primary-dark)" }}>
+                              {formatKes(client.totalSpend)}
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--brand-accent-dark)" }}>
+                              {daysAgoLabel(client.daysSinceLastVisit)}
+                            </p>
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-2">
@@ -788,22 +729,6 @@ export default function ClientDashboard({
                               style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)" }}
                             >
                               View Full Profile
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setComebackClientId(client.id)}
-                              className="rounded-full border px-3 py-2 text-xs font-semibold"
-                              style={{ borderColor: "rgba(239,68,68,0.18)", color: "#b91c1c" }}
-                            >
-                              Send Comeback
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRewardClientId(client.id)}
-                              className="rounded-full border px-3 py-2 text-xs font-semibold"
-                              style={{ borderColor: "rgba(245,158,11,0.2)", color: "#b45309" }}
-                            >
-                              Reward
                             </button>
                           </div>
                         </td>
@@ -825,12 +750,13 @@ export default function ClientDashboard({
         >
           <ClientProfileContent
             client={selectedClient}
-            avgClientValue={avgClientValue}
             bookingUrl={bookingUrl}
             draftNotes={draftNotes}
             setDraftNotes={setDraftNotes}
             onComeback={() => setComebackClientId(selectedClient.id)}
             onReward={() => setRewardClientId(selectedClient.id)}
+            onOpenActivities={() => setActivityClientId(selectedClient.id)}
+            onReferral={() => setReferralClientId(selectedClient.id)}
           />
         </ModalShell>
       ) : null}
@@ -850,7 +776,7 @@ export default function ClientDashboard({
             </select>
             <textarea
               rows={5}
-              defaultValue={`Hey there, we miss you. Your next slot is ready whenever you are. Book here: ${bookingUrl}`}
+              defaultValue={`Hey there, we miss you. Your next slot is ready whenever you are. Book here: ${bookingUrl}\n\nTo stop receiving Lodday promotions, use the unsubscribe link in the footer.`}
               className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
               style={{ borderColor: "var(--brand-primary-light)" }}
             />
@@ -884,7 +810,7 @@ export default function ClientDashboard({
           <div className="space-y-4">
             <textarea
               rows={5}
-              defaultValue={`Hey 👋 we miss you!\nBook your next session here: ${bookingUrl}`}
+              defaultValue={`Hey 👋 we miss you!\nBook your next session here: ${bookingUrl}\n\nTo stop receiving Lodday promotions, use the unsubscribe link in the footer.`}
               className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
               style={{ borderColor: "var(--brand-primary-light)" }}
             />
@@ -910,41 +836,31 @@ export default function ClientDashboard({
         </ModalShell>
       ) : null}
 
+      {activityClient ? (
+        <ModalShell
+          title={`${activityClient.name} Activity`}
+          onClose={() => setActivityClientId("")}
+          widthClassName="max-w-3xl"
+        >
+          <AllActivityList client={activityClient} />
+        </ModalShell>
+      ) : null}
+
       {rewardClient ? (
         <ModalShell
           title={`Reward Offer - ${rewardClient.name}`}
           onClose={() => setRewardClientId("")}
         >
-          <div className="space-y-4">
-            <InfoRow
-              label="Trigger"
-              value={`Client visits: ${rewardClient.visits}`}
-            />
-            <textarea
-              rows={5}
-              defaultValue={`You have unlocked a loyalty reward. Book your next session here: ${bookingUrl}`}
-              className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
-              style={{ borderColor: "var(--brand-primary-light)" }}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRewardClientId("")}
-                className="rounded-full border px-4 py-3 text-sm font-semibold"
-                style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)" }}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => setRewardClientId("")}
-                className="rounded-full px-4 py-3 text-sm font-semibold text-white"
-                style={{ background: "var(--brand-primary)" }}
-              >
-                Send Reward Offer
-              </button>
-            </div>
-          </div>
+          <RewardOfferForm client={rewardClient} bookingUrl={bookingUrl} onClose={() => setRewardClientId("")} />
+        </ModalShell>
+      ) : null}
+
+      {referralClient ? (
+        <ModalShell
+          title={`Referral Email - ${referralClient.name}`}
+          onClose={() => setReferralClientId("")}
+        >
+          <ReferralEmailForm client={referralClient} bookingUrl={bookingUrl} onClose={() => setReferralClientId("")} />
         </ModalShell>
       ) : null}
 
@@ -1093,20 +1009,22 @@ function InsightPanel({
 
 function ClientProfileContent({
   client,
-  avgClientValue,
   bookingUrl,
   draftNotes,
   setDraftNotes,
   onComeback,
   onReward,
+  onOpenActivities,
+  onReferral,
 }: {
   client: ClientProfile;
-  avgClientValue: number;
   bookingUrl: string;
   draftNotes: Record<string, string>;
   setDraftNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onComeback: () => void;
   onReward: () => void;
+  onOpenActivities: () => void;
+  onReferral: () => void;
 }) {
   return (
     <div className="space-y-5">
@@ -1117,7 +1035,7 @@ function ClientProfileContent({
           background: "rgba(255,255,255,0.78)",
         }}
       >
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-accent-dark)" }}>
               Client Summary
@@ -1136,61 +1054,74 @@ function ClientProfileContent({
                 </span>
               ))}
             </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Metric label="Total Spend" value={formatKes(client.totalSpend)} />
+              <Metric label="Last Visit" value={daysAgoLabel(client.daysSinceLastVisit)} />
+            </div>
           </div>
 
-          <div className="grid gap-3 text-sm sm:grid-cols-2 xl:min-w-[320px]">
-            <Metric label="Total Spend" value={formatKes(client.totalSpend)} />
-            <Metric label="Last Visit" value={daysAgoLabel(client.daysSinceLastVisit)} />
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
             <Metric label="Visits" value={String(client.visits)} />
-            <Metric label="Value" value={`${formatKes(client.predictedAnnualValue)}/year`} />
+            <Metric label="Predictable Value" value={`${formatKes(client.predictedAnnualValue)}/year`} />
+            <Metric label="Rewards Used" value={String(client.rewardsUnlocked)} />
+            <Metric label="Average Spend" value={formatKes(client.avgSpend)} />
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <QuickAction label="Send Comeback Email" icon={<Mail size={14} />} onClick={onComeback} />
           <QuickAction label="Book for Client" icon={<CalendarClock size={14} />} href={bookingUrl} />
-          <QuickAction label="Reward Client" icon={<Gift size={14} />} onClick={onReward} />
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <InsightPanel
-          title="Client Intelligence"
-          icon={<WandSparkles size={16} />}
-          lines={[
-            dueLabel(client.dueInDays),
-            `Usually books ${client.preferredDay}s around ${client.preferredTime}`,
-            `Prefers ${client.favoriteService.toLowerCase()}`,
-          ]}
-        />
-        <InsightPanel
-          title="Client DNA Profile"
-          icon={<BadgeCheck size={16} />}
-          lines={[
-            `Reliability: ${client.reliability}`,
-            `Spending Pattern: ${client.totalSpend >= avgClientValue ? "High" : "Steady"}`,
-            `Preferred Time: ${client.preferredTime}`,
-            `Style: ${client.style}`,
-          ]}
-        />
       </div>
 
       <CardShell className="p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-accent-dark)" }}>
-              Client Lifecycle Status
-            </p>
-            <h4 className="mt-2 text-lg font-semibold" style={{ color: "var(--brand-primary-dark)" }}>
-              {client.statusLabel}
-            </h4>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[320px]">
-            <Metric label="Reward" value={client.rewardReady ? "Ready" : "Building"} compact />
-            <Metric label="Referrals" value={String(client.referralsMade)} compact />
-            <Metric label="Code" value={client.referralCode} compact />
-          </div>
+        <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-accent-dark)" }}>
+          Recent Activity
+        </p>
+        <div className="mt-4 space-y-3">
+          {client.bookings.slice(0, 2).map((booking) => (
+            <div
+              key={booking._id || `${client.id}-${booking.date}-${booking.startTime}`}
+              className="rounded-2xl border p-3"
+              style={{
+                borderColor: "var(--brand-primary-light)",
+                background: "rgba(255,255,255,0.74)",
+              }}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium" style={{ color: "var(--brand-primary-dark)" }}>
+                    {(booking.services || []).map((service) => service.serviceName).filter(Boolean).join(", ") || "Booking"}
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: "var(--brand-accent-dark)" }}>
+                    {booking.date || "No date"} at {getReadableTime(booking.startTime)}
+                  </p>
+                </div>
+                <span
+                  className="rounded-full border px-3 py-1 text-xs font-semibold"
+                  style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)", background: "var(--brand-bg-soft)" }}
+                >
+                  {(booking.status || "pending").replace(/_/g, " ")}
+                </span>
+              </div>
+              {booking.note || booking.staffInternalNote ? (
+                <p className="mt-2 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
+                  {booking.staffInternalNote || booking.note}
+                </p>
+              ) : null}
+            </div>
+          ))}
         </div>
+        {client.bookings.length > 2 ? (
+          <button
+            type="button"
+            onClick={onOpenActivities}
+            className="mt-4 rounded-full border px-4 py-3 text-sm font-semibold"
+            style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)" }}
+          >
+            See More
+          </button>
+        ) : null}
       </CardShell>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -1231,50 +1162,21 @@ function ClientProfileContent({
             <UserPlus size={18} style={{ color: "var(--brand-primary)" }} />
           </div>
           <p className="mt-3 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
-            {client.referralsMade} referrals made with code {client.referralCode}
+            {client.referralsMade} referrals made
           </p>
+          <p className="mt-2 text-sm font-medium" style={{ color: "var(--brand-primary-dark)" }}>
+            Code: {client.referralCode}
+          </p>
+          <button
+            type="button"
+            onClick={onReferral}
+            className="mt-4 rounded-full border px-4 py-3 text-sm font-semibold"
+            style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)" }}
+          >
+            Send Referral Email
+          </button>
         </CardShell>
       </div>
-
-      <CardShell className="p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-accent-dark)" }}>
-          Recent Activity
-        </p>
-        <div className="mt-4 space-y-3">
-          {client.bookings.slice(0, 3).map((booking) => (
-            <div
-              key={booking._id || `${client.id}-${booking.date}-${booking.startTime}`}
-              className="rounded-2xl border p-3"
-              style={{
-                borderColor: "var(--brand-primary-light)",
-                background: "rgba(255,255,255,0.74)",
-              }}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium" style={{ color: "var(--brand-primary-dark)" }}>
-                    {(booking.services || []).map((service) => service.serviceName).filter(Boolean).join(", ") || "Booking"}
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: "var(--brand-accent-dark)" }}>
-                    {booking.date || "No date"} at {getReadableTime(booking.startTime)}
-                  </p>
-                </div>
-                <span
-                  className="rounded-full border px-3 py-1 text-xs font-semibold"
-                  style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)", background: "var(--brand-bg-soft)" }}
-                >
-                  {(booking.status || "pending").replace(/_/g, " ")}
-                </span>
-              </div>
-              {booking.note || booking.staffInternalNote ? (
-                <p className="mt-2 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
-                  {booking.staffInternalNote || booking.note}
-                </p>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </CardShell>
 
       <CardShell className="p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: "var(--brand-accent-dark)" }}>
@@ -1295,6 +1197,263 @@ function ClientProfileContent({
           placeholder="Add a short note about preferences or service habits"
         />
       </CardShell>
+    </div>
+  );
+}
+
+function buildOfferCode(name: string, prefix: string) {
+  const base = name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6) || "CLIENT";
+  return `${prefix}-${base}-${new Date().getFullYear()}`;
+}
+
+function AllActivityList({ client }: { client: ClientProfile }) {
+  return (
+    <div className="space-y-3">
+      {client.bookings.map((booking) => (
+        <div
+          key={booking._id || `${client.id}-${booking.date}-${booking.startTime}`}
+          className="rounded-2xl border p-4"
+          style={{
+            borderColor: "var(--brand-primary-light)",
+            background: "rgba(255,255,255,0.74)",
+          }}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-medium" style={{ color: "var(--brand-primary-dark)" }}>
+                {(booking.services || []).map((service) => service.serviceName).filter(Boolean).join(", ") || "Booking"}
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--brand-accent-dark)" }}>
+                {booking.date || "No date"} at {getReadableTime(booking.startTime)}
+              </p>
+            </div>
+            <span
+              className="rounded-full border px-3 py-1 text-xs font-semibold"
+              style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)", background: "var(--brand-bg-soft)" }}
+            >
+              {(booking.status || "pending").replace(/_/g, " ")}
+            </span>
+          </div>
+          {booking.note || booking.staffInternalNote ? (
+            <p className="mt-2 text-sm" style={{ color: "var(--brand-accent-dark)" }}>
+              {booking.staffInternalNote || booking.note}
+            </p>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RewardOfferForm({
+  client,
+  bookingUrl,
+  onClose,
+}: {
+  client: ClientProfile;
+  bookingUrl: string;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(`${client.name} Loyalty Reward`);
+  const [type, setType] = useState<"fixed" | "percent">("fixed");
+  const [value, setValue] = useState(500);
+  const [code, setCode] = useState(buildOfferCode(client.name, "REWARD"));
+  const [message, setMessage] = useState(
+    `Hi ${client.name},\n\nYou have unlocked a reward on your next visit. Use code ${buildOfferCode(client.name, "REWARD")} when booking here: ${bookingUrl}\n\nThis code is intended for one redemption.\n\nTo stop receiving Lodday promotions, use the unsubscribe link in the footer.`
+  );
+
+  return (
+    <div className="space-y-4">
+      <InfoRow label="Client" value={client.name} />
+      <InfoRow label="Booking Link" value={bookingUrl} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Reward Name</label>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Discount Type</label>
+          <select
+            value={type}
+            onChange={(event) => setType(event.target.value as "fixed" | "percent")}
+            className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          >
+            <option value="fixed">Fixed amount</option>
+            <option value="percent">Percentage</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Discount Value</label>
+          <input
+            type="number"
+            value={value}
+            onChange={(event) => setValue(Number(event.target.value))}
+            className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Single-use Code</label>
+          <input
+            value={code}
+            onChange={(event) => setCode(event.target.value.toUpperCase())}
+            className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          />
+          <p className="mt-1 text-xs" style={{ color: "var(--brand-accent-dark)" }}>
+            Suggested automatically. Backend uniqueness validation still needs to enforce one-time redemption.
+          </p>
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Email Message</label>
+        <textarea
+          rows={7}
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+          style={{ borderColor: "var(--brand-primary-light)" }}
+        />
+      </div>
+      <div className="rounded-2xl border p-4" style={{ borderColor: "var(--brand-primary-light)", background: "var(--brand-bg-soft)" }}>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-accent-dark)" }}>
+          Preview
+        </p>
+        <p className="mt-2 text-sm" style={{ color: "var(--brand-primary-dark)" }}>
+          {title} - {type === "fixed" ? formatKes(value) : `${value}%`} off with code {code}.
+        </p>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full border px-4 py-3 text-sm font-semibold"
+          style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)" }}
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full px-4 py-3 text-sm font-semibold text-white"
+          style={{ background: "var(--brand-primary)" }}
+        >
+          Save Reward Draft
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReferralEmailForm({
+  client,
+  bookingUrl,
+  onClose,
+}: {
+  client: ClientProfile;
+  bookingUrl: string;
+  onClose: () => void;
+}) {
+  const [discountType, setDiscountType] = useState<"fixed" | "percent">("percent");
+  const [discountValue, setDiscountValue] = useState(10);
+  const [autoSend, setAutoSend] = useState(false);
+  const [cadence, setCadence] = useState("1 month");
+  const [message, setMessage] = useState(
+    `Hi ${client.name},\n\nShare your referral code ${client.referralCode} with a friend when they book at ${bookingUrl}.\nBoth of you will get a discount on your next appointment once the code is used.\n\nIf you prefer not to receive Lodday promotions, use the unsubscribe link in the email footer.`
+  );
+
+  return (
+    <div className="space-y-4">
+      <InfoRow label="Client" value={client.name} />
+      <InfoRow label="Referral Code" value={client.referralCode} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Discount Type</label>
+          <select
+            value={discountType}
+            onChange={(event) => setDiscountType(event.target.value as "fixed" | "percent")}
+            className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          >
+            <option value="percent">Percentage</option>
+            <option value="fixed">Fixed amount</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Discount Value</label>
+          <input
+            type="number"
+            value={discountValue}
+            onChange={(event) => setDiscountValue(Number(event.target.value))}
+            className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          />
+        </div>
+      </div>
+      <div className="rounded-2xl border p-4" style={{ borderColor: "var(--brand-primary-light)" }}>
+        <label className="flex items-center justify-between gap-3 text-sm font-medium">
+          <span>Send automatically from Lodday promotions</span>
+          <input
+            type="checkbox"
+            checked={autoSend}
+            onChange={(event) => setAutoSend(event.target.checked)}
+          />
+        </label>
+        {autoSend ? (
+          <select
+            value={cadence}
+            onChange={(event) => setCadence(event.target.value)}
+            className="mt-3 w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+            style={{ borderColor: "var(--brand-primary-light)" }}
+          >
+            <option>1 month</option>
+            <option>2 months</option>
+            <option>3 months</option>
+          </select>
+        ) : null}
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Custom Referral Email</label>
+        <textarea
+          rows={8}
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+          style={{ borderColor: "var(--brand-primary-light)" }}
+        />
+      </div>
+      <div className="rounded-2xl border p-4" style={{ borderColor: "var(--brand-primary-light)", background: "var(--brand-bg-soft)" }}>
+        <p className="text-sm" style={{ color: "var(--brand-primary-dark)" }}>
+          Referral benefit: {discountType === "fixed" ? formatKes(discountValue) : `${discountValue}%`} off for both the client and the referred friend.
+        </p>
+        <p className="mt-2 text-xs" style={{ color: "var(--brand-accent-dark)" }}>
+          Include an unsubscribe link in Lodday promotions emails and exclude opted-out clients from future campaigns at the backend layer.
+        </p>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full border px-4 py-3 text-sm font-semibold"
+          style={{ borderColor: "var(--brand-primary-light)", color: "var(--brand-primary-dark)" }}
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full px-4 py-3 text-sm font-semibold text-white"
+          style={{ background: "var(--brand-primary)" }}
+        >
+          Save Referral Draft
+        </button>
+      </div>
     </div>
   );
 }
