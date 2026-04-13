@@ -998,15 +998,7 @@ export default function ClientDashboard({
         </ModalShell>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setWalkInOpen(true)}
-        className="fixed bottom-24 right-4 z-20 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg lg:bottom-8 lg:right-8"
-        style={{ background: "linear-gradient(135deg, var(--brand-primary), var(--brand-accent))" }}
-      >
-        <Plus size={16} />
-        Add Walk-in Client
-      </button>
+     
     </section>
   );
 }
