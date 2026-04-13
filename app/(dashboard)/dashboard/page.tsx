@@ -99,6 +99,12 @@ if (typeof svc.serviceId === "string") {
     _id: s._id.toString(),
   }));
 
+  const clientCount = new Set(
+    bookings
+      .map((booking) => String(booking.customerName || "").trim().toLowerCase())
+      .filter(Boolean)
+  ).size;
+
   const theme = {
     primaryColor: businessPlain.theme?.primaryColor || "#1f2937",
     secondaryColor: businessPlain.theme?.secondaryColor || "#374151",
@@ -132,7 +138,10 @@ if (typeof svc.serviceId === "string") {
             <DashboardAlerts business={businessPlain} bookings={bookings} />
           </DashboardHeader>
 
-          <StatsCards businessId={businessPlain._id.toString()} />
+          <StatsCards
+            businessId={businessPlain._id.toString()}
+            clientCount={clientCount}
+          />
 
           <PerformanceChart bookings={bookings} />
 

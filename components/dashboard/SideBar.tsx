@@ -172,6 +172,7 @@ export default function Sidebar({
   const navItems = useMemo<NavItem[]>(
     () => [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
+      { id: "clients", label: "Clients", icon: <Users size={16} /> },
       { id: "staff", label: "Staff", icon: <Users size={16} /> },
       { id: "services", label: "Services", icon: <Scissors size={16} /> },
       { id: "promotions", label: "Promotions", icon: <Tag size={16} /> },
@@ -194,6 +195,11 @@ export default function Sidebar({
 
   const closeModal = () => setActiveTab(null);
   const openTab = (tab: string) => {
+    if (tab === "clients") {
+      window.location.href = "/clients";
+      setMobileOpen(false);
+      return;
+    }
     if (tab !== "dashboard") setActiveTab(tab);
     setActiveItem(tab);
     setMobileOpen(false);

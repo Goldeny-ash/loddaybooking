@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 type Range = "today" | "week" | "month" | "all";
@@ -21,9 +22,12 @@ interface StatsPayload {
 
 export default function StatsCards({
   businessId,
+  clientCount,
 }: {
   businessId: string;
+  clientCount: number;
 }) {
+  const router = useRouter();
   const [range, setRange] = useState<Range>("month");
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +137,11 @@ export default function StatsCards({
       label: "Services",
       value: stats.services,
     },
+    {
+      label: "Clients",
+      value: clientCount,
+      onClick: () => router.push("/clients"),
+    },
   ];
 
   /* ---------------- Skeleton ---------------- */
@@ -154,8 +163,8 @@ export default function StatsCards({
     }
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
             className="h-24 rounded-xl animate-pulse"
@@ -187,10 +196,12 @@ export default function StatsCards({
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         {cards && cards.map((c) => (
-          <div
+          <button
             key={c.label}
+            type="button"
+            onClick={c.onClick}
             className="p-4 rounded-xl shadow text-left"
             style={{
               backgroundColor: "var(--brand-bg-soft)",
@@ -218,7 +229,7 @@ export default function StatsCards({
             {c.note && (
               <p className="text-[10px] mt-1 opacity-70">{c.note}</p>
             )}
-          </div>
+          </button>
         ))}
       </div>
     </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, Clock3, Home, Settings, X } from "lucide-react";
+import { CalendarClock, Clock3, Home, Settings, Users, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import DashboardBusinessSettings from "./DashboardBusinessSettings";
 import UpcomingBookings from "./bookings/UpcomingBookings";
 import TodaysSchedule from "./TodaysSchedule";
@@ -19,6 +20,7 @@ export default function NewBottomSidebar({
   services,
   bookings,
 }: NewBottomSidebarProps) {
+  const router = useRouter();
   const [active, setActive] = useState("dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activePopup, setActivePopup] = useState<"upcoming" | "today" | null>(null);
@@ -63,6 +65,15 @@ export default function NewBottomSidebar({
               setActivePopup("today");
             }}
             icon={<Clock3 size={18} />}
+          />
+          <BottomIcon
+            label="Clients"
+            active={active === "clients"}
+            onClick={() => {
+              setActive("clients");
+              router.push("/clients");
+            }}
+            icon={<Users size={18} />}
           />
           <BottomIcon
             label="Settings"
