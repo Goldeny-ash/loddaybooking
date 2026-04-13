@@ -453,8 +453,8 @@ export default function ClientDashboard({
       ),
       tone: "success",
       confidenceLabel: "High confidence",
-      
- },
+      onClick: () => setSegment("vip"),
+    },
     {
       key: "active",
       title: "Active Clients Revenue",
@@ -465,7 +465,6 @@ export default function ClientDashboard({
       ),
       tone: "warning",
       confidenceLabel: "Medium confidence",
-      questionLabel: "What can I still capture?",
       onClick: () => setSegment("active"),
     },
     {
@@ -478,7 +477,6 @@ export default function ClientDashboard({
       ),
       tone: "danger",
       confidenceLabel: "Low confidence",
-      questionLabel: "What am I losing?",
       onClick: () => setSegment("risk"),
     },
     {
@@ -489,7 +487,6 @@ export default function ClientDashboard({
       revenueLabel: formatKes(newClients.reduce((sum, client) => sum + client.totalSpend, 0)),
       tone: "neutral",
       confidenceLabel: "Unknown confidence",
-      questionLabel: "What did new acquisition bring in?",
       onClick: () => setSegment("new"),
     },
   ];

@@ -3,11 +3,9 @@
 export type ClientStatItem = {
   key: string;
   title: string;
-  subtitle: string;
   countLabel: string;
   revenueLabel: string;
   confidenceLabel: string;
-  questionLabel: string;
   tone: "success" | "warning" | "danger" | "neutral";
   onClick?: () => void;
 };
@@ -74,12 +72,6 @@ export default function ClientStats({ items }: { items: ClientStatItem[] }) {
                     style={{ color: "var(--brand-accent-dark)" }}
                   >
                     {item.title}
-                  </p>
-                  <p
-                    className="mt-3 text-xs leading-5 sm:text-sm sm:leading-6"
-                    style={{ color: "var(--brand-accent-dark)" }}
-                  >
-                    {item.subtitle}
                   </p>
                 </div>
                 <span
