@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import SubscriptionSuccessClient from "@/components/dashboard/SubscriptionSuccessClient";
 
+export const dynamic = "force-dynamic";
+
 function SubscriptionSuccessFallback() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#fff7ed,_#f6f0e8_38%,_#efe2d1_100%)] px-4 py-8 sm:px-6 lg:px-8">
@@ -15,8 +17,12 @@ function SubscriptionSuccessFallback() {
   );
 }
 
-export default function SubscriptionSuccessPage() {
-  return <SubscriptionSuccessPageInner />;
+export default function SubscriptionSuccessPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ source?: string }>;
+}) {
+  return <SubscriptionSuccessPageInner searchParams={searchParams} />;
 }
 
 function SubscriptionSuccessPageInner({
